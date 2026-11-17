@@ -65,7 +65,8 @@ export function CreateModal({ vm }: { vm: VM }) {
             tabIndex={create.sectionType === 'customer' ? 11 : 8}
             onClick={create.submit}
             style={create.submitStyle}
-            title={!create.canSubmit ? 'Please fill in all required fields: ' + (create.missingFields || []).join(', ') : 'Create appointment'}
+            disabled={!create.canSubmit}
+            title={!create.canSubmit ? 'Please enter at least a customer or category to create' : 'Create appointment'}
           >
             Create appointment
           </button>

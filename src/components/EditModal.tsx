@@ -104,7 +104,7 @@ export function EditModal({ vm }: { vm: VM }) {
             tabIndex={ed.sectionType === 'customer' ? 11 : 8}
             onClick={vm.submitEdit}
             style={vm.editSubmitStyle}
-            title={!vm.canEdit ? 'Please fill in all required fields: ' + (vm.editMissing || []).join(', ') : 'Save changes'}
+            title="Save changes"
           >
             Save changes
           </button>

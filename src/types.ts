@@ -839,8 +839,8 @@ export function isAppointmentDatePastOrToday(apt: any, now: Date = new Date()): 
   if (typeof apt.isAuditDate === 'boolean') {
     return apt.isAuditDate;
   }
-  const from = apt.fromDate || apt.date || apt.startDate || apt.from;
-  const to = apt.toDate || apt.endDate || apt.to;
+  const from = apt.fromDate || apt.date || apt.startDate || apt.from || apt.dateFrom;
+  const to = apt.toDate || apt.endDate || apt.to || apt.dateTo;
   if (from || to) {
     return isTodayWithinAssignmentRange(from, to, now);
   }

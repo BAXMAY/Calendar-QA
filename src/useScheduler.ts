@@ -1455,17 +1455,35 @@ export function useScheduler() {
     setState((s) => ({ createDraft: { ...s.createDraft, warn: false, warnText: '', ...patch } }));
   const submitCreate = () => {
     const d = S.createDraft;
-    const missing = getMissingFields(d);
-    if (missing.length > 0) {
+    const isInternal = d.sectionType === 'internal';
+    const hasIdentifier = isInternal
+      ? Boolean(d.auditCategory?.trim() || d.area?.trim() || d.department2?.trim() || d.site2?.trim() || d.auditor2?.trim())
+      : Boolean(d.customer?.trim() || d.department1?.trim() || d.site1?.trim() || d.customerNames?.trim() || d.purpose?.trim() || d.auditor1?.trim());
+
+    if (!hasIdentifier) {
       setState((s) => ({
         createDraft: {
           ...s.createDraft,
           warn: true,
-          warnText: 'Please fill in all required fields: ' + missing.join(', '),
+          warnText: isInternal
+            ? 'Please enter at least an Audit Category, Standard, or Area.'
+            : 'Please enter at least a Customer or Department.',
         },
       }));
       return;
     }
+
+    if (d.dateFrom && d.dateTo && d.dateFrom > d.dateTo) {
+      setState((s) => ({
+        createDraft: {
+          ...s.createDraft,
+          warn: true,
+          warnText: 'Date From cannot be after Date To',
+        },
+      }));
+      return;
+    }
+
     const todayISO = fmtISO(new Date());
     const dateFrom = d.dateFrom || todayISO;
     const dateTo = d.dateTo || dateFrom;
@@ -1854,13 +1872,12 @@ export function useScheduler() {
     const d = S.editDraft;
     const target = S.assignments.find((x) => x.id === d.targetId);
     if (!target) return;
-    const missing = getMissingFields(d);
-    if (missing.length > 0) {
+    if (d.dateFrom && d.dateTo && d.dateFrom > d.dateTo) {
       setState((s) => ({
         editDraft: {
           ...s.editDraft,
           warn: true,
-          warnText: 'Please fill in all required fields: ' + missing.join(', '),
+          warnText: 'Date From cannot be after Date To',
         },
       }));
       return;
@@ -3923,8 +3940,12 @@ export function useScheduler() {
 
   // ---- create modal VM ----
   const cd = S.createDraft;
+  const isInternalCreate = cd.sectionType === 'internal';
+  const hasMinimalCreate = isInternalCreate
+    ? Boolean(cd.auditCategory?.trim() || cd.area?.trim() || cd.department2?.trim() || cd.site2?.trim() || cd.auditor2?.trim())
+    : Boolean(cd.customer?.trim() || cd.department1?.trim() || cd.site1?.trim() || cd.customerNames?.trim() || cd.purpose?.trim() || cd.auditor1?.trim());
+  const canCreate = hasMinimalCreate;
   const createMissing = getMissingFields(cd);
-  const canCreate = createMissing.length === 0;
   const create = {
     sectionType: cd.sectionType,
     purpose: cd.purpose, department1: cd.department1, site1: cd.site1, customer: cd.customer, endCustomer: cd.endCustomer, auditor1: cd.auditor1,
@@ -3956,18 +3977,18 @@ export function useScheduler() {
   // ---- edit modal validation VM ----
   const ed = S.editDraft;
   const editMissing = ed ? getMissingFields(ed) : [];
-  const canEdit = editMissing.length === 0;
+  const canEdit = true;
   const editSubmitStyle = sx({
-    background: canEdit ? '#15191e' : '#cbd0c7',
-    color: canEdit ? '#fff' : '#686f66',
+    background: '#15191e',
+    color: '#fff',
     border: 'none',
     borderRadius: '8px',
     padding: '9px 16px',
     fontSize: '12.5px',
     fontWeight: 600,
-    cursor: canEdit ? 'pointer' : 'not-allowed',
+    cursor: 'pointer',
     fontFamily: "'Archivo',sans-serif",
-    opacity: canEdit ? 1 : 0.7,
+    opacity: 1,
     transition: 'all .15s ease',
   });
 
