@@ -1488,9 +1488,10 @@ export function useScheduler() {
     const dateFrom = d.dateFrom || todayISO;
     const dateTo = d.dateTo || dateFrom;
 
+    const cleanStr = (s?: string) => (s || '').replace(/^\$+/, '').trim();
     // Multi-auditor: parse comma-separated; use primary name for engineer record
     const auditorRaw = (d.sectionType === 'customer' ? d.auditor1 : d.auditor2) || '';
-    const auditorPrimary = auditorRaw.split(',')[0].trim() || 'Unassigned';
+    const auditorPrimary = cleanStr(auditorRaw.split(',')[0]) || 'Unassigned';
     const existingEng = S.engineers.find((e) => e.name.toLowerCase() === auditorPrimary.toLowerCase());
     const engId = existingEng ? existingEng.id : 'e' + ids.current.id++;
     const hostDept: Department | undefined = existingEng?.department === 'Non-QA' ? 'Non-QA' : (existingEng?.department === 'QA' ? 'QA' : undefined);
@@ -1510,19 +1511,19 @@ export function useScheduler() {
           type: d.sectionType,
           auditType: d.sectionType === 'internal' ? 'Internal Audit' : 'Customer Audit',
           sectionType: d.sectionType,
-          site1: d.sectionType === 'customer' ? normalizeSites(d.site1 || '') : '',
-          customer: d.sectionType === 'customer' ? d.customer : '',
-          endCustomer: d.sectionType === 'customer' ? d.endCustomer : '',
-          targetPackage: d.sectionType === 'customer' ? (d.targetPackage || '') : '',
-          customerNames: d.sectionType === 'customer' ? (d.customerNames || '') : '',
-          auditCategory: d.sectionType === 'internal' ? (d.auditCategory || '') : '',
-          auditor1: d.sectionType === 'customer' ? d.auditor1 : '',
-          purpose: d.purpose || '',
-          site2: d.sectionType === 'internal' ? normalizeSites(d.site2 || '') : '',
-          area: d.sectionType === 'internal' ? d.area : '',
-          auditor2: d.sectionType === 'internal' ? d.auditor2 : '',
-          department1: d.sectionType === 'customer' ? d.department1 : '',
-          department2: d.sectionType === 'internal' ? d.department2 : '',
+          site1: d.sectionType === 'customer' ? normalizeSites(cleanStr(d.site1)) : '',
+          customer: d.sectionType === 'customer' ? cleanStr(d.customer) : '',
+          endCustomer: d.sectionType === 'customer' ? cleanStr(d.endCustomer) : '',
+          targetPackage: d.sectionType === 'customer' ? cleanStr(d.targetPackage) : '',
+          customerNames: d.sectionType === 'customer' ? cleanStr(d.customerNames) : '',
+          auditCategory: d.sectionType === 'internal' ? cleanStr(d.auditCategory) : '',
+          auditor1: d.sectionType === 'customer' ? cleanStr(d.auditor1) : '',
+          purpose: cleanStr(d.purpose),
+          site2: d.sectionType === 'internal' ? normalizeSites(cleanStr(d.site2)) : '',
+          area: d.sectionType === 'internal' ? cleanStr(d.area) : '',
+          auditor2: d.sectionType === 'internal' ? cleanStr(d.auditor2) : '',
+          department1: d.sectionType === 'customer' ? cleanStr(d.department1) : '',
+          department2: d.sectionType === 'internal' ? cleanStr(d.department2) : '',
           department: hostDept,
           createdBy: profile.name || 'Jordan Lee',
           createdAt: new Date().toISOString(),
@@ -1532,24 +1533,24 @@ export function useScheduler() {
     if (newAssignments.length === 0) return;
     const newOrder = {
       id: orderId, code: 'NEW-' + String(S.orders.length + 1).padStart(3, '0'),
-      customer: d.customer || '', product: d.endCustomer || d.area || '',
-      plant: d.sectionType === 'internal' ? (d.department2 || normalizeSites(d.site2 || '') || '') : (normalizeSites(d.site1 || '') || ''), purpose: d.purpose || '',
+      customer: d.customer ? cleanStr(d.customer) : '', product: d.endCustomer ? cleanStr(d.endCustomer) : (d.area ? cleanStr(d.area) : ''),
+      plant: d.sectionType === 'internal' ? (cleanStr(d.department2) || normalizeSites(cleanStr(d.site2)) || '') : (normalizeSites(cleanStr(d.site1)) || ''), purpose: cleanStr(d.purpose),
     };
     const newEngineer = { id: engId, name: auditorPrimary, role: 'QA', site: siteToSiteCode(d.sectionType === 'internal' ? d.site2 : d.site1), department: (d.department || 'QA') as Department, subDepartments: [], isMaster: false };
     api.createOrder(newOrder).catch(() => {});
     if (!existingEng) api.createEngineer(newEngineer).catch(() => {});
-    const newCustomer = d.sectionType === 'customer' && d.customer ? d.customer.trim() : '';
-    const newAuditCategory = d.sectionType === 'internal' && d.auditCategory ? d.auditCategory.trim() : '';
-    const newEndCustomer = d.sectionType === 'customer' && d.endCustomer ? d.endCustomer.trim() : '';
-    const newPurpose = d.purpose ? d.purpose.trim() : '';
+    const newCustomer = d.sectionType === 'customer' && d.customer ? cleanStr(d.customer) : '';
+    const newAuditCategory = d.sectionType === 'internal' && d.auditCategory ? cleanStr(d.auditCategory) : '';
+    const newEndCustomer = d.sectionType === 'customer' && d.endCustomer ? cleanStr(d.endCustomer) : '';
+    const newPurpose = cleanStr(d.purpose);
     const newTargetPackages = d.sectionType === 'customer' && d.targetPackage
-      ? d.targetPackage.split(',').map((s) => s.trim()).filter(Boolean)
+      ? d.targetPackage.split(',').map((s) => cleanStr(s)).filter(Boolean)
       : [];
     const newCustomerNames = d.sectionType === 'customer' && d.customerNames
-      ? d.customerNames.split(',').map((s) => s.trim()).filter(Boolean)
+      ? d.customerNames.split(',').map((s) => cleanStr(s)).filter(Boolean)
       : [];
-    const newDept1 = d.sectionType === 'customer' && d.department1 ? d.department1.trim() : '';
-    const newDept2 = d.sectionType === 'internal' && d.department2 ? d.department2.trim() : '';
+    const newDept1 = d.sectionType === 'customer' && d.department1 ? cleanStr(d.department1) : '';
+    const newDept2 = d.sectionType === 'internal' && d.department2 ? cleanStr(d.department2) : '';
     const newSite = normalizeSites((d.sectionType === 'internal' ? d.site2 : d.site1) || '');
     const existingMasterSet = new Set(
       (S.auditorOptions || [])
@@ -1993,23 +1994,24 @@ export function useScheduler() {
       }
     }
 
+    const cleanStr = (s?: string) => (s || '').replace(/^\$+/, '').trim();
     const fields = {
       type: d.sectionType,
       auditType: d.sectionType === 'internal' ? 'Internal Audit' : 'Customer Audit',
       sectionType: d.sectionType,
-      site1: d.sectionType === 'customer' ? normalizeSites(d.site1 || '') : '',
-      customer: d.sectionType === 'customer' ? d.customer : '',
-      endCustomer: d.sectionType === 'customer' ? d.endCustomer : '',
-      targetPackage: d.sectionType === 'customer' ? (d.targetPackage || '') : '',
-      customerNames: d.sectionType === 'customer' ? (d.customerNames || '') : '',
-      auditCategory: d.sectionType === 'internal' ? (d.auditCategory || '') : '',
-      auditor1: d.sectionType === 'customer' ? d.auditor1 : '',
-      purpose: d.purpose || '',
-      site2: d.sectionType === 'internal' ? normalizeSites(d.site2 || '') : '',
-      area: d.sectionType === 'internal' ? d.area : '',
-      auditor2: d.sectionType === 'internal' ? d.auditor2 : '',
-      department1: d.sectionType === 'customer' ? d.department1 : '',
-      department2: d.sectionType === 'internal' ? d.department2 : '',
+      site1: d.sectionType === 'customer' ? normalizeSites(cleanStr(d.site1)) : '',
+      customer: d.sectionType === 'customer' ? cleanStr(d.customer) : '',
+      endCustomer: d.sectionType === 'customer' ? cleanStr(d.endCustomer) : '',
+      targetPackage: d.sectionType === 'customer' ? cleanStr(d.targetPackage) : '',
+      customerNames: d.sectionType === 'customer' ? cleanStr(d.customerNames) : '',
+      auditCategory: d.sectionType === 'internal' ? cleanStr(d.auditCategory) : '',
+      auditor1: d.sectionType === 'customer' ? cleanStr(d.auditor1) : '',
+      purpose: cleanStr(d.purpose),
+      site2: d.sectionType === 'internal' ? normalizeSites(cleanStr(d.site2)) : '',
+      area: d.sectionType === 'internal' ? cleanStr(d.area) : '',
+      auditor2: d.sectionType === 'internal' ? cleanStr(d.auditor2) : '',
+      department1: d.sectionType === 'customer' ? cleanStr(d.department1) : '',
+      department2: d.sectionType === 'internal' ? cleanStr(d.department2) : '',
       department: hostDept,
       results: reconciledResults,
     };
@@ -2800,7 +2802,7 @@ export function useScheduler() {
   };
 
   const addOption = (field: OptionListField, value: string, meta = '') => {
-    const v = value.trim();
+    const v = value.replace(/^\$+/, '').trim();
     if (!v) return;
     const category = fieldToCategory[field];
     if (category) api.saveOption(category, v, meta).catch(() => {});

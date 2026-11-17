@@ -80,7 +80,7 @@ export function getConfiguredSiteOrder(): string[] {
 /** Standardize site codes: prefix legacy U1..U3T with UTL */
 export function normalizeSite(site: string): string {
   if (!site) return '';
-  const s = site.trim();
+  const s = site.replace(/^\$+/, '').trim();
   const legacyMatch = s.match(/^u(1|2|3|2a|2b|3a|3t)$/i);
   if (legacyMatch) {
     return 'UTL' + legacyMatch[1].toUpperCase();

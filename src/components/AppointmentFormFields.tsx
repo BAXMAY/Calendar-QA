@@ -510,24 +510,24 @@ function AutocompleteInput({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const rawVal = value || '';
+  const rawVal = (value || '').replace(/^\$+/, '');
   const trimmedVal = rawVal.trim().toLowerCase();
 
   const matches = useMemo(() => {
-    const unique = Array.from(new Set(suggestions.map((s) => s.trim()).filter(Boolean)));
+    const unique = Array.from(new Set(suggestions.map((s) => s.replace(/^\$+/, '').trim()).filter(Boolean)));
     const filtered = unique.filter((s) => !removedItems.has(s));
     if (!trimmedVal) return filtered;
     return filtered.filter((s) => s.toLowerCase().includes(trimmedVal));
   }, [suggestions, trimmedVal, removedItems]);
 
   const exactMatchExists = suggestions.some(
-    (s) => s.trim().toLowerCase() === trimmedVal
+    (s) => s.replace(/^\$+/, '').trim().toLowerCase() === trimmedVal
   );
 
   const handleAddNew = (newVal: string) => {
-    const clean = newVal.trim();
+    const clean = newVal.replace(/^\$+/, '').trim();
     if (!clean) return;
-    if (onAddNew && !exactMatchExists) {
+    if (onAddNew) {
       onAddNew(clean);
     }
     onChange(clean);
@@ -573,9 +573,10 @@ function AutocompleteInput({
           id={id}
           type="text"
           tabIndex={tabIndex}
-          value={value}
+          value={rawVal}
           onChange={(e) => {
-            onChange(e.target.value);
+            const cleanVal = e.target.value.replace(/^\$+/, '');
+            onChange(cleanVal);
             setOpen(true);
           }}
           onFocus={() => {
@@ -715,13 +716,13 @@ function AutocompleteInput({
               onMouseLeave={(e) => (e.currentTarget.style.background = item === value ? '#f4f6f0' : 'transparent')}
             >
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                {item}
+                {item.replace(/^\$+/, '')}
               </span>
               {onRemoveOption && (
                 <button
                   type="button"
                   tabIndex={-1}
-                  title={`Delete "${item}" from saved options`}
+                  title={`Delete "${item.replace(/^\$+/, '')}" from saved options`}
                   onMouseDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -780,7 +781,7 @@ function AutocompleteInput({
               onMouseEnter={(e) => (e.currentTarget.style.background = '#e0e8fc')}
               onMouseLeave={(e) => (e.currentTarget.style.background = '#eef2fd')}
             >
-              <span>＋ Add "${rawVal.trim()}"</span>
+              <span>＋ Add "{rawVal.replace(/^\$+/, '').trim()}"</span>
             </div>
           )}
         </div>
@@ -826,7 +827,7 @@ function MultiSelectCombobox({
 
   const selectedItems = useMemo(() => {
     return value
-      ? value.split(',').map((s) => s.trim()).filter(Boolean)
+      ? value.split(',').map((s) => s.replace(/^\$+/, '').trim()).filter(Boolean)
       : [];
   }, [value]);
 
@@ -842,7 +843,7 @@ function MultiSelectCombobox({
   }, []);
 
   const toggleItem = (name: string) => {
-    const cleanName = name.trim();
+    const cleanName = name.replace(/^\$+/, '').trim();
     if (!cleanName) return;
     const isAlreadySel = selectedItems.some((s) => s.toLowerCase() === cleanName.toLowerCase());
     const next = isAlreadySel
@@ -857,9 +858,9 @@ function MultiSelectCombobox({
   };
 
   const addCustom = () => {
-    const clean = inputVal.trim();
+    const clean = inputVal.replace(/^\$+/, '').trim();
     if (!clean) return;
-    const pieces = clean.split(',').map((s) => s.trim()).filter(Boolean);
+    const pieces = clean.split(',').map((s) => s.replace(/^\$+/, '').trim()).filter(Boolean);
     const toAdd = pieces.filter((p) => !selectedItems.some((sel) => sel.toLowerCase() === p.toLowerCase()));
     if (toAdd.length > 0) {
       onChange([...selectedItems, ...toAdd].join(', '));
@@ -876,7 +877,7 @@ function MultiSelectCombobox({
 
   const filteredSuggestions = useMemo(() => {
     const q = inputVal.trim().toLowerCase();
-    const unique = Array.from(new Set(suggestions.map((s) => s.trim()).filter(Boolean)))
+    const unique = Array.from(new Set(suggestions.map((s) => s.replace(/^\$+/, '').trim()).filter(Boolean)))
       .filter((s) => !removedItems.has(s));
     return q ? unique.filter((s) => s.toLowerCase().includes(q)) : unique;
   }, [suggestions, inputVal, removedItems]);
@@ -934,7 +935,7 @@ function MultiSelectCombobox({
               color: '#2756d6',
             }}
           >
-            {name}
+            {name.replace(/^\$+/, '')}
             <button
               type="button"
               tabIndex={-1}
@@ -967,7 +968,7 @@ function MultiSelectCombobox({
           tabIndex={tabIndex}
           value={inputVal}
           onChange={(e) => {
-            setInputVal(e.target.value);
+            setInputVal(e.target.value.replace(/^\$+/, ''));
             setOpen(true);
           }}
           onFocus={() => {
@@ -1097,7 +1098,7 @@ function MultiSelectCombobox({
                 justifyContent: 'space-between',
               }}
             >
-              <span>＋ Add "{inputVal.trim()}"</span>
+              <span>＋ Add "{inputVal.replace(/^\$+/, '').trim()}"</span>
             </div>
           )}
 
@@ -1114,7 +1115,7 @@ function MultiSelectCombobox({
                 key={name}
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  toggleItem(name);
+                  toggleItem(name.replace(/^\$+/, '').trim());
                   setInputVal('');
                 }}
                 style={{
@@ -1158,7 +1159,7 @@ function MultiSelectCombobox({
                     {isSel ? '✓' : ''}
                   </span>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', userSelect: 'none', WebkitUserSelect: 'none', cursor: 'pointer' }}>
-                    {name}
+                    {name.replace(/^\$+/, '')}
                   </span>
                 </div>
 
@@ -1166,7 +1167,7 @@ function MultiSelectCombobox({
                   <button
                     type="button"
                     tabIndex={-1}
-                    title={"Delete \"" + name + "\" from saved options"}
+                    title={"Delete \"" + name.replace(/^\$+/, '') + "\" from saved options"}
                     onMouseDown={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -1250,9 +1251,9 @@ function MultiStandardSelect({
 
   const selectedStandards = useMemo(() => {
     if (!value) return [];
-    const parsed = value.split(',').map((s) => s.trim()).filter(Boolean);
+    const parsed = value.split(',').map((s) => s.replace(/^\$+/, '').trim()).filter(Boolean);
     const orderMap = new Map<string, number>();
-    suggestions.forEach((s, idx) => orderMap.set(s.trim().toLowerCase(), idx));
+    suggestions.forEach((s, idx) => orderMap.set(s.replace(/^\$+/, '').trim().toLowerCase(), idx));
     return [...parsed].sort((a, b) => {
       const idxA = orderMap.has(a.trim().toLowerCase()) ? orderMap.get(a.trim().toLowerCase())! : 999;
       const idxB = orderMap.has(b.trim().toLowerCase()) ? orderMap.get(b.trim().toLowerCase())! : 999;
@@ -1273,7 +1274,7 @@ function MultiStandardSelect({
   }, []);
 
   const toggleStandard = (name: string) => {
-    const cleanName = name.trim();
+    const cleanName = name.replace(/^\$+/, '').trim();
     if (!cleanName) return;
     const isAlreadySel = selectedStandards.some((s) => s.toLowerCase() === cleanName.toLowerCase());
     const next = isAlreadySel
@@ -1288,9 +1289,9 @@ function MultiStandardSelect({
   };
 
   const addCustom = () => {
-    const clean = inputVal.trim();
+    const clean = inputVal.replace(/^\$+/, '').trim();
     if (!clean) return;
-    const pieces = clean.split(',').map((s) => s.trim()).filter(Boolean);
+    const pieces = clean.split(',').map((s) => s.replace(/^\$+/, '').trim()).filter(Boolean);
     const toAdd = pieces.filter((p) => !selectedStandards.some((sel) => sel.toLowerCase() === p.toLowerCase()));
     if (toAdd.length > 0) {
       onChange(sortStandardsBySuggestions([...selectedStandards, ...toAdd]).join(', '));
@@ -1307,7 +1308,7 @@ function MultiStandardSelect({
 
   const filteredSuggestions = useMemo(() => {
     const q = inputVal.trim().toLowerCase();
-    const unique = Array.from(new Set(suggestions.map((s) => s.trim()).filter(Boolean)))
+    const unique = Array.from(new Set(suggestions.map((s) => s.replace(/^\$+/, '').trim()).filter(Boolean)))
       .filter((s) => !removedItems.has(s));
     return q ? unique.filter((s) => s.toLowerCase().includes(q)) : unique;
   }, [suggestions, inputVal, removedItems]);
@@ -1367,7 +1368,7 @@ function MultiStandardSelect({
               WebkitUserSelect: 'none',
             }}
           >
-            {name}
+            {name.replace(/^\$+/, '')}
             <button
               type="button"
               tabIndex={-1}
@@ -1400,7 +1401,7 @@ function MultiStandardSelect({
           tabIndex={tabIndex}
           value={inputVal}
           onChange={(e) => {
-            setInputVal(e.target.value);
+            setInputVal(e.target.value.replace(/^\$+/, ''));
             setOpen(true);
           }}
           onFocus={() => {
@@ -1530,7 +1531,7 @@ function MultiStandardSelect({
                 justifyContent: 'space-between',
               }}
             >
-              <span>＋ Add "{inputVal.trim()}"</span>
+              <span>＋ Add "{inputVal.replace(/^\$+/, '').trim()}"</span>
             </div>
           )}
 
@@ -1547,7 +1548,7 @@ function MultiStandardSelect({
                 key={name}
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  toggleStandard(name);
+                  toggleStandard(name.replace(/^\$+/, '').trim());
                   setInputVal('');
                 }}
                 style={{
@@ -1591,7 +1592,7 @@ function MultiStandardSelect({
                     {isSel ? '✓' : ''}
                   </span>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', userSelect: 'none', WebkitUserSelect: 'none', cursor: 'pointer' }}>
-                    {name}
+                    {name.replace(/^\$+/, '')}
                   </span>
                 </div>
 
@@ -1599,7 +1600,7 @@ function MultiStandardSelect({
                   <button
                     type="button"
                     tabIndex={-1}
-                    title={"Delete \"" + name + "\" from saved options"}
+                    title={"Delete \"" + name.replace(/^\$+/, '') + "\" from saved options"}
                     onMouseDown={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -1669,7 +1670,7 @@ function MultiAuditorSelect({
 
   const selectedAuditors = useMemo(() => {
     return value
-      ? value.split(',').map((s) => s.trim()).filter(Boolean)
+      ? value.split(',').map((s) => s.replace(/^\$+/, '').trim()).filter(Boolean)
       : [];
   }, [value]);
 
@@ -1685,21 +1686,24 @@ function MultiAuditorSelect({
   }, []);
 
   const toggleAuditor = (name: string) => {
-    const next = selectedAuditors.includes(name)
-      ? selectedAuditors.filter((a) => a !== name)
-      : [...selectedAuditors, name];
+    const cleanName = name.replace(/^\$+/, '').trim();
+    if (!cleanName) return;
+    const isAlreadySel = selectedAuditors.some((a) => a.toLowerCase() === cleanName.toLowerCase());
+    const next = isAlreadySel
+      ? selectedAuditors.filter((a) => a.toLowerCase() !== cleanName.toLowerCase())
+      : [...selectedAuditors, cleanName];
     onChange(next.join(', '));
   };
 
   const removeAuditor = (name: string) => {
-    const next = selectedAuditors.filter((a) => a !== name);
+    const next = selectedAuditors.filter((a) => a.toLowerCase() !== name.toLowerCase());
     onChange(next.join(', '));
   };
 
   const addCustom = () => {
-    const clean = inputVal.trim();
+    const clean = inputVal.replace(/^\$+/, '').trim();
     if (!clean) return;
-    const pieces = clean.split(',').map((s) => s.trim()).filter(Boolean);
+    const pieces = clean.split(',').map((s) => s.replace(/^\$+/, '').trim()).filter(Boolean);
     const toAdd = pieces.filter((p) => !selectedAuditors.some((sel) => sel.toLowerCase() === p.toLowerCase()));
     if (toAdd.length > 0) {
       onChange([...selectedAuditors, ...toAdd].join(', '));
@@ -1717,7 +1721,7 @@ function MultiAuditorSelect({
 
   const filteredSuggestions = useMemo(() => {
     const q = inputVal.trim().toLowerCase();
-    const unique = Array.from(new Set(suggestions.map((s) => s.trim()).filter(Boolean)))
+    const unique = Array.from(new Set(suggestions.map((s) => s.replace(/^\$+/, '').trim()).filter(Boolean)))
       .filter((s) => !removedItems.has(s));
     return q ? unique.filter((s) => s.toLowerCase().includes(q)) : unique;
   }, [suggestions, inputVal, removedItems]);
@@ -1775,7 +1779,7 @@ function MultiAuditorSelect({
               color: '#2756d6',
             }}
           >
-            {name}
+            {name.replace(/^\$+/, '')}
             <button
               type="button"
               tabIndex={-1}
@@ -1808,7 +1812,7 @@ function MultiAuditorSelect({
           tabIndex={tabIndex}
           value={inputVal}
           onChange={(e) => {
-            setInputVal(e.target.value);
+            setInputVal(e.target.value.replace(/^\$+/, ''));
             setOpen(true);
           }}
           onFocus={() => {
@@ -1902,7 +1906,7 @@ function MultiAuditorSelect({
                 justifyContent: 'space-between',
               }}
             >
-              <span>＋ Add "{inputVal.trim()}"</span>
+              <span>＋ Add "{inputVal.replace(/^\$+/, '').trim()}"</span>
             </div>
           )}
 
@@ -1919,7 +1923,7 @@ function MultiAuditorSelect({
                 key={name}
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  toggleAuditor(name);
+                  toggleAuditor(name.replace(/^\$+/, '').trim());
                   setInputVal('');
                 }}
                 style={{
@@ -1963,7 +1967,7 @@ function MultiAuditorSelect({
                     {isSel ? '✓' : ''}
                   </span>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', userSelect: 'none', WebkitUserSelect: 'none', cursor: 'pointer' }}>
-                    {name}
+                    {name.replace(/^\$+/, '')}
                   </span>
                 </div>
 
@@ -1971,12 +1975,12 @@ function MultiAuditorSelect({
                   <button
                     type="button"
                     tabIndex={-1}
-                    title={`Delete "${name}" from saved options`}
+                    title={`Delete "${name.replace(/^\$+/, '')}" from saved options`}
                     onMouseDown={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
                       setRemovedItems((prev) => new Set(prev).add(name));
-                      onRemoveOption(name);
+                      onRemoveOption(name.replace(/^\$+/, '').trim());
                     }}
                     style={{
                       border: 'none',
@@ -2019,9 +2023,13 @@ export function AppointmentFormFields({
   onChange,
   isOpen,
   purposeOptions: _purposeOptions,
+  addPurposeOption,
   removePurposeOption,
+  addCustomerOption,
   removeCustomerOption,
+  addEndCustomerOption,
   removeEndCustomerOption,
+  addAuditorOption,
   removeAuditorOption,
   removeGenericOption,
   customerDepartmentOptions: _customerDepartmentOptions,
@@ -2054,9 +2062,13 @@ export function AppointmentFormFields({
   onChange: (patch: Partial<AppointmentFormValues>) => void;
   isOpen?: boolean;
   purposeOptions: string[];
+  addPurposeOption?: (val: string) => void;
   removePurposeOption?: (val: string) => void;
+  addCustomerOption?: (val: string) => void;
   removeCustomerOption?: (val: string) => void;
+  addEndCustomerOption?: (val: string) => void;
   removeEndCustomerOption?: (val: string) => void;
+  addAuditorOption?: (val: string) => void;
   removeAuditorOption?: (val: string) => void;
   removeGenericOption?: (val: string) => void;
   customerDepartmentOptions: string[];
@@ -2097,67 +2109,88 @@ export function AppointmentFormFields({
     }
   }, [isOpen, v.sectionType]);
 
+  const [localAdded, setLocalAdded] = useState<Record<string, string[]>>({});
+  const trackLocalAdd = (key: string, val: string) => {
+    const clean = val.replace(/^\$+/, '').trim();
+    if (!clean) return;
+    setLocalAdded((prev) => ({
+      ...prev,
+      [key]: prev[key] ? Array.from(new Set([...prev[key], clean])) : [clean],
+    }));
+  };
+
   const isCustomerEHS = v.department1.split(',').map((s) => s.trim()).includes('EHS');
-  // Customer site is driven by siteOptions configured in Options tab
-  void isCustomerEHS; // retained for future use
+  // Fixed master plant sites (UTL1, UTL2, UTL2A, UTL2B, UTL3, UTL3A, UTL3T) are always preserved
+  void isCustomerEHS;
   const customerSiteOptions = siteOptions && siteOptions.length > 0
-    ? Array.from(new Set(siteOptions.map(normalizeSite)))
+    ? Array.from(new Set([...MASTER_PLANT_SITES, ...siteOptions.map(normalizeSite)]))
     : Array.from(MASTER_PLANT_SITES);
 
   const isInternalEHS = v.department2.split(',').map((s) => s.trim()).includes('EHS');
+  const baseInternalSites = siteOptions && siteOptions.length > 0
+    ? Array.from(new Set([...MASTER_PLANT_SITES, ...siteOptions.map(normalizeSite)]))
+    : Array.from(MASTER_PLANT_SITES);
   const internalSiteOptions = isInternalEHS
-    ? (siteOptions && siteOptions.length > 0 ? siteOptions : MASTER_PLANT_SITES)
-        .filter((s) => ['UTL1', 'UTL2', 'UTL3', 'U1', 'U2', 'U3'].includes(s))
-        .map(normalizeSite)
-    : (siteOptions && siteOptions.length > 0 ? siteOptions : MASTER_PLANT_SITES).map(normalizeSite);
+    ? baseInternalSites.filter((s) => ['UTL1', 'UTL2', 'UTL3', 'U1', 'U2', 'U3'].includes(s)).map(normalizeSite)
+    : baseInternalSites.map(normalizeSite);
 
   const removedSet = useMemo(() => new Set(removedOptions), [removedOptions]);
 
   const customerSuggestions = useMemo(() => {
-    return getActiveDropdownOptions(assignments, 'customer').filter((c) => !removedSet.has(c));
-  }, [assignments, removedSet]);
+    const base = getActiveDropdownOptions(assignments, 'customer').filter((c) => !removedSet.has(c));
+    return Array.from(new Set([...base, ...(localAdded['customer'] || [])])).sort((a, b) => a.localeCompare(b));
+  }, [assignments, removedSet, localAdded]);
 
   const endCustomerSuggestions = useMemo(() => {
-    return getActiveDropdownOptions(assignments, 'endCustomer').filter((c) => !removedSet.has(c));
-  }, [assignments, removedSet]);
+    const base = getActiveDropdownOptions(assignments, 'endCustomer').filter((c) => !removedSet.has(c));
+    return Array.from(new Set([...base, ...(localAdded['endCustomer'] || [])])).sort((a, b) => a.localeCompare(b));
+  }, [assignments, removedSet, localAdded]);
 
   const targetPackageSuggestions = useMemo(() => {
-    return getActiveDropdownOptions(assignments, 'targetPackage').filter((p) => !removedSet.has(p));
-  }, [assignments, removedSet]);
+    const base = getActiveDropdownOptions(assignments, 'targetPackage').filter((p) => !removedSet.has(p));
+    return Array.from(new Set([...base, ...(localAdded['targetPackage'] || [])])).sort((a, b) => a.localeCompare(b));
+  }, [assignments, removedSet, localAdded]);
 
   const customerNameSuggestions = useMemo(() => {
-    return getActiveDropdownOptions(assignments, 'customerNames').filter((n) => !removedSet.has(n));
-  }, [assignments, removedSet]);
+    const base = getActiveDropdownOptions(assignments, 'customerNames').filter((n) => !removedSet.has(n));
+    return Array.from(new Set([...base, ...(localAdded['customerNames'] || [])])).sort((a, b) => a.localeCompare(b));
+  }, [assignments, removedSet, localAdded]);
 
   const auditCategorySuggestions = useMemo(() => {
-    return getActiveDropdownOptions(assignments, 'auditCategory').filter((c) => !removedSet.has(c));
-  }, [assignments, removedSet]);
+    const base = getActiveDropdownOptions(assignments, 'auditCategory').filter((c) => !removedSet.has(c));
+    return Array.from(new Set([...base, ...(localAdded['auditCategory'] || [])])).sort((a, b) => a.localeCompare(b));
+  }, [assignments, removedSet, localAdded]);
 
   const customerDepartmentSuggestions = useMemo(() => {
-    return getActiveDropdownOptions(
+    const base = getActiveDropdownOptions(
       assignments.filter((a) => a.sectionType !== 'internal'),
       'department1'
     ).filter((d) => !removedSet.has(d));
-  }, [assignments, removedSet]);
+    return Array.from(new Set([...base, ...(localAdded['department1'] || [])])).sort((a, b) => a.localeCompare(b));
+  }, [assignments, removedSet, localAdded]);
 
   const internalDepartmentSuggestions = useMemo(() => {
-    return getActiveDropdownOptions(
+    const base = getActiveDropdownOptions(
       assignments.filter((a) => a.sectionType === 'internal'),
       'department2'
     ).filter((d) => !removedSet.has(d));
-  }, [assignments, removedSet]);
+    return Array.from(new Set([...base, ...(localAdded['department2'] || [])])).sort((a, b) => a.localeCompare(b));
+  }, [assignments, removedSet, localAdded]);
 
   const purposeSuggestions = useMemo(() => {
-    return getActiveDropdownOptions(assignments, 'purpose').filter((p) => !removedSet.has(p));
-  }, [assignments, removedSet]);
+    const base = getActiveDropdownOptions(assignments, 'purpose').filter((p) => !removedSet.has(p));
+    return Array.from(new Set([...base, ...(localAdded['purpose'] || [])])).sort((a, b) => a.localeCompare(b));
+  }, [assignments, removedSet, localAdded]);
 
   const auditorSuggestions = useMemo(() => {
-    return getActiveDropdownOptions(assignments, 'qmsHost').filter((a) => !removedSet.has(a));
-  }, [assignments, removedSet]);
+    const base = getActiveDropdownOptions(assignments, 'qmsHost').filter((a) => !removedSet.has(a));
+    return Array.from(new Set([...base, ...(localAdded['auditor'] || [])])).sort((a, b) => a.localeCompare(b));
+  }, [assignments, removedSet, localAdded]);
 
   const areaSuggestions = useMemo(() => {
-    return getActiveDropdownOptions(assignments, 'area').filter((a) => !removedSet.has(a));
-  }, [assignments, removedSet]);
+    const base = getActiveDropdownOptions(assignments, 'area').filter((a) => !removedSet.has(a));
+    return Array.from(new Set([...base, ...(localAdded['area'] || [])])).sort((a, b) => a.localeCompare(b));
+  }, [assignments, removedSet, localAdded]);
 
   const isWarn = Boolean(v.warn);
   const isInternal = v.sectionType === 'internal';
@@ -2268,7 +2301,11 @@ export function AppointmentFormFields({
                   onChange({ department1: newDept, site1: validSites.join('/') });
                 }}
                 suggestions={customerDepartmentSuggestions}
-                onAddNew={addCustomerDepartmentOption}
+                onAddNew={(dept) => {
+                  const clean = dept.replace(/^\$+/, '').trim();
+                  trackLocalAdd('department1', clean);
+                  addCustomerDepartmentOption?.(clean);
+                }}
                 onRemoveOption={removeCustomerDepartmentOption || removeGenericOption}
                 hasError={errCustDept}
               />
@@ -2293,9 +2330,14 @@ export function AppointmentFormFields({
                 id={id('customer')}
                 tabIndex={3}
                 value={v.customer}
-                onChange={(customer) => onChange({ customer })}
+                onChange={(customer) => onChange({ customer: customer.replace(/^\$+/, '') })}
                 placeholder="Type or select customer..."
                 suggestions={customerSuggestions}
+                onAddNew={(newCust) => {
+                  const clean = newCust.replace(/^\$+/, '').trim();
+                  trackLocalAdd('customer', clean);
+                  addCustomerOption?.(clean);
+                }}
                 onRemoveOption={removeCustomerOption}
                 hasError={errCust}
               />
@@ -2307,9 +2349,14 @@ export function AppointmentFormFields({
                 id={id('endCustomer')}
                 tabIndex={4}
                 value={v.endCustomer}
-                onChange={(endCustomer) => onChange({ endCustomer })}
+                onChange={(endCustomer) => onChange({ endCustomer: endCustomer.replace(/^\$+/, '') })}
                 placeholder="Type or select end customer..."
                 suggestions={endCustomerSuggestions}
+                onAddNew={(newEndCust) => {
+                  const clean = newEndCust.replace(/^\$+/, '').trim();
+                  trackLocalAdd('endCustomer', clean);
+                  addEndCustomerOption?.(clean);
+                }}
                 onRemoveOption={removeEndCustomerOption || removeGenericOption}
                 hasError={errEndCust}
               />
@@ -2322,9 +2369,14 @@ export function AppointmentFormFields({
                 id={id('purpose')}
                 tabIndex={5}
                 value={v.purpose}
-                onChange={(purpose) => onChange({ purpose })}
+                onChange={(purpose) => onChange({ purpose: purpose.replace(/^\$+/, '') })}
                 placeholder="Type or select purpose..."
                 suggestions={purposeSuggestions}
+                onAddNew={(newPurp) => {
+                  const clean = newPurp.replace(/^\$+/, '').trim();
+                  trackLocalAdd('purpose', clean);
+                  addPurposeOption?.(clean);
+                }}
                 onRemoveOption={removePurposeOption}
                 hasError={errPurpose}
               />
@@ -2341,7 +2393,11 @@ export function AppointmentFormFields({
                 addPlaceholder="Add target package..."
                 emptyText="No target packages found"
                 suggestions={targetPackageSuggestions}
-                onAddNew={addTargetPackageOption}
+                onAddNew={(newPkg) => {
+                  const clean = newPkg.replace(/^\$+/, '').trim();
+                  trackLocalAdd('targetPackage', clean);
+                  addTargetPackageOption?.(clean);
+                }}
                 onRemoveOption={removeTargetPackageOption || removeGenericOption}
                 hasError={errTargetPkg}
               />
@@ -2359,7 +2415,11 @@ export function AppointmentFormFields({
                 addPlaceholder="Add customer name..."
                 emptyText="No customer names found"
                 suggestions={customerNameSuggestions}
-                onAddNew={addCustomerNameOption}
+                onAddNew={(newCn) => {
+                  const clean = newCn.replace(/^\$+/, '').trim();
+                  trackLocalAdd('customerNames', clean);
+                  addCustomerNameOption?.(clean);
+                }}
                 onRemoveOption={removeCustomerNameOption || removeGenericOption}
                 hasError={errCustNames}
               />
@@ -2373,7 +2433,11 @@ export function AppointmentFormFields({
                 value={v.auditor1}
                 onChange={(auditor1) => onChange({ auditor1 })}
                 suggestions={auditorSuggestions}
-                onAddNew={(_name) => { if (removeAuditorOption) { /* addAuditor handled by save */ } }}
+                onAddNew={(name) => {
+                  const clean = name.replace(/^\$+/, '').trim();
+                  trackLocalAdd('auditor', clean);
+                  addAuditorOption?.(clean);
+                }}
                 onRemoveOption={removeAuditorOption}
                 hasError={errCustHost}
               />
@@ -2432,7 +2496,11 @@ export function AppointmentFormFields({
                   onChange({ department2: newDept, site2: validSites.join('/') });
                 }}
                 suggestions={internalDepartmentSuggestions}
-                onAddNew={addInternalDepartmentOption}
+                onAddNew={(dept) => {
+                  const clean = dept.replace(/^\$+/, '').trim();
+                  trackLocalAdd('department2', clean);
+                  addInternalDepartmentOption?.(clean);
+                }}
                 onRemoveOption={removeInternalDepartmentOption || removeGenericOption}
                 hasError={errIntDept}
               />
@@ -2461,7 +2529,11 @@ export function AppointmentFormFields({
                 onChange={(auditCategory) => onChange({ auditCategory })}
                 placeholder="Type or select audit category..."
                 suggestions={auditCategorySuggestions}
-                onAddNew={addAuditCategoryOption}
+                onAddNew={(cat) => {
+                  const clean = cat.replace(/^\$+/, '').trim();
+                  trackLocalAdd('auditCategory', clean);
+                  addAuditCategoryOption?.(clean);
+                }}
                 onRemoveOption={removeAuditCategoryOption || removeGenericOption}
                 hasError={errIntCategory}
               />
@@ -2473,9 +2545,14 @@ export function AppointmentFormFields({
                 id={id('area')}
                 tabIndex={4}
                 value={v.area}
-                onChange={(area) => onChange({ area })}
+                onChange={(area) => onChange({ area: area.replace(/^\$+/, '') })}
                 placeholder="Type or select area..."
                 suggestions={areaSuggestions}
+                onAddNew={(newArea) => {
+                  const clean = newArea.replace(/^\$+/, '').trim();
+                  trackLocalAdd('area', clean);
+                  onChange({ area: clean });
+                }}
                 onRemoveOption={removeGenericOption}
                 hasError={errIntArea}
               />
@@ -2490,7 +2567,11 @@ export function AppointmentFormFields({
                 value={v.auditor2}
                 onChange={(auditor2) => onChange({ auditor2 })}
                 suggestions={auditorSuggestions}
-                onAddNew={(_name) => { if (removeAuditorOption) { /* addAuditor handled by save */ } }}
+                onAddNew={(name) => {
+                  const clean = name.replace(/^\$+/, '').trim();
+                  trackLocalAdd('auditor', clean);
+                  addAuditorOption?.(clean);
+                }}
                 onRemoveOption={removeAuditorOption}
                 hasError={errIntHost}
               />

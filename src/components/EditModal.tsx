@@ -62,8 +62,13 @@ export function EditModal({ vm }: { vm: VM }) {
             onChange={vm.setEditDraft}
             isDateLocked={ed.editScope === 'day'}
             purposeOptions={vm.purposeOptions}
+            addPurposeOption={vm.addPurposeOption}
             removePurposeOption={vm.removePurposeOption}
+            addCustomerOption={vm.addCustomerOption}
             removeCustomerOption={vm.removeCustomerOption}
+            addEndCustomerOption={vm.addEndCustomerOption}
+            removeEndCustomerOption={vm.removeEndCustomerOption}
+            addAuditorOption={vm.addAuditorOption}
             removeAuditorOption={vm.removeAuditorOption}
             removeGenericOption={vm.removeGenericOption}
             customerDepartmentOptions={vm.customerDepartmentOptions}
@@ -75,7 +80,6 @@ export function EditModal({ vm }: { vm: VM }) {
             siteOptions={vm.siteCodeOptions}
             customerOptions={vm.customerOptions}
             endCustomerOptions={vm.endCustomerOptions}
-            removeEndCustomerOption={vm.removeEndCustomerOption}
             targetPackageOptions={vm.targetPackageOptions}
             customerNameOptions={vm.customerNameOptions}
             addTargetPackageOption={vm.addTargetPackageOption}

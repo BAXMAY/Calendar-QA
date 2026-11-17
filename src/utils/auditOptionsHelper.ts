@@ -43,7 +43,7 @@ function extractCleanValues(val: unknown, targetSet: Set<string>): void {
     // Split on comma or slash (for multi-valued fields)
     const parts = val.split(/[,/]/);
     for (const part of parts) {
-      const clean = part.trim();
+      const clean = part.replace(/^\$+/, '').trim();
       if (clean && clean.toLowerCase() !== 'unassigned' && clean.toLowerCase() !== 'all') {
         targetSet.add(clean);
       }
