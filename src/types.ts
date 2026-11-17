@@ -236,14 +236,33 @@ export type Appointment = Assignment;
 
 export function isInternalAssignment(a: Assignment | any): boolean {
   if (!a) return false;
-  return (
-    a.sectionType === 'internal' ||
-    a.auditType === 'Internal Audit' ||
-    a.auditType === 'IA' ||
-    !!(a.site2 || a.auditor2 || a.department2 || a.area) ||
-    (typeof a.id === 'string' && a.id.startsWith('IA')) ||
-    (typeof a.order === 'string' && a.order.startsWith('IA'))
-  );
+  // 1. Explicit internal flags
+  if (a.isInternal === true) return true;
+  if (a.type === 'internal' || a.type === 'IA' || a.type === 'ia') return true;
+  if (a.sectionType === 'internal') return true;
+
+  const auditTypeStr = String(a.auditType || '').trim().toLowerCase();
+  if (auditTypeStr === 'internal' || auditTypeStr === 'internal audit' || auditTypeStr === 'ia') return true;
+
+  // 2. Code / Title heuristics (e.g. "IA · EHS&RBA · FA & Legal - UTL1")
+  const codeStr = String(a.code || '').trim();
+  if (codeStr.startsWith('IA ·') || codeStr.startsWith('IA ') || codeStr === 'IA' || codeStr.toLowerCase().startsWith('ia')) return true;
+  const titleStr = String(a.title || '').trim();
+  if (titleStr.startsWith('IA ·') || titleStr.startsWith('IA ') || titleStr === 'IA' || titleStr.toLowerCase().startsWith('ia')) return true;
+
+  if (typeof a.id === 'string' && a.id.startsWith('IA')) return true;
+  if (typeof a.order === 'string' && a.order.startsWith('IA')) return true;
+
+  // 3. If explicitly marked customer, override only if it has internal fields and zero customer fields
+  if (a.sectionType === 'customer' || a.type === 'customer' || auditTypeStr === 'customer' || auditTypeStr === 'customer audit') {
+    if (!a.customer && !a.customerName && !a.customerNames && !a.targetPackage && (a.area || a.department2 || a.site2 || a.auditor2)) {
+      return true;
+    }
+    return false;
+  }
+
+  // 4. Fallback internal property detection
+  return !!(a.site2 || a.auditor2 || a.department2 || a.area);
 }
 
 export interface StatusColorItem {
@@ -410,55 +429,18 @@ export function formatCardSubtitle(purpose?: string, host?: string, showExplicit
 
 export function getMissingFields(a: Assignment | any): string[] {
   if (!a) return [];
-  const isInternal =
-    a.sectionType === 'internal' ||
-    (a.sectionType !== 'customer' && isInternalAssignment(a));
+  const isInternal = isInternalAssignment(a);
   const missing: string[] = [];
 
-  // 1. Standard (standard, department1 for customer, department2 for internal)
-  const rawStandard =
-    isInternal
-      ? (a.department2 !== undefined && a.department2 !== null && a.department2 !== ''
-          ? a.department2
-          : a.standard || (a.sectionType === 'internal' ? '' : a.department1))
-      : (a.department1 !== undefined && a.department1 !== null && a.department1 !== ''
-          ? a.department1
-          : a.standard || (a.sectionType === 'customer' ? '' : a.department2) || a.department);
-  const hasStandard = Array.isArray(rawStandard)
-    ? rawStandard.length > 0 && rawStandard.some((s: any) => Boolean(s && String(s).trim()))
-    : Boolean(rawStandard && String(rawStandard).trim());
-  if (!hasStandard) missing.push('Standard');
-
-  // 2. Site (site, site1 for customer, site2 for internal)
-  const rawSite =
-    isInternal
-      ? (a.site2 !== undefined && a.site2 !== null && a.site2 !== ''
-          ? a.site2
-          : a.site || (a.sectionType === 'internal' ? '' : a.site1))
-      : (a.site1 !== undefined && a.site1 !== null && a.site1 !== ''
-          ? a.site1
-          : a.site || (a.sectionType === 'customer' ? '' : a.site2));
-  const hasSite = Array.isArray(rawSite)
-    ? rawSite.length > 0 && rawSite.some((s: any) => Boolean(s && String(s).trim()))
-    : Boolean(rawSite && String(rawSite).trim());
-  if (!hasSite) missing.push('Site');
-
-  // 3. QMS Host (strictly required for both Customer and Internal Audit; cannot be empty or "Unassigned")
-  const qmsHostStr = getAppointmentQmsHost(a);
-  const hasQmsHost = Boolean(
-    qmsHostStr &&
-    String(qmsHostStr).trim() &&
-    String(qmsHostStr).trim().toLowerCase() !== 'unassigned'
-  );
-  if (!hasQmsHost) missing.push('QMS Host');
-
-  // 4. Dates (valid date or date range)
+  // Common Date Range check (required for both Internal and Customer audits)
   const hasDateFrom = Boolean(a.dateFrom && String(a.dateFrom).trim());
   const hasDateTo = Boolean(a.dateTo && String(a.dateTo).trim());
   const hasLegacyDates = Boolean(
     (a.date && String(a.date).trim()) ||
     (a.startDate && a.endDate && String(a.startDate).trim() && String(a.endDate).trim()) ||
     (a.from && a.to && String(a.from).trim() && String(a.to).trim()) ||
+    (a.fromDate && a.toDate && String(a.fromDate).trim() && String(a.toDate).trim()) ||
+    (a._fromDate && a._toDate && String(a._fromDate).trim() && String(a._toDate).trim()) ||
     (a.week !== undefined && a.day !== undefined && a.week !== null && a.day !== null)
   );
   const hasDates = (hasDateFrom && hasDateTo) || hasLegacyDates;
@@ -466,66 +448,158 @@ export function getMissingFields(a: Assignment | any): string[] {
   if (!hasDates || !isDateOrderValid) missing.push('Date Range');
 
   if (isInternal) {
-    // Internal Audit STRICT FULL-FORM COMPLETION:
-    // Every single input field belonging to the Internal Audit form MUST be validated:
-    // 1. STANDARD (checked above)
-    // 2. SITE (checked above)
+    // =========================================================================
+    // INTERNAL AUDIT (IA): Check ONLY the 5 Internal Audit fields:
+    // 1. STANDARD (non-empty)
+    // 2. SITE (non-empty)
+    // 3. AUDIT CATEGORY (non-empty — check actual property name in state/DB)
+    // 4. AREA (non-empty — check actual property name in state/DB, e.g. area or purpose)
+    // 5. QMS HOST (non-empty and not "Unassigned")
+    // *(Do NOT check customer, endCustomer, customerName, or targetPackage for Internal Audits!)*
+    // =========================================================================
+
+    // 1. STANDARD
+    const rawStandard =
+      a.standard !== undefined && a.standard !== null && a.standard !== ''
+        ? a.standard
+        : a.department2 !== undefined && a.department2 !== null && a.department2 !== ''
+        ? a.department2
+        : a.department !== undefined && a.department !== null && a.department !== ''
+        ? a.department
+        : a.department1;
+    const hasStandard = Array.isArray(rawStandard)
+      ? rawStandard.length > 0 && rawStandard.some((s: any) => Boolean(s && String(s).trim()))
+      : Boolean(rawStandard && String(rawStandard).trim());
+    if (!hasStandard) missing.push('Standard');
+
+    // 2. SITE
+    const rawSite =
+      a.site !== undefined && a.site !== null && a.site !== ''
+        ? a.site
+        : a.site2 !== undefined && a.site2 !== null && a.site2 !== ''
+        ? a.site2
+        : a.site1 !== undefined && a.site1 !== null && a.site1 !== ''
+        ? a.site1
+        : a.plant;
+    const hasSite = Array.isArray(rawSite)
+      ? rawSite.length > 0 && rawSite.some((s: any) => Boolean(s && String(s).trim()))
+      : Boolean(rawSite && String(rawSite).trim());
+    if (!hasSite) missing.push('Site');
+
     // 3. AUDIT CATEGORY
     const rawAuditCategory =
       a.auditCategory !== undefined && a.auditCategory !== null && a.auditCategory !== ''
         ? a.auditCategory
+        : a.audit_category !== undefined && a.audit_category !== null && a.audit_category !== ''
+        ? a.audit_category
         : a.category;
     const hasAuditCategory = Array.isArray(rawAuditCategory)
       ? rawAuditCategory.length > 0 && rawAuditCategory.some((s: any) => Boolean(s && String(s).trim()))
       : Boolean(rawAuditCategory && String(rawAuditCategory).trim());
     if (!hasAuditCategory) missing.push('Audit Category');
 
-    // 4. AREA (Strictly a.area, never fallback to purpose)
-    const rawArea = a.area;
+    // 4. AREA (check area, or purpose / apptPurpose / rawPurpose / product)
+    const rawArea =
+      a.area !== undefined && a.area !== null && a.area !== ''
+        ? a.area
+        : a.purpose !== undefined && a.purpose !== null && a.purpose !== ''
+        ? a.purpose
+        : a.apptPurpose !== undefined && a.apptPurpose !== null && a.apptPurpose !== ''
+        ? a.apptPurpose
+        : a.rawPurpose || a.product;
     const hasArea = Array.isArray(rawArea)
       ? rawArea.length > 0 && rawArea.some((s: any) => Boolean(s && String(s).trim()))
       : Boolean(rawArea && String(rawArea).trim());
     if (!hasArea) missing.push('Area');
 
-    // 5. QMS HOST (checked above)
-    // 6. DATE RANGE (checked above)
+    // 5. QMS HOST (must be populated and not "Unassigned")
+    const qmsHostStr = getAppointmentQmsHost(a);
+    const hasQmsHost = Boolean(
+      qmsHostStr &&
+      String(qmsHostStr).trim() &&
+      String(qmsHostStr).trim().toLowerCase() !== 'unassigned'
+    );
+    if (!hasQmsHost) missing.push('QMS Host');
 
-    // Optional schema checks
     if (a.leadAuditor !== undefined && a.leadAuditor !== null && !String(a.leadAuditor).trim()) {
       missing.push('Lead Auditor');
     }
   } else {
-    // Customer Audit: MUST fill ALL 8 fields shown in the form:
-    // 1. STANDARD (checked above)
-    // 2. SITE (checked above)
+    // =========================================================================
+    // CUSTOMER AUDIT (CS): Check all 8 Customer Audit fields:
+    // 1. STANDARD
+    // 2. SITE
     // 3. CUSTOMER
     // 4. END CUSTOMER
     // 5. PURPOSE
     // 6. TARGET PACKAGE
     // 7. CUSTOMER NAME
-    // 8. QMS HOST (checked above)
-    // 9. DATE RANGE (checked above)
+    // 8. QMS HOST
+    // =========================================================================
+
+    // 1. STANDARD
+    const rawStandard =
+      a.standard !== undefined && a.standard !== null && a.standard !== ''
+        ? a.standard
+        : a.department1 !== undefined && a.department1 !== null && a.department1 !== ''
+        ? a.department1
+        : a.department;
+    const hasStandard = Array.isArray(rawStandard)
+      ? rawStandard.length > 0 && rawStandard.some((s: any) => Boolean(s && String(s).trim()))
+      : Boolean(rawStandard && String(rawStandard).trim());
+    if (!hasStandard) missing.push('Standard');
+
+    // 2. SITE
+    const rawSite =
+      a.site !== undefined && a.site !== null && a.site !== ''
+        ? a.site
+        : a.site1 !== undefined && a.site1 !== null && a.site1 !== ''
+        ? a.site1
+        : a.plant;
+    const hasSite = Array.isArray(rawSite)
+      ? rawSite.length > 0 && rawSite.some((s: any) => Boolean(s && String(s).trim()))
+      : Boolean(rawSite && String(rawSite).trim());
+    if (!hasSite) missing.push('Site');
+
+    // 3. CUSTOMER
     const hasCustomer = Boolean(a.customer && String(a.customer).trim());
     if (!hasCustomer) missing.push('Customer');
 
+    // 4. END CUSTOMER
     const hasEndCustomer = Boolean(a.endCustomer && String(a.endCustomer).trim());
     if (!hasEndCustomer) missing.push('End Customer');
 
-    const rawPurpose = a.purpose !== undefined ? a.purpose : a.apptPurpose;
+    // 5. PURPOSE
+    const rawPurpose = a.purpose !== undefined && a.purpose !== null && a.purpose !== ''
+      ? a.purpose
+      : a.apptPurpose;
     const hasPurpose = Boolean(rawPurpose && String(rawPurpose).trim());
     if (!hasPurpose) missing.push('Purpose');
 
+    // 6. TARGET PACKAGE
     const rawTargetPackage = a.targetPackage;
     const hasTargetPackage = Array.isArray(rawTargetPackage)
       ? rawTargetPackage.length > 0 && rawTargetPackage.some((s: any) => Boolean(s && String(s).trim()))
       : Boolean(rawTargetPackage && String(rawTargetPackage).trim());
     if (!hasTargetPackage) missing.push('Target Package');
 
-    const rawCustomerName = a.customerName !== undefined ? a.customerName : a.customerNames;
+    // 7. CUSTOMER NAME
+    const rawCustomerName = a.customerName !== undefined && a.customerName !== null && a.customerName !== ''
+      ? a.customerName
+      : a.customerNames;
     const hasCustomerName = Array.isArray(rawCustomerName)
       ? rawCustomerName.length > 0 && rawCustomerName.some((s: any) => Boolean(s && String(s).trim()))
       : Boolean(rawCustomerName && String(rawCustomerName).trim());
     if (!hasCustomerName) missing.push('Customer Name');
+
+    // 8. QMS HOST
+    const qmsHostStr = getAppointmentQmsHost(a);
+    const hasQmsHost = Boolean(
+      qmsHostStr &&
+      String(qmsHostStr).trim() &&
+      String(qmsHostStr).trim().toLowerCase() !== 'unassigned'
+    );
+    if (!hasQmsHost) missing.push('QMS Host');
   }
 
   return missing;
@@ -754,6 +828,9 @@ export type AuditStatusKey =
 
 export function isIncompleteData(apt: any): boolean {
   if (!apt) return false;
+  if (typeof apt.isIncomplete === 'boolean') {
+    return apt.isIncomplete;
+  }
   return isAppointmentFormIncomplete(apt);
 }
 
@@ -795,7 +872,7 @@ export const resolveAuditStatus = (apt: any, nowMs: number = Date.now()): AuditS
   const updatedTime = parseTimestamp(apt.updatedAt);
 
   // 2. Newly created within 7 days -> ALWAYS Green (even if appointmentDate in the past)
-  if (createdTime > 0 && (now - createdTime) <= SEVEN_DAYS_MS && now >= createdTime) {
+  if (createdTime > 0 && (now - createdTime) <= SEVEN_DAYS_MS && createdTime <= now + 60000) {
     return 'NEW_DATA';
   }
 

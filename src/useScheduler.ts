@@ -1489,6 +1489,8 @@ export function useScheduler() {
           eng: engId, order: orderId,
           seriesId, groupId: seriesId,
           day: slot.wd, week: slot.weekOffset,
+          type: d.sectionType,
+          auditType: d.sectionType === 'internal' ? 'Internal Audit' : 'Customer Audit',
           sectionType: d.sectionType,
           site1: d.sectionType === 'customer' ? normalizeSites(d.site1 || '') : '',
           customer: d.sectionType === 'customer' ? d.customer : '',
@@ -1975,6 +1977,8 @@ export function useScheduler() {
     }
 
     const fields = {
+      type: d.sectionType,
+      auditType: d.sectionType === 'internal' ? 'Internal Audit' : 'Customer Audit',
       sectionType: d.sectionType,
       site1: d.sectionType === 'customer' ? normalizeSites(d.site1 || '') : '',
       customer: d.sectionType === 'customer' ? d.customer : '',
@@ -3389,6 +3393,7 @@ export function useScheduler() {
     const singleDateStr = formatDMY(singleDateISO);
     const dateRangeStr = formatDateRange(fromDate, toDate);
     return {
+      ...a,
       id: a.id,
       code: formatApptDisplayTitle(a, o),
       purpose: chipPurpose,
@@ -3468,7 +3473,7 @@ export function useScheduler() {
 
       if (!q) return true;
       const e = engById(a.eng);
-      const isInternal = !!(a.site2 || a.auditor2 || a.department2 || a.area);
+      const isInternal = isInternalAssignment(a);
       const haystack = [
         isInternal ? 'IA' : 'CS',
         a.customer || o.customer || '',
@@ -3706,7 +3711,7 @@ export function useScheduler() {
     const sel = S.selected === a.id;
     const colors = siteColorsOfAssignment(a, S.siteColors);
     const color = colors[0] || (pl ? pl.color : '#999');
-    const isInternal = !!(a.site2 || a.auditor2 || a.department2 || a.area);
+    const isInternal = isInternalAssignment(a);
     const isIncomplete = isIncompleteAssignment(a);
     const { fromDate, toDate } = getAssignmentDateRange(a, S.assignments);
     const isAuditDate = isTodayWithinAssignmentRange(fromDate, toDate, today);
@@ -3764,6 +3769,7 @@ export function useScheduler() {
     const c = g.chip;
     const sel = S.selected === c.id || g.ids.some((id) => S.selected === id);
     return {
+      ...c,
       ids: g.ids, startDay: g.startDay, span: g.endDay - g.startDay + 1, gridRow: row,
       id: c.id, site1: c.site1 || '', customer: c._customer, purpose: c._purpose,
       rawPurpose: c._rawPurpose, qmsHost: c._auditor, auditor: c._auditor,
@@ -3791,6 +3797,7 @@ export function useScheduler() {
   const weekCalendarDays = [0, 1, 2, 3, 4].map((day) => {
     const mergedIds = new Set(weekMergedSpans.flatMap((s) => s.ids));
     const chips = weekCalendarChips.filter((c) => c.day === day && !mergedIds.has(c.id)).map((c) => ({
+      ...c,
       id: c.id, site1: c.site1 || '', customer: c._customer, purpose: c._purpose,
       rawPurpose: c._rawPurpose, qmsHost: c._auditor, auditor: c._auditor,
       auditor1: c._auditor, qa: c._qa, color: c._color, colors: c._colors, onClick: c._onClick, selected: c._sel,
@@ -3874,7 +3881,7 @@ export function useScheduler() {
       avatarStyle: sx({ width: '24px', height: '24px', borderRadius: '7px', background: '#f1f3ee', color: '#5c625c', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'IBM Plex Mono',monospace", fontSize: '9px', fontWeight: 600, flexShrink: 0 }),
       onDelete: () => removeComment(selA.id, m.id),
     }));
-    const isInternal = !!(selA.site2 || selA.auditor2 || selA.department2 || selA.area);
+    const isInternal = isInternalAssignment(selA);
     const siblings = S.assignments.filter((x) => x.eng === selA.eng && x.order === selA.order);
     const minWeek = Math.min(...siblings.map((x) => x.week));
     const maxWeek = Math.max(...siblings.map((x) => x.week));
