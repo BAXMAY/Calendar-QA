@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { VM } from '../useScheduler';
 import { css, HButton } from '../ui';
+import { HolidaysPanel } from './HolidaysPanel';
 
 export function Admin({ vm }: { vm: VM }) {
   const hosts = vm.engineers || [];
@@ -14,12 +15,13 @@ export function Admin({ vm }: { vm: VM }) {
       <div style={vm.adminWrapStyle}>
         <div style={css('margin-bottom:20px')}>
           <div style={css('font-size:20px;font-weight:700;letter-spacing:-.3px')}>Manage workspace</div>
-          <div style={css('font-size:13px;color:#7a807a;margin-top:3px')}>QMS Hosts and appointment form options. Changes apply to the live schedule.</div>
+          <div style={css('font-size:13px;color:#7a807a;margin-top:3px')}>QMS Hosts, appointment form options, and calendar holidays/restrictions. Changes apply to the live schedule.</div>
         </div>
 
         <div style={css('display:flex;background:#fff;border:1px solid #e0e3dc;border-radius:9px;padding:2px;gap:2px;width:max-content;margin-bottom:18px')}>
           <button onClick={vm.setTabEng} style={vm.tabEngStyle}>QMS Host</button>
           <button onClick={vm.setTabOptions} style={vm.tabOptionsStyle}>Options</button>
+          <button onClick={vm.setTabHolidays} style={vm.tabHolidaysStyle}>Holidays</button>
         </div>
 
         {vm.tabEngineers && (
@@ -57,6 +59,7 @@ export function Admin({ vm }: { vm: VM }) {
           </>
         )}
         {vm.tabOptions && <OptionsPanel vm={vm} />}
+        {vm.tabHolidays && <HolidaysPanel vm={vm} />}
       </div>
     </main>
   );

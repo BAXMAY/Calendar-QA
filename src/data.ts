@@ -145,6 +145,7 @@ export function initialState(): State {
     })(),
     activity: snapshot.activity || [],
     activityLogs: snapshot.activityLogs || [],
+    customHolidays: snapshot.customHolidays || {},
   };
 }
 

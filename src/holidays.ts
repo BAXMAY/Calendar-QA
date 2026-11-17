@@ -1,9 +1,25 @@
+export type CustomHolidayType = 'PUBLIC_HOLIDAY' | 'SHUTDOWN_PLANT' | 'NO_CUSTOMER_AUDITS';
+
+export interface CustomHoliday {
+  date: string; // 'YYYY-MM-DD'
+  type: CustomHolidayType;
+  note?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface HolidayInfo {
   name: string;
   subtitle?: string;
   isSubstitute?: boolean;
   shifts?: string[];
-  isTraditional: boolean;
+  isTraditional?: boolean;
+  holidayType?: CustomHolidayType;
+  isBuiltin?: boolean;
+  isCustom?: boolean;
+  note?: string;
+  dateStr?: string;
+  // Legacy optional properties preserved for backwards compatibility
   isMonthEndLock?: boolean;
   isDecBlockout?: boolean;
   isJanBlockout?: boolean;
@@ -53,197 +69,177 @@ export const LUNAR_BUDDHIST_HOLIDAYS: Record<string, string> = {
   '2028/5/8': 'Visakha Bucha Day',
 };
 
-/**
- * Automatically checks if a given Date is the last day of its month.
- */
-export function isLastDayOfMonth(date: Date): boolean {
-  if (!date || isNaN(date.getTime())) return false;
-  const testDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-  return date.getDate() === testDate.getDate();
-}
+/** Active in-memory custom holiday registry synchronized with Cloudflare D1 */
+let activeCustomHolidays: Record<string, CustomHoliday> = {};
 
-/**
- * Automatically checks if a given Date is the last WORKING WEEKDAY (Monday–Friday) of its month.
- * If the actual last day of the month falls on a Saturday or Sunday, rolls back to the preceding Friday.
- */
-export function isLastWorkingWeekdayOfMonth(date: Date): boolean {
-  if (!date || isNaN(date.getTime())) return false;
-  const dayOfWeek = date.getDay();
-  // Must be a weekday (Monday = 1 through Friday = 5)
-  if (dayOfWeek < 1 || dayOfWeek > 5) return false;
-
-  const year = date.getFullYear();
-  const month = date.getMonth(); // 0-indexed
-  const lastCalendarDate = new Date(year, month + 1, 0); // Last calendar day of month
-  const lastDayOfWeek = lastCalendarDate.getDay(); // 0 = Sun, 6 = Sat
-
-  let targetDay: number;
-  if (lastDayOfWeek === 6) {
-    // Saturday -> Preceding Friday
-    targetDay = lastCalendarDate.getDate() - 1;
-  } else if (lastDayOfWeek === 0) {
-    // Sunday -> Preceding Friday
-    targetDay = lastCalendarDate.getDate() - 2;
+export function setCustomHolidays(map: Record<string, CustomHoliday> | CustomHoliday[]) {
+  if (Array.isArray(map)) {
+    const next: Record<string, CustomHoliday> = {};
+    for (const item of map) {
+      if (item && item.date) next[item.date] = item;
+    }
+    activeCustomHolidays = next;
   } else {
-    // Mon–Fri -> Exact last day
-    targetDay = lastCalendarDate.getDate();
+    activeCustomHolidays = map || {};
   }
-
-  return date.getDate() === targetDay;
 }
 
-/**
- * Checks if a given Date is a holiday (Traditional Annual, Lunar Buddhist, Shift E/E1 Substitute, Month-End Lock, Dec/Jan Calendar Week Row Blockout).
- */
-export function getHolidayForDate(date: Date): HolidayInfo | null {
-  if (!date || isNaN(date.getTime())) return null;
+export function getCustomHolidays(): Record<string, CustomHoliday> {
+  return activeCustomHolidays;
+}
 
-  const year = date.getFullYear();
-  const month = date.getMonth() + 1; // 1-12 (1 = Jan, 12 = Dec)
-  const day = date.getDate();
-  const dayOfWeek = date.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
-  const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
+/** Formats a date to ISO 'YYYY-MM-DD' using local date components */
+export function formatYMD(date: Date): string {
+  if (!date || isNaN(date.getTime())) return '';
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
 
-  // Helper to check if a specific date was a traditional/company holiday
-  const checkTraditional = (y: number, m: number, d: number): string | null => {
-    const ymdKey = `${y}/${m}/${d}`;
-    const mdKey = `${m}/${d}`;
-    return LUNAR_BUDDHIST_HOLIDAYS[ymdKey] || FIXED_ANNUAL_HOLIDAYS[mdKey] || null;
-  };
+/** Checks whether a date is a built-in official public holiday (or Monday substitute) */
+export function isBuiltinPublicHoliday(date: Date): { isBuiltin: boolean; name?: string; isSubstitute?: boolean } {
+  if (!date || isNaN(date.getTime())) return { isBuiltin: false };
+  const y = date.getFullYear();
+  const m = date.getMonth() + 1;
+  const d = date.getDate();
+  const dow = date.getDay();
 
-  // 1. Check direct Traditional / Company Assigned Annual Holidays or Lunar Buddhist Holidays
-  const directName = checkTraditional(year, month, day);
+  const ymdKey = `${y}/${m}/${d}`;
+  const mdKey = `${m}/${d}`;
+  const directName = LUNAR_BUDDHIST_HOLIDAYS[ymdKey] || FIXED_ANNUAL_HOLIDAYS[mdKey];
   if (directName) {
-    return {
-      name: directName,
-      isTraditional: true,
-    };
+    return { isBuiltin: true, name: directName, isSubstitute: false };
   }
 
-  // 2. Check Shift-Specific Compensatory Holidays (Shift E & E1 Only)
-  // When a holiday falls on a weekend (Saturday or Sunday), assign substitute on following Monday (getDay() === 1).
-  if (dayOfWeek === 1) {
-    // Check Sunday (yesterday)
-    const sunday = new Date(date);
-    sunday.setDate(date.getDate() - 1);
-    const sunName = checkTraditional(sunday.getFullYear(), sunday.getMonth() + 1, sunday.getDate());
+  // Monday substitute check
+  if (dow === 1) {
+    // Check Sunday (1 day ago)
+    const sun = new Date(date);
+    sun.setDate(date.getDate() - 1);
+    const sunName = LUNAR_BUDDHIST_HOLIDAYS[`${sun.getFullYear()}/${sun.getMonth() + 1}/${sun.getDate()}`] ||
+      FIXED_ANNUAL_HOLIDAYS[`${sun.getMonth() + 1}/${sun.getDate()}`];
     if (sunName) {
-      return {
-        name: `Substitute ${sunName} (Shift E & E1)`,
-        isSubstitute: true,
-        shifts: ['Shift E', 'Shift E1'],
-        isTraditional: false,
-      };
+      return { isBuiltin: true, name: `Substitute ${sunName} (Shift E & E1)`, isSubstitute: true };
     }
 
     // Check Saturday (2 days ago)
-    const saturday = new Date(date);
-    saturday.setDate(date.getDate() - 2);
-    const satName = checkTraditional(saturday.getFullYear(), saturday.getMonth() + 1, saturday.getDate());
+    const sat = new Date(date);
+    sat.setDate(date.getDate() - 2);
+    const satName = LUNAR_BUDDHIST_HOLIDAYS[`${sat.getFullYear()}/${sat.getMonth() + 1}/${sat.getDate()}`] ||
+      FIXED_ANNUAL_HOLIDAYS[`${sat.getMonth() + 1}/${sat.getDate()}`];
     if (satName) {
+      return { isBuiltin: true, name: `Substitute ${satName} (Shift E & E1)`, isSubstitute: true };
+    }
+  }
+
+  return { isBuiltin: false };
+}
+
+/**
+ * Checks if a given Date is a holiday or restricted day.
+ * Precedence:
+ * 1. Explicit Custom Holiday configured in Manage -> Holidays (D1 backed):
+ *    - PUBLIC_HOLIDAY (Gray)
+ *    - SHUTDOWN_PLANT (Blue)
+ *    - NO_CUSTOMER_AUDITS (Blue)
+ * 2. Built-in Official Public Holidays (Traditional & Lunar Buddhist) - Gray
+ * 3. Built-in Shift E & E1 Monday Substitutes - Darker Gray
+ * 4. Normal working day (returns null) - NO hardcoded month-end or legacy rules!
+ */
+export function getHolidayForDate(date: Date, customMap?: Record<string, CustomHoliday>): HolidayInfo | null {
+  if (!date || isNaN(date.getTime())) return null;
+
+  const ymd = formatYMD(date);
+  const map = customMap || activeCustomHolidays;
+  const custom = map[ymd];
+
+  // 1. Explicit Custom Holiday / Restriction from Manage -> Holidays
+  if (custom) {
+    if (custom.type === 'PUBLIC_HOLIDAY') {
       return {
-        name: `Substitute ${satName} (Shift E & E1)`,
+        name: custom.note ? custom.note : 'General Holiday',
+        subtitle: custom.note ? 'General Holiday' : undefined,
+        isTraditional: true,
+        isCustom: true,
+        holidayType: 'PUBLIC_HOLIDAY',
+        dateStr: ymd,
+        note: custom.note,
+      };
+    }
+    if (custom.type === 'SHUTDOWN_PLANT') {
+      return {
+        name: 'Shutdown Plant',
+        subtitle: custom.note || undefined,
+        isTraditional: false,
+        isCustom: true,
+        holidayType: 'SHUTDOWN_PLANT',
+        dateStr: ymd,
+        note: custom.note,
+      };
+    }
+    if (custom.type === 'NO_CUSTOMER_AUDITS') {
+      return {
+        name: 'No Customer Audits',
+        subtitle: custom.note || undefined,
+        isTraditional: false,
+        isCustom: true,
+        holidayType: 'NO_CUSTOMER_AUDITS',
+        dateStr: ymd,
+        note: custom.note,
+      };
+    }
+  }
+
+  // 2. Built-in Official Public Holidays & Substitutes
+  const builtin = isBuiltinPublicHoliday(date);
+  if (builtin.isBuiltin && builtin.name) {
+    if (builtin.isSubstitute) {
+      return {
+        name: builtin.name,
         isSubstitute: true,
         shifts: ['Shift E', 'Shift E1'],
         isTraditional: false,
+        isBuiltin: true,
+        holidayType: 'PUBLIC_HOLIDAY',
+        dateStr: ymd,
       };
     }
-  }
-
-  // All subsequent blockout and month-end rules apply STRICTLY to Monday-Friday weekdays
-  if (!isWeekday) return null;
-
-  // Compute 0-indexed calendar week row index for the date within its month grid (Monday-starting weeks)
-  const firstDayOfMonth = new Date(year, month - 1, 1);
-  const firstWdMon = (firstDayOfMonth.getDay() + 6) % 7; // Mon = 0, Tue = 1, ..., Sun = 6
-  const rowIndex = Math.floor((day - 1 + firstWdMon) / 7);
-
-  // 3. December Year-End Rules (Target the last 2 calendar week rows displayed in December, Monday–Friday only)
-  if (month === 12) {
-    const lastDayOfMonth = new Date(year, 12, 0).getDate(); // 31
-    const totalRows = Math.floor((lastDayOfMonth - 1 + firstWdMon) / 7) + 1;
-    const isLastTwoWeekRows = rowIndex >= totalRows - 2;
-
-    if (isLastTwoWeekRows) {
-      if (day === 30) {
-        return {
-          name: 'No customer audit',
-          subtitle: 'Support production ship out',
-          isTraditional: true,
-          isDecBlockout: true,
-        };
-      }
-      return {
-        name: 'No customer audit',
-        isTraditional: true,
-        isDecBlockout: true,
-      };
-    }
-  }
-
-  // 4. January New-Year Rules (Target the first 2 calendar week rows starting from beginning of January, Monday–Friday only)
-  if (month === 1) {
-    const isFirstTwoWeekRows = rowIndex < 2;
-
-    if (isFirstTwoWeekRows) {
-      // Days Jan 1–5 that fall on Mon–Fri display label: "FAC shut down all sites"
-      if (day >= 1 && day <= 5) {
-        return {
-          name: 'FAC shut down all sites',
-          isTraditional: true,
-          isJanBlockout: true,
-        };
-      }
-      // Remaining weekdays within the first 2 week rows remain blocked without weekend spillover
-      return {
-        name: '',
-        isTraditional: true,
-        isJanBlockout: true,
-      };
-    }
-  }
-
-  // 5. Automatic Month-End Lock (Last WORKING WEEKDAY of every month, Monday–Friday only: "No customer audit", "Support production ship out")
-  if (isLastWorkingWeekdayOfMonth(date)) {
     return {
-      name: 'No customer audit',
-      subtitle: 'Support production ship out',
+      name: builtin.name,
       isTraditional: true,
-      isMonthEndLock: true,
+      isBuiltin: true,
+      holidayType: 'PUBLIC_HOLIDAY',
+      dateStr: ymd,
     };
   }
 
+  // Default: Normal working day allowing both Customer & Internal audits
   return null;
 }
 
 /**
- * Returns distinct styling properties for Traditional, Month-End Lock, Dec/Jan Blockout, and Shift E & E1 Compensatory Holidays.
+ * Returns distinct styling properties for Holiday / Restriction types.
+ * - SHUTDOWN_PLANT and NO_CUSTOMER_AUDITS -> Blue
+ * - PUBLIC_HOLIDAY / Built-in Traditional -> Gray
+ * - Weekend Monday Substitute -> Darker Gray
  */
 export function getHolidayStyle(holiday: HolidayInfo): HolidayStyle {
-  if (holiday.isMonthEndLock || holiday.isDecBlockout || holiday.isJanBlockout) {
-    // Soft Blue-Gray Tinted Background for Blockout / Month-End / Dec / Jan rules
+  if (holiday.holidayType === 'SHUTDOWN_PLANT' || holiday.holidayType === 'NO_CUSTOMER_AUDITS') {
+    // Clean Blue styling for Shutdown Plant & No Customer Audits
     return {
-      bg: '#F0F4FA',
-      hoverBg: '#E4ECF7',
-      textColor: '#2563EB',
-      borderColor: '#D4DEF0',
-      badgeBg: 'transparent',
-      badgeBorder: 'transparent',
-      badgeText: '#2563EB',
+      bg: '#eff6ff',
+      hoverBg: '#dbeafe',
+      textColor: '#1d4ed8',
+      borderColor: '#bfdbfe',
+      badgeBg: '#dbeafe',
+      badgeBorder: '#93c5fd',
+      badgeText: '#1d4ed8',
     };
-  } else if (holiday.isTraditional) {
-    // Company Assigned Holidays (Standard Traditional) - Light Gray
-    return {
-      bg: '#F3F4F6',
-      hoverBg: '#E5E7EB',
-      textColor: '#374151',
-      borderColor: '#D1D5DB',
-      badgeBg: 'transparent',
-      badgeBorder: 'transparent',
-      badgeText: '#374151',
-    };
-  } else {
-    // Company Compensatory / Shift Substitute Holidays (Shift E & E1) - Noticeably Darker Gray
+  }
+
+  if (holiday.isSubstitute) {
+    // Shift Substitute (Shift E & E1) - Noticeably Darker Gray
     return {
       bg: '#D1D5DB',
       hoverBg: '#9CA3AF',
@@ -254,15 +250,77 @@ export function getHolidayStyle(holiday: HolidayInfo): HolidayStyle {
       badgeText: '#1F2937',
     };
   }
+
+  // Standard Traditional / Built-in / Custom Public Holiday - Clean Gray
+  return {
+    bg: '#F3F4F6',
+    hoverBg: '#E5E7EB',
+    textColor: '#374151',
+    borderColor: '#D1D5DB',
+    badgeBg: 'transparent',
+    badgeBorder: 'transparent',
+    badgeText: '#374151',
+  };
 }
 
 /**
  * Helper to determine if a HolidayInfo represents an official public/company holiday or substitute holiday
- * (as opposed to a custom blockout rule or month-end lock notice).
+ * (as opposed to plant restriction days like 'SHUTDOWN_PLANT' or 'NO_CUSTOMER_AUDITS').
  */
 export function isOfficialHoliday(holiday: HolidayInfo | null | undefined): boolean {
   if (!holiday) return false;
-  if (holiday.isSubstitute) return true;
-  if (holiday.isMonthEndLock || holiday.isDecBlockout || holiday.isJanBlockout) return false;
-  return holiday.isTraditional;
+  if (holiday.holidayType === 'SHUTDOWN_PLANT' || holiday.holidayType === 'NO_CUSTOMER_AUDITS') {
+    return false;
+  }
+  return Boolean(holiday.isSubstitute || holiday.isTraditional || holiday.holidayType === 'PUBLIC_HOLIDAY');
+}
+
+/**
+ * Helper to check if a date completely blocks appointment creation (both Customer & Internal Audits).
+ * Returns true for PUBLIC_HOLIDAY and SHUTDOWN_PLANT.
+ */
+export function isDateCompletelyBlocked(holiday: HolidayInfo | null | undefined): boolean {
+  if (!holiday) return false;
+  return holiday.holidayType === 'PUBLIC_HOLIDAY' ||
+    holiday.holidayType === 'SHUTDOWN_PLANT' ||
+    Boolean(holiday.isTraditional || holiday.isSubstitute);
+}
+
+/**
+ * Helper to check if a date restricts appointment creation to Internal Audit (IA) only.
+ * Returns true strictly for NO_CUSTOMER_AUDITS.
+ */
+export function isDateRestrictedToInternalAuditOnly(holiday: HolidayInfo | null | undefined): boolean {
+  if (!holiday) return false;
+  return holiday.holidayType === 'NO_CUSTOMER_AUDITS';
+}
+
+/** Automatically checks if a given Date is the last day of its month. */
+export function isLastDayOfMonth(date: Date): boolean {
+  if (!date || isNaN(date.getTime())) return false;
+  const testDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  return date.getDate() === testDate.getDate();
+}
+
+/** Automatically checks if a given Date is the last WORKING WEEKDAY of its month. */
+export function isLastWorkingWeekdayOfMonth(date: Date): boolean {
+  if (!date || isNaN(date.getTime())) return false;
+  const dayOfWeek = date.getDay();
+  if (dayOfWeek < 1 || dayOfWeek > 5) return false;
+
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const lastCalendarDate = new Date(year, month + 1, 0);
+  const lastDayOfWeek = lastCalendarDate.getDay();
+
+  let targetDay: number;
+  if (lastDayOfWeek === 6) {
+    targetDay = lastCalendarDate.getDate() - 1;
+  } else if (lastDayOfWeek === 0) {
+    targetDay = lastCalendarDate.getDate() - 2;
+  } else {
+    targetDay = lastCalendarDate.getDate();
+  }
+
+  return date.getDate() === targetDay;
 }

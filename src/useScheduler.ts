@@ -43,7 +43,16 @@ import {
   sortSites,
   setConfiguredSiteOrder,
 } from './types';
-import { getHolidayForDate, getHolidayStyle, type HolidayInfo } from './holidays';
+import {
+  getHolidayForDate,
+  getHolidayStyle,
+  isDateCompletelyBlocked,
+  isDateRestrictedToInternalAuditOnly,
+  setCustomHolidays,
+  type HolidayInfo,
+  type CustomHolidayType,
+  type CustomHoliday,
+} from './holidays';
 import {
   dayLabels,
   dayNames,
@@ -451,6 +460,14 @@ export function useScheduler() {
             }
           }
 
+          const customHolidaysMap: Record<string, CustomHoliday> = { ...(s.customHolidays || {}) };
+          if (data.customHolidays && Array.isArray(data.customHolidays)) {
+            for (const ch of data.customHolidays) {
+              if (ch && ch.date) customHolidaysMap[ch.date] = ch;
+            }
+          }
+          setCustomHolidays(customHolidaysMap);
+
           const mergedState = {
             ...s,
             engineers: mergedEngineers.map((e) => ({ ...e, department: (e.department ? normalizeSite(e.department) : 'UTL1') as Department })),
@@ -475,6 +492,7 @@ export function useScheduler() {
             removedOptions: nextRemovedOptions,
             filterCompany: nextFilterCompany,
             masterCreatedOptions: nextMasterCreated,
+            customHolidays: customHolidaysMap,
           };
 
           try {
@@ -848,7 +866,7 @@ export function useScheduler() {
     const baseDate = new Date(2026, 5, 29);
     const targetDate = new Date(baseDate);
     targetDate.setDate(baseDate.getDate() + weekOffset * 7 + day);
-    if (getHolidayForDate(targetDate)) return;
+    if (isDateCompletelyBlocked(getHolidayForDate(targetDate, S.customHolidays))) return;
     setState({ dayDialog: { weekOffset, day }, monthSelectedDate: { weekOffset, day } });
   };
   const closeDayDialog = () => setState({ dayDialog: null });
@@ -1431,14 +1449,45 @@ export function useScheduler() {
     const baseDate = new Date(2026, 5, 29);
     const targetDate = new Date(baseDate);
     targetDate.setDate(baseDate.getDate() + S.weekOffset * 7 + day);
-    if (getHolidayForDate(targetDate)) return;
-    setState({ createOpen: true, userMenuOpen: false, createDraft: { order: '', eng: engId, day, dateFrom: '', dateTo: '', sectionType: 'customer', purpose: '', department1: '', site1: '', customer: '', endCustomer: '', targetPackage: '', customerNames: '', auditCategory: '', auditor1: '', department2: '', site2: '', area: '', auditor2: '', department: undefined } });
+    const hol = getHolidayForDate(targetDate, S.customHolidays);
+    if (isDateCompletelyBlocked(hol)) return;
+    const isInternalOnly = isDateRestrictedToInternalAuditOnly(hol);
+    const targetISO = fmtISO(targetDate);
+    setState({
+      createOpen: true,
+      userMenuOpen: false,
+      createDraft: {
+        order: '',
+        eng: engId,
+        day,
+        dateFrom: targetISO,
+        dateTo: targetISO,
+        sectionType: isInternalOnly ? 'internal' : 'customer',
+        purpose: '',
+        department1: '',
+        site1: '',
+        customer: '',
+        endCustomer: '',
+        targetPackage: '',
+        customerNames: '',
+        auditCategory: '',
+        auditor1: '',
+        department2: '',
+        site2: '',
+        area: '',
+        auditor2: '',
+        department: undefined,
+      },
+    });
   };
   const openCreateWithDate = (dateIso?: string) => {
     const d = dateIso || '';
+    let isInternalOnly = false;
     if (d) {
       const parsed = new Date(d + 'T00:00:00');
-      if (getHolidayForDate(parsed)) return;
+      const hol = getHolidayForDate(parsed, S.customHolidays);
+      if (isDateCompletelyBlocked(hol)) return;
+      isInternalOnly = isDateRestrictedToInternalAuditOnly(hol);
     }
     setState({
       createOpen: true,
@@ -1447,7 +1496,8 @@ export function useScheduler() {
       createDraft: {
         order: '', eng: '', day: 0,
         dateFrom: d, dateTo: d,
-        sectionType: 'customer', purpose: '', department1: '', site1: '', customer: '', endCustomer: '', targetPackage: '', customerNames: '', auditCategory: '', auditor1: '', department2: '', site2: '', area: '', auditor2: '', department: undefined
+        sectionType: isInternalOnly ? 'internal' : 'customer',
+        purpose: '', department1: '', site1: '', customer: '', endCustomer: '', targetPackage: '', customerNames: '', auditCategory: '', auditor1: '', department2: '', site2: '', area: '', auditor2: '', department: undefined
       },
     });
   };
@@ -1501,9 +1551,27 @@ export function useScheduler() {
     const seriesId = 's_' + orderId;
     const start = new Date(dateFrom + 'T00:00:00');
     const end = new Date(dateTo + 'T00:00:00');
+
+    if (d.sectionType === 'customer') {
+      for (let cur = new Date(start); cur <= end; cur.setDate(cur.getDate() + 1)) {
+        const hol = getHolidayForDate(cur, S.customHolidays);
+        if (isDateRestrictedToInternalAuditOnly(hol)) {
+          setState((s) => ({
+            createDraft: {
+              ...s.createDraft,
+              warn: true,
+              warnText: `Customer Audits are not permitted on ${fmtISO(cur)} (No Customer Audits restriction). Please select Internal Audit.`,
+            },
+          }));
+          return;
+        }
+      }
+    }
+
     for (let cur = new Date(start); cur <= end; cur.setDate(cur.getDate() + 1)) {
       const slot = dateSlot(cur);
-      if (slot.wd < 5 && !getHolidayForDate(cur)) {
+      const hol = getHolidayForDate(cur, S.customHolidays);
+      if (slot.wd < 5 && !isDateCompletelyBlocked(hol)) {
         newAssignments.push({
           id: 'a' + ids.current.id++,
           eng: engId, order: orderId,
@@ -1531,7 +1599,16 @@ export function useScheduler() {
         });
       }
     }
-    if (newAssignments.length === 0) return;
+    if (newAssignments.length === 0) {
+      setState((s) => ({
+        createDraft: {
+          ...s.createDraft,
+          warn: true,
+          warnText: 'Selected date range falls entirely on holidays, weekend, or plant shutdown days.',
+        },
+      }));
+      return;
+    }
     const newOrder = {
       id: orderId, code: 'NEW-' + String(S.orders.length + 1).padStart(3, '0'),
       customer: d.customer ? cleanStr(d.customer) : '', product: d.endCustomer ? cleanStr(d.endCustomer) : (d.area ? formatAreaString(d.area) : ''),
@@ -1888,12 +1965,39 @@ export function useScheduler() {
     const dateTo = d.dateTo || dateFrom;
     const start = new Date(dateFrom + 'T00:00:00');
     const end = new Date(dateTo + 'T00:00:00');
+
+    if (d.sectionType === 'customer') {
+      for (let cur = new Date(start); cur <= end; cur.setDate(cur.getDate() + 1)) {
+        const hol = getHolidayForDate(cur, S.customHolidays);
+        if (isDateRestrictedToInternalAuditOnly(hol)) {
+          setState((s) => ({
+            editDraft: {
+              ...s.editDraft,
+              warn: true,
+              warnText: `Customer Audits are not permitted on ${fmtISO(cur)} (No Customer Audits restriction). Please select Internal Audit.`,
+            },
+          }));
+          return;
+        }
+      }
+    }
+
     const slots: { weekOffset: number; wd: number }[] = [];
     for (let cur = new Date(start); cur <= end; cur.setDate(cur.getDate() + 1)) {
       const slot = dateSlot(cur);
-      if (slot.wd < 5 && !getHolidayForDate(cur)) slots.push(slot);
+      const hol = getHolidayForDate(cur, S.customHolidays);
+      if (slot.wd < 5 && !isDateCompletelyBlocked(hol)) slots.push(slot);
     }
-    if (slots.length === 0) return;
+    if (slots.length === 0) {
+      setState((s) => ({
+        editDraft: {
+          ...s.editDraft,
+          warn: true,
+          warnText: 'Selected date range falls entirely on holidays, weekend, or plant shutdown days.',
+        },
+      }));
+      return;
+    }
     const oldAuditors = Array.from(new Set([
       ...(target.auditor1 || '').split(',').map((s) => s.trim()),
       ...(target.auditor2 || '').split(',').map((s) => s.trim()),
@@ -2606,6 +2710,76 @@ export function useScheduler() {
   // ---- admin ----
   const toggleUserMenu = () => setState((s) => ({ userMenuOpen: !s.userMenuOpen }));
   const setAdminTab = (t: State['adminTab']) => setState({ adminTab: t });
+
+  // ---- holidays & restrictions ----
+  const saveHolidayRule = async (date: string, type: CustomHolidayType, note?: string) => {
+    const cleanDate = date.trim();
+    if (!cleanDate) return;
+    const cleanNote = (note || '').trim();
+    const item: CustomHoliday = { date: cleanDate, type, note: cleanNote };
+    setState((s) => {
+      const next = { ...s.customHolidays, [cleanDate]: item };
+      setCustomHolidays(next);
+      return { customHolidays: next };
+    });
+    try {
+      await api.saveHoliday({ date: cleanDate, type, note: cleanNote });
+    } catch (err) {
+      console.error('Failed to save holiday to D1:', err);
+    }
+  };
+
+  const deleteHolidayRule = async (date: string) => {
+    const cleanDate = date.trim();
+    if (!cleanDate) return;
+    setState((s) => {
+      const next = { ...s.customHolidays };
+      delete next[cleanDate];
+      setCustomHolidays(next);
+      return { customHolidays: next };
+    });
+    try {
+      await api.deleteHoliday(cleanDate);
+    } catch (err) {
+      console.error('Failed to delete holiday from D1:', err);
+    }
+  };
+
+  const saveHolidayRangeRules = async (dates: string[], type: CustomHolidayType, note?: string) => {
+    if (!dates || dates.length === 0) return;
+    const cleanNote = (note || '').trim();
+    const items = dates.map((d) => ({ date: d.trim(), type, note: cleanNote }));
+    setState((s) => {
+      const next = { ...s.customHolidays };
+      for (const item of items) {
+        if (item.date) next[item.date] = item;
+      }
+      setCustomHolidays(next);
+      return { customHolidays: next };
+    });
+    try {
+      await api.saveHoliday({ items });
+    } catch (err) {
+      console.error('Failed to save holiday range to D1:', err);
+    }
+  };
+
+  const deleteHolidayRangeRules = async (dates: string[]) => {
+    if (!dates || dates.length === 0) return;
+    setState((s) => {
+      const next = { ...s.customHolidays };
+      for (const d of dates) {
+        delete next[d.trim()];
+      }
+      setCustomHolidays(next);
+      return { customHolidays: next };
+    });
+    try {
+      await api.deleteHolidays(dates);
+    } catch (err) {
+      console.error('Failed to delete holiday range from D1:', err);
+    }
+  };
   // ---- create-engineer modal ----
   const openEngForm = () =>
     setState({
@@ -3163,7 +3337,7 @@ export function useScheduler() {
     const isSelected = !weekend && !!S.dayDialog && S.dayDialog.weekOffset === slot.weekOffset && S.dayDialog.day === slot.wd;
     const holiday = getHolidayForDate(date);
     const holStyle = holiday ? getHolidayStyle(holiday) : null;
-    const isHolidayOrWeekend = weekend || !!holiday;
+    const isHolidayOrWeekend = weekend || isDateCompletelyBlocked(holiday);
     monthCells.push({
       blank: false,
       dateNum: String(dn),
@@ -3563,6 +3737,7 @@ export function useScheduler() {
       const holiday = getHolidayForDate(cellDate);
       const holStyle = holiday ? getHolidayStyle(holiday) : null;
       const isHol = Boolean(holiday);
+      const isBlocked = isDateCompletelyBlocked(holiday);
 
       const cellId = e.id + '-' + day;
       const chips = wk.filter((a) => {
@@ -3576,7 +3751,7 @@ export function useScheduler() {
         if (!aInc && bInc) return 1;
         return 0;
       }).map((a) => buildChip(a));
-      const over = !isHol && S.overCell === cellId;
+      const over = !isBlocked && S.overCell === cellId;
       return {
         cellId, chips, empty: chips.length === 0,
         holiday, isHoliday: isHol,
@@ -3587,7 +3762,7 @@ export function useScheduler() {
           background: over ? '#e7efff' : holStyle ? holStyle.bg : '#fbfcfa',
           boxShadow: over ? 'inset 0 0 0 2px #9bb0e8' : 'none',
           transition: 'background .1s',
-          cursor: isHol ? 'default' : 'pointer',
+          cursor: isBlocked ? 'default' : 'pointer',
         }),
         hintStyle: sx({
           flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -3595,19 +3770,19 @@ export function useScheduler() {
           fontSize: isHol ? '11px' : '15px', fontWeight: isHol ? 600 : 400,
           border: '1px dashed ' + (holStyle ? holStyle.borderColor : over ? '#9bb0e8' : '#e2e5de'),
           borderRadius: '6px', minHeight: '40px',
-          cursor: isHol ? 'default' : 'pointer', transition: 'all .12s',
+          cursor: isBlocked ? 'default' : 'pointer', transition: 'all .12s',
           background: holStyle ? holStyle.bg : 'transparent',
           opacity: isHol ? 0.85 : 1,
         }),
-        onHintClick: isHol ? () => {} : () => openCreateAt(e.id, day),
+        onHintClick: isBlocked ? () => {} : () => openCreateAt(e.id, day),
         onDragOver: (ev: React.DragEvent) => {
-          if (isHol) return;
+          if (isBlocked) return;
           ev.preventDefault();
           if (S.overCell !== cellId) setState({ overCell: cellId });
         },
         onDragLeave: () => { if (state.overCell === cellId) setState({ overCell: null }); },
         onDrop: (ev: React.DragEvent) => {
-          if (isHol) return;
+          if (isBlocked) return;
           ev.preventDefault();
           const d = state.drag;
           if (d) {
@@ -3633,6 +3808,7 @@ export function useScheduler() {
     cellDate.setDate(baseDate.getDate() + S.weekOffset * 7 + day);
     const holiday = getHolidayForDate(cellDate);
     const holStyle = holiday ? getHolidayStyle(holiday) : null;
+    const isBlocked = isDateCompletelyBlocked(holiday);
     if (holStyle) {
       return {
         holiday,
@@ -3641,7 +3817,7 @@ export function useScheduler() {
           borderBottom: '1px solid ' + holStyle.borderColor,
           borderRight: '1px solid ' + holStyle.borderColor,
           padding: '8px', minHeight: '78px', display: 'flex', flexDirection: 'column', gap: '5px',
-          background: holStyle.bg, cursor: 'default',
+          background: holStyle.bg, cursor: isBlocked ? 'default' : 'pointer',
         }),
       };
     }
@@ -4649,9 +4825,17 @@ export function useScheduler() {
     saveResults: (aid: string, newResults: Record<string, SiteAuditResult>) => saveResults(aid, newResults),
     adminStats,
     tabEngineers: S.adminTab === 'engineers', tabOptions: S.adminTab === 'options',
+    tabHolidays: S.adminTab === 'holidays',
     setTabEng: () => setAdminTab('engineers'), setTabOptions: () => setAdminTab('options'),
+    setTabHolidays: () => setAdminTab('holidays'),
     tabEngStyle: S.adminTab === 'engineers' ? tabOn : tabOff,
     tabOptionsStyle: S.adminTab === 'options' ? tabOn : tabOff,
+    tabHolidaysStyle: S.adminTab === 'holidays' ? tabOn : tabOff,
+    customHolidays: S.customHolidays || {},
+    saveHolidayRule,
+    deleteHolidayRule,
+    saveHolidayRangeRules,
+    deleteHolidayRangeRules,
     adminEngineers, engCount: adminEngineers.length,
     adminFilterSite: S.adminFilterSite, adminFilterDept: S.adminFilterDept, adminDeptOptions,
     toggleAdminFilterSite, toggleAdminFilterDept,

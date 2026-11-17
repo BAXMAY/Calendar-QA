@@ -194,6 +194,23 @@ async function ensureUsersTable(DB: D1Database) {
   usersTableChecked = true;
 }
 
+let customHolidaysTableChecked = false;
+async function ensureCustomHolidaysTable(DB: D1Database) {
+  if (customHolidaysTableChecked) return;
+  try {
+    await DB.prepare(`
+      CREATE TABLE IF NOT EXISTS custom_holidays (
+        date TEXT PRIMARY KEY,
+        type TEXT NOT NULL,
+        note TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run();
+  } catch {}
+  customHolidaysTableChecked = true;
+}
+
 async function handleApi(request: Request, env: Env, path: string): Promise<Response> {
   const method = request.method.toUpperCase();
   const DB = env.DB;
@@ -213,6 +230,7 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
   try {
     await ensureAssignmentColumns(DB);
     await ensureUsersTable(DB);
+    await ensureCustomHolidaysTable(DB);
 
     // --- auth: register / signup ---
     if (method === 'POST' && (path === 'auth/register' || path === 'auth/signup')) {
@@ -322,7 +340,7 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
 
     // --- GET /api/state (full data dump for initial load) ---
     if (method === 'GET' && path === 'state') {
-      const [engineers, plants, activePlantsRows, orders, assignments, comments, activity, optionsRows] = await Promise.all([
+      const [engineers, plants, activePlantsRows, orders, assignments, comments, activity, optionsRows, holidaysRows] = await Promise.all([
         DB.prepare('SELECT * FROM engineers').all(),
         DB.prepare('SELECT * FROM plants').all(),
         DB.prepare('SELECT * FROM active_plants').all(),
@@ -331,6 +349,7 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
         DB.prepare('SELECT * FROM comments').all(),
         DB.prepare('SELECT * FROM activity ORDER BY rowid DESC LIMIT 9').all(),
         DB.prepare('SELECT * FROM options').all(),
+        DB.prepare('SELECT date, type, note, created_at, updated_at FROM custom_holidays ORDER BY date ASC').all().catch(() => ({ results: [] })),
       ]);
 
       const activePlants: Record<string, boolean> = {};
@@ -419,6 +438,7 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
         targetPackageOptions: applyOrder(targetPackageOptions, 'target_package'),
         customerNameOptions: applyOrder(customerNameOptions, 'customer_names'),
         auditCategoryOptions: applyOrder(auditCategoryOptions, 'audit_category'),
+        customHolidays: (holidaysRows.results as any[]) || [],
       });
     }
 
@@ -610,6 +630,48 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
       if (category && Array.isArray(values)) {
         await DB.prepare("INSERT OR REPLACE INTO options (category, value, meta) VALUES (?, ?, '')")
           .bind('_order_' + category, JSON.stringify(values)).run();
+      }
+      return json({ ok: true });
+    }
+
+    // --- holidays (custom holidays & plant restrictions) ---
+    if (method === 'GET' && path === 'holidays') {
+      const { results } = await DB.prepare('SELECT date, type, note, created_at, updated_at FROM custom_holidays ORDER BY date ASC').all();
+      return json(results);
+    }
+    if (method === 'POST' && path === 'holidays') {
+      const items = Array.isArray(body?.items) ? body.items : (body ? [body] : []);
+      if (items.length === 0) {
+        return json({ error: 'No holiday payload provided' }, 400);
+      }
+      for (const item of items) {
+        const d = String(item.date || '').trim();
+        const t = String(item.type || '').trim().toUpperCase();
+        const note = String(item.note || '').trim();
+        if (!d || !['PUBLIC_HOLIDAY', 'SHUTDOWN_PLANT', 'NO_CUSTOMER_AUDITS'].includes(t)) {
+          continue;
+        }
+        await DB.prepare(
+          `INSERT INTO custom_holidays (date, type, note, updated_at)
+           VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+           ON CONFLICT(date) DO UPDATE SET type = excluded.type, note = excluded.note, updated_at = CURRENT_TIMESTAMP`
+        ).bind(d, t, note).run();
+      }
+      return json({ ok: true });
+    }
+    const holidayDateMatch = path.match(/^holidays\/(.+)$/);
+    if (holidayDateMatch && method === 'DELETE') {
+      const dateKey = decodeURIComponent(holidayDateMatch[1]).trim();
+      await DB.prepare('DELETE FROM custom_holidays WHERE date = ?').bind(dateKey).run();
+      return json({ ok: true });
+    }
+    if (method === 'DELETE' && path === 'holidays') {
+      const dates = Array.isArray(body?.dates) ? body.dates : (body?.date ? [body.date] : []);
+      for (const d of dates) {
+        const dateKey = String(d || '').trim();
+        if (dateKey) {
+          await DB.prepare('DELETE FROM custom_holidays WHERE date = ?').bind(dateKey).run();
+        }
       }
       return json({ ok: true });
     }

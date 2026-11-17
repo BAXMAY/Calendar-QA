@@ -1198,10 +1198,22 @@ export interface ActivityLog {
   metadata?: Record<string, any>;
 }
 
+export type { CustomHolidayType, CustomHoliday, HolidayInfo, HolidayStyle } from './holidays';
+export {
+  getHolidayForDate,
+  getHolidayStyle,
+  isOfficialHoliday,
+  isDateCompletelyBlocked,
+  isDateRestrictedToInternalAuditOnly,
+  setCustomHolidays,
+  getCustomHolidays,
+  formatYMD,
+} from './holidays';
+
 export type Page = 'schedule' | 'table' | 'admin' | 'profile' | 'summary' | 'history';
 export type View = 'person' | 'plant' | 'site' | 'timetable';
 export type TimeScale = 'week' | 'month' | 'year' | 'search';
-export type AdminTab = 'engineers' | 'options';
+export type AdminTab = 'engineers' | 'options' | 'holidays';
 
 export interface EngineerForm {
   name: string;
@@ -1289,4 +1301,5 @@ export interface State {
   comments: Record<string, Comment[]>;
   activity: Activity[];
   activityLogs: ActivityLog[];
+  customHolidays: Record<string, import('./holidays').CustomHoliday>;
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import type { Assignment, Engineer } from '../types';
 import { normalizeSite, sortSites } from '../types';
+import { getHolidayForDate, isDateRestrictedToInternalAuditOnly } from '../holidays';
 import { getActiveDropdownOptions, MASTER_PLANT_SITES } from '../utils/auditOptionsHelper';
 import { css } from '../ui';
 import { AvailabilityDatePicker } from './AvailabilityDatePicker';
@@ -2591,18 +2592,59 @@ export function AppointmentFormFields({
   const errCustFrom = isWarn && !isInternal && !v.dateFrom?.trim();
   const errCustTo = isWarn && !isInternal && (!v.dateTo?.trim() || (Boolean(v.dateFrom && v.dateTo) && v.dateFrom > v.dateTo));
 
+  // Check if date range touches a "No Customer Audits" restricted day
+  const isDateInternalOnly = useMemo(() => {
+    if (!v.dateFrom) return false;
+    const start = new Date(v.dateFrom + 'T00:00:00');
+    const end = v.dateTo ? new Date(v.dateTo + 'T00:00:00') : new Date(start);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return false;
+    const cur = new Date(start);
+    while (cur <= end) {
+      const hol = getHolidayForDate(cur);
+      if (isDateRestrictedToInternalAuditOnly(hol)) return true;
+      cur.setDate(cur.getDate() + 1);
+    }
+    return false;
+  }, [v.dateFrom, v.dateTo]);
+
+  useEffect(() => {
+    if (isDateInternalOnly && v.sectionType !== 'internal') {
+      onChange({ sectionType: 'internal' });
+    }
+  }, [isDateInternalOnly, v.sectionType, onChange]);
+
   return (
     <>
+      {isDateInternalOnly && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px',
+          background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px',
+          color: '#1d4ed8', fontSize: '12px', fontWeight: 500, marginBottom: '12px'
+        }}>
+          <span>🚫</span>
+          <span><strong>No Customer Audits:</strong> The selected date range includes a plant restriction day. Only Internal Audits are allowed.</span>
+        </div>
+      )}
+
       <div style={css('display:flex;gap:8px;margin-bottom:12px')}>
         <div
           tabIndex={-1}
           onMouseDown={(e) => e.preventDefault()}
-          onClick={() => onChange({ sectionType: 'customer' })}
+          onClick={() => {
+            if (!isDateInternalOnly) {
+              onChange({ sectionType: 'customer' });
+            }
+          }}
+          title={isDateInternalOnly ? 'Customer Audits are not permitted on this date' : undefined}
           style={{
-            flex: 1, padding: '9px 0', borderRadius: '8px', border: '1px solid ' + (v.sectionType === 'customer' ? '#15191e' : '#dde0d9'),
-            cursor: 'pointer', fontSize: '13px', fontWeight: 600, fontFamily: "'Archivo',sans-serif", textAlign: 'center',
-            background: v.sectionType === 'customer' ? '#15191e' : '#fff',
-            color: v.sectionType === 'customer' ? '#fff' : '#5c625c',
+            flex: 1, padding: '9px 0', borderRadius: '8px',
+            border: isDateInternalOnly
+              ? '1px dashed #d4d4d8'
+              : '1px solid ' + (v.sectionType === 'customer' ? '#15191e' : '#dde0d9'),
+            cursor: isDateInternalOnly ? 'not-allowed' : 'pointer',
+            fontSize: '13px', fontWeight: 600, fontFamily: "'Archivo',sans-serif", textAlign: 'center',
+            background: isDateInternalOnly ? '#f4f4f5' : v.sectionType === 'customer' ? '#15191e' : '#fff',
+            color: isDateInternalOnly ? '#a1a1aa' : v.sectionType === 'customer' ? '#fff' : '#5c625c',
             userSelect: 'none', WebkitUserSelect: 'none', outline: 'none',
           }}
         >Customer Audit</div>

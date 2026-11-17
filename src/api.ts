@@ -24,6 +24,17 @@ export interface ApiState {
   targetPackageOptions?: string[];
   customerNameOptions?: string[];
   auditCategoryOptions?: string[];
+  customHolidays?: CustomHolidayRecord[];
+}
+
+export type CustomHolidayType = 'PUBLIC_HOLIDAY' | 'SHUTDOWN_PLANT' | 'NO_CUSTOMER_AUDITS';
+
+export interface CustomHolidayRecord {
+  date: string; // 'YYYY-MM-DD'
+  type: CustomHolidayType;
+  note?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 async function req<T>(url: string, opts?: RequestInit): Promise<T> {
@@ -69,6 +80,14 @@ export const api = {
     req('/options', { method: 'DELETE', body: JSON.stringify({ category, value }) }),
   saveOptionOrder: (category: string, values: string[]) =>
     req('/options/reorder', { method: 'PUT', body: JSON.stringify({ category, values }) }),
+
+  getHolidays: () => req<CustomHolidayRecord[]>('/holidays'),
+  saveHoliday: (data: { date?: string; type?: CustomHolidayType; note?: string; items?: Array<{ date: string; type: CustomHolidayType; note?: string }> }) =>
+    req<{ ok: boolean }>('/holidays', { method: 'POST', body: JSON.stringify(data) }),
+  deleteHoliday: (date: string) =>
+    req<{ ok: boolean }>('/holidays/' + encodeURIComponent(date), { method: 'DELETE' }),
+  deleteHolidays: (dates: string[]) =>
+    req<{ ok: boolean }>('/holidays', { method: 'DELETE', body: JSON.stringify({ dates }) }),
 
   register: (userId: string, password: string, name?: string): Promise<AuthResult> =>
     authClient.register(userId, password, name),
