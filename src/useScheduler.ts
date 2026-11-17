@@ -20,6 +20,7 @@ import {
   calculateAuditStats,
   formatApptDisplayTitle,
   formatApptLogRef,
+  formatAreaString,
   formatCardSubtitle,
   formatDMY,
   formatDateRange,
@@ -1520,7 +1521,7 @@ export function useScheduler() {
           auditor1: d.sectionType === 'customer' ? cleanStr(d.auditor1) : '',
           purpose: cleanStr(d.purpose),
           site2: d.sectionType === 'internal' ? normalizeSites(cleanStr(d.site2)) : '',
-          area: d.sectionType === 'internal' ? cleanStr(d.area) : '',
+          area: d.sectionType === 'internal' ? formatAreaString(d.area) : '',
           auditor2: d.sectionType === 'internal' ? cleanStr(d.auditor2) : '',
           department1: d.sectionType === 'customer' ? cleanStr(d.department1) : '',
           department2: d.sectionType === 'internal' ? cleanStr(d.department2) : '',
@@ -1533,7 +1534,7 @@ export function useScheduler() {
     if (newAssignments.length === 0) return;
     const newOrder = {
       id: orderId, code: 'NEW-' + String(S.orders.length + 1).padStart(3, '0'),
-      customer: d.customer ? cleanStr(d.customer) : '', product: d.endCustomer ? cleanStr(d.endCustomer) : (d.area ? cleanStr(d.area) : ''),
+      customer: d.customer ? cleanStr(d.customer) : '', product: d.endCustomer ? cleanStr(d.endCustomer) : (d.area ? formatAreaString(d.area) : ''),
       plant: d.sectionType === 'internal' ? (cleanStr(d.department2) || normalizeSites(cleanStr(d.site2)) || '') : (normalizeSites(cleanStr(d.site1)) || ''), purpose: cleanStr(d.purpose),
     };
     const newEngineer = { id: engId, name: auditorPrimary, role: 'QA', site: siteToSiteCode(d.sectionType === 'internal' ? d.site2 : d.site1), department: (d.department || 'QA') as Department, subDepartments: [], isMaster: false };
@@ -2008,7 +2009,7 @@ export function useScheduler() {
       auditor1: d.sectionType === 'customer' ? cleanStr(d.auditor1) : '',
       purpose: cleanStr(d.purpose),
       site2: d.sectionType === 'internal' ? normalizeSites(cleanStr(d.site2)) : '',
-      area: d.sectionType === 'internal' ? cleanStr(d.area) : '',
+      area: d.sectionType === 'internal' ? formatAreaString(d.area) : '',
       auditor2: d.sectionType === 'internal' ? cleanStr(d.auditor2) : '',
       department1: d.sectionType === 'customer' ? cleanStr(d.department1) : '',
       department2: d.sectionType === 'internal' ? cleanStr(d.department2) : '',
@@ -2051,8 +2052,8 @@ export function useScheduler() {
     const newEndCustomer = isCustomer && d.endCustomer ? d.endCustomer.trim() : '';
     const isEndCustomerChanged = isCustomer && oldEndCustomer !== newEndCustomer;
 
-    const oldArea = (target.area || '').trim();
-    const newArea = !isCustomer && d.area ? d.area.trim() : '';
+    const oldArea = formatAreaString(target.area);
+    const newArea = !isCustomer && d.area ? formatAreaString(d.area) : '';
     const isAreaChanged = !isCustomer && oldArea !== newArea;
 
     const oldDept1 = (target.department1 || '').trim();

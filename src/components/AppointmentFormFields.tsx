@@ -2016,6 +2016,381 @@ function MultiAuditorSelect({
   );
 }
 
+function MultiAreaSelect({
+  id,
+  value,
+  onChange,
+  suggestions,
+  onAddNew,
+  onRemoveOption,
+  tabIndex,
+  hasError,
+}: {
+  id: string;
+  value: string;
+  onChange: (val: string) => void;
+  suggestions: string[];
+  onAddNew?: (val: string) => void;
+  onRemoveOption?: (val: string) => void;
+  tabIndex?: number;
+  hasError?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const [inputVal, setInputVal] = useState('');
+  const [removedItems, setRemovedItems] = useState<Set<string>>(new Set());
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selectedAreas = useMemo(() => {
+    if (!value) return [];
+    const rawParts = Array.isArray(value) ? value : String(value).split(/[/,]/);
+    return rawParts
+      .map((s) => String(s || '').trim().replace(/^\$+/, '').trim())
+      .filter(Boolean);
+  }, [value]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setInputVal('');
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const toggleArea = (name: string) => {
+    const cleanName = name.trim().replace(/^\$+/, '').trim();
+    if (!cleanName) return;
+    const isAlreadySel = selectedAreas.some((a) => a.toLowerCase() === cleanName.toLowerCase());
+    const next = isAlreadySel
+      ? selectedAreas.filter((a) => a.toLowerCase() !== cleanName.toLowerCase())
+      : [...selectedAreas, cleanName];
+    onChange(next.join(' / '));
+  };
+
+  const removeArea = (name: string) => {
+    const next = selectedAreas.filter((a) => a.toLowerCase() !== name.toLowerCase());
+    onChange(next.join(' / '));
+  };
+
+  const addCustom = () => {
+    const clean = inputVal.trim().replace(/^\$+/, '').trim();
+    if (!clean) return;
+    const pieces = clean.split(/[/,]/).map((s) => s.trim().replace(/^\$+/, '').trim()).filter(Boolean);
+    const toAdd = pieces.filter((p) => !selectedAreas.some((sel) => sel.toLowerCase() === p.toLowerCase()));
+    if (toAdd.length > 0) {
+      onChange([...selectedAreas, ...toAdd].join(' / '));
+      if (onAddNew) {
+        toAdd.forEach((p) => {
+          if (!suggestions.some((s) => s.toLowerCase() === p.toLowerCase())) {
+            onAddNew(p);
+          }
+        });
+      }
+    }
+    setInputVal('');
+    setOpen(false);
+  };
+
+  const filteredSuggestions = useMemo(() => {
+    const q = inputVal.trim().toLowerCase();
+    const unique = Array.from(new Set(suggestions.map((s) => s.trim().replace(/^\$+/, '').trim()).filter(Boolean)))
+      .filter((s) => !removedItems.has(s));
+    return q ? unique.filter((s) => s.toLowerCase().includes(q)) : unique;
+  }, [suggestions, inputVal, removedItems]);
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
+      {/* Combobox Input Box with Tags */}
+      <div
+        onClick={() => {
+          inputRef.current?.focus();
+          setOpen(true);
+        }}
+        style={{
+          border: isFocused
+            ? (hasError ? '1px solid #dc2626' : '1px solid #2756d6')
+            : hasError
+            ? '1px solid #ef4444'
+            : '1px solid #dde0d9',
+          boxShadow: isFocused
+            ? (hasError ? '0 0 0 3px rgba(220, 38, 38, 0.15)' : '0 0 0 3px rgba(39, 86, 214, 0.12)')
+            : hasError
+            ? '0 0 0 1px rgba(239, 68, 68, 0.2)'
+            : 'none',
+          transition: 'border-color .15s ease, box-shadow .15s ease',
+          borderRadius: '8px',
+          padding: '6px 14px',
+          minHeight: '42px',
+          fontSize: '12.5px',
+          fontFamily: "'Archivo',sans-serif",
+          background: hasError ? '#fff8f8' : '#fff',
+          width: '100%',
+          minWidth: 0,
+          boxSizing: 'border-box',
+          cursor: 'text',
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          gap: '6px',
+        }}
+      >
+        {selectedAreas.map((name) => (
+          <span
+            key={name}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '2px 7px',
+              borderRadius: '5px',
+              background: '#eef2fd',
+              border: '1px solid #d4def0',
+              fontSize: '11.5px',
+              fontFamily: "'Archivo',sans-serif",
+              fontWeight: 600,
+              color: '#2756d6',
+            }}
+          >
+            {name.replace(/^\$+/, '')}
+            <button
+              type="button"
+              tabIndex={-1}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                removeArea(name);
+              }}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                color: '#2756d6',
+                cursor: 'pointer',
+                padding: 0,
+                fontSize: '10px',
+                lineHeight: 1,
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              ✕
+            </button>
+          </span>
+        ))}
+
+        <input
+          ref={inputRef}
+          id={id}
+          type="text"
+          tabIndex={tabIndex}
+          value={inputVal}
+          onChange={(e) => {
+            setInputVal(e.target.value.replace(/^\$+/, ''));
+            setOpen(true);
+          }}
+          onFocus={() => {
+            setIsFocused(true);
+            setOpen(true);
+          }}
+          onBlur={(e) => {
+            if (containerRef.current && !containerRef.current.contains(e.relatedTarget as Node)) {
+              setIsFocused(false);
+              setOpen(false);
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              addCustom();
+            } else if (e.key === 'Backspace' && !inputVal && selectedAreas.length > 0) {
+              removeArea(selectedAreas[selectedAreas.length - 1]);
+            }
+          }}
+          placeholder={selectedAreas.length === 0 ? "Type or select area(s)..." : "Add area..."}
+          style={{
+            border: 'none',
+            outline: 'none',
+            background: 'transparent',
+            fontSize: '12.5px',
+            fontFamily: "'Archivo',sans-serif",
+            color: '#23282a',
+            padding: '2px 0',
+            minWidth: '120px',
+            flex: 1,
+          }}
+        />
+
+        <span
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpen(!open);
+          }}
+          style={{
+            fontSize: '9px',
+            color: '#8a9088',
+            marginLeft: 'auto',
+            flexShrink: 0,
+            cursor: 'pointer',
+            padding: '2px',
+          }}
+        >
+          {open ? '▲' : '▼'}
+        </span>
+      </div>
+
+      {/* Dropdown Menu */}
+      {open && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            marginTop: '4px',
+            background: '#fff',
+            border: '1px solid #dde0d9',
+            borderRadius: '8px',
+            boxShadow: '0 6px 20px rgba(0,0,0,0.12)',
+            zIndex: 100,
+            padding: '4px',
+            maxHeight: '210px',
+            overflowY: 'auto',
+          }}
+        >
+          {inputVal.trim() && !filteredSuggestions.some((s) => s.toLowerCase() === inputVal.trim().toLowerCase()) && (
+            <div
+              onMouseDown={(e) => {
+                e.preventDefault();
+                addCustom();
+              }}
+              style={{
+                padding: '7px 10px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: 600,
+                color: '#2756d6',
+                background: '#eef2fd',
+                border: '1px solid #d4def0',
+                marginBottom: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <span>＋ Add "{inputVal.replace(/^\$+/, '').trim()}"</span>
+            </div>
+          )}
+
+          {filteredSuggestions.length === 0 && !inputVal.trim() && (
+            <div style={{ padding: '8px 10px', fontSize: '12px', color: '#8a9088', fontFamily: "'Archivo',sans-serif" }}>
+              No areas found
+            </div>
+          )}
+
+          {filteredSuggestions.map((name) => {
+            const isSel = selectedAreas.includes(name);
+            return (
+              <div
+                key={name}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  toggleArea(name.replace(/^\$+/, '').trim());
+                  setInputVal('');
+                }}
+                style={{
+                  padding: '7px 10px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '12.5px',
+                  fontFamily: "'Archivo',sans-serif",
+                  fontWeight: isSel ? 600 : 400,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  background: isSel ? '#eef2fd' : '#fff',
+                  color: isSel ? '#2756d6' : '#23282a',
+                  transition: 'background .1s ease',
+                  marginBottom: '2px',
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none',
+                  outline: 'none',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0, userSelect: 'none', WebkitUserSelect: 'none', cursor: 'pointer' }}>
+                  <span
+                    style={{
+                      width: '14px',
+                      height: '14px',
+                      borderRadius: '3px',
+                      flexShrink: 0,
+                      border: '1px solid ' + (isSel ? '#2756d6' : '#cdd2c9'),
+                      background: isSel ? '#2756d6' : '#fff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '9px',
+                      color: '#fff',
+                      userSelect: 'none',
+                      WebkitUserSelect: 'none',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {isSel ? '✓' : ''}
+                  </span>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', userSelect: 'none', WebkitUserSelect: 'none', cursor: 'pointer' }}>
+                    {name.replace(/^\$+/, '')}
+                  </span>
+                </div>
+
+                {onRemoveOption && (
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    title={`Delete "${name.replace(/^\$+/, '')}" from saved options`}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setRemovedItems((prev) => new Set(prev).add(name));
+                      onRemoveOption(name.replace(/^\$+/, '').trim());
+                    }}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      color: '#8a9088',
+                      cursor: 'pointer',
+                      padding: '2px 5px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      lineHeight: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#fee2e2';
+                      e.currentTarget.style.color = '#dc2626';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.color = '#8a9088';
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Shared Customer/Internal Audit field set used by both CreateModal and EditModal. */
 export function AppointmentFormFields({
   idPrefix,
@@ -2199,7 +2574,7 @@ export function AppointmentFormFields({
   const errIntDept = isWarn && isInternal && !v.department2?.trim();
   const errIntSite = isWarn && isInternal && !v.site2?.trim();
   const errIntCategory = isWarn && isInternal && !v.auditCategory?.trim();
-  const errIntArea = isWarn && isInternal && !v.area?.trim();
+  const errIntArea = isWarn && isInternal && !v.area?.replace(/^[\s/]+|[\s/]+$/g, '').trim();
   const errIntHost = isWarn && isInternal && (!v.auditor2?.trim() || v.auditor2.trim().toLowerCase() === 'unassigned');
   const errIntFrom = isWarn && isInternal && !v.dateFrom?.trim();
   const errIntTo = isWarn && isInternal && (!v.dateTo?.trim() || (Boolean(v.dateFrom && v.dateTo) && v.dateFrom > v.dateTo));
@@ -2541,17 +2916,15 @@ export function AppointmentFormFields({
 
             <div style={fld}>
               <label htmlFor={id('area')} style={lbl}>AREA <span style={{ color: '#dc2626' }}>*</span></label>
-              <AutocompleteInput
+              <MultiAreaSelect
                 id={id('area')}
                 tabIndex={4}
-                value={v.area}
-                onChange={(area) => onChange({ area: area.replace(/^\$+/, '') })}
-                placeholder="Type or select area..."
+                value={v.area || ''}
+                onChange={(area) => onChange({ area })}
                 suggestions={areaSuggestions}
                 onAddNew={(newArea) => {
                   const clean = newArea.replace(/^\$+/, '').trim();
                   trackLocalAdd('area', clean);
-                  onChange({ area: clean });
                 }}
                 onRemoveOption={removeGenericOption}
                 hasError={errIntArea}

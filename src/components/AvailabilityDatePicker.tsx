@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import type { Assignment, Engineer } from '../types';
+import { formatAreaString } from '../types';
 import { css, HButton } from '../ui';
 import { getHolidayForDate, getHolidayStyle, isOfficialHoliday } from '../holidays';
 
@@ -182,7 +183,7 @@ export function AvailabilityDatePicker({
         const displayCustomer = (a.customer || '').trim();
         const displayEndCustomer = (a.endCustomer || '').trim();
         const displayPurpose = (a.purpose || '').trim();
-        const displayArea = (a.area || '').trim();
+        const displayArea = formatAreaString(a.area);
         const rawEngName = engMap.get(a.eng) || '';
         const displayAuditor = (a.auditor1 || a.auditor2 || rawEngName || auditor || '').trim();
 

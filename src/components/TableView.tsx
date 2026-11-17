@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import type { VM } from '../useScheduler';
 import type { Assignment } from '../types';
-import { isInternalAssignment, calculateAuditStats, normalizeSite, normalizeSites, getSiteOrderIndex } from '../types';
+import { isInternalAssignment, calculateAuditStats, formatAreaString, normalizeSite, normalizeSites, getSiteOrderIndex } from '../types';
 import { getActiveDropdownOptions, MASTER_PLANT_SITES } from '../utils/auditOptionsHelper';
 import { css, HButton } from '../ui';
 
@@ -241,7 +241,7 @@ export function TableView({ vm }: { vm: VM }) {
       const site = normalizeSites((isInternal ? (a.site2 || a.site1) : (a.site1 || a.site2)) || '');
       const standard = (isInternal ? (a.department2 || a.department1) : (a.department1 || a.department2)) || '';
       const auditCategory = isInternal ? (a.auditCategory || '') : '';
-      const purpose = (isInternal ? (a.area || a.purpose) : (a.purpose || '')) || '';
+      const purpose = (isInternal ? (formatAreaString(a.area) || a.purpose) : (a.purpose || '')) || '';
       const targetPackage = a.targetPackage || '';
       const customerNames = a.customerNames || '';
       const auditor = (isInternal ? (a.auditor2 || a.auditor1) : (a.auditor1 || a.auditor2)) || (engMap.get(a.eng) || '');

@@ -114,7 +114,7 @@ export const getActiveDropdownOptions = (
       extractCleanValues(apt.leadAuditor, uniqueValues);
     } else if (normKey === 'auditcategory' || normKey === 'auditcategories') {
       extractCleanValues(apt.auditCategory, uniqueValues);
-    } else if (normKey === 'area' || normKey === 'departmentarea') {
+    } else if (normKey === 'area' || normKey === 'areas' || normKey === 'departmentarea') {
       extractCleanValues(apt.area, uniqueValues);
     } else if (normKey === 'department1') {
       extractCleanValues(apt.department1, uniqueValues);

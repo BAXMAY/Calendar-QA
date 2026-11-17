@@ -508,8 +508,8 @@ export function getMissingFields(a: Assignment | any): string[] {
         ? a.apptPurpose
         : a.rawPurpose || a.product;
     const hasArea = Array.isArray(rawArea)
-      ? rawArea.length > 0 && rawArea.some((s: any) => Boolean(s && String(s).trim()))
-      : Boolean(rawArea && String(rawArea).trim());
+      ? rawArea.length > 0 && rawArea.some((s: any) => Boolean(s && String(s).replace(/^[\s/]+|[\s/]+$/g, '').trim()))
+      : Boolean(rawArea && String(rawArea).replace(/^[\s/]+|[\s/]+$/g, '').trim());
     if (!hasArea) missing.push('Area');
 
     // 5. QMS HOST (must be populated and not "Unassigned")
@@ -628,6 +628,21 @@ export function isAppointmentFormIncomplete(audit: Appointment | any): boolean {
 export const isAppointmentIncomplete = isAppointmentFormIncomplete;
 export const isIncompleteAssignment = isAppointmentFormIncomplete;
 
+/**
+ * Formats multiple areas with " / " separator.
+ * Handles string[], comma-separated, and slash-separated input cleanly.
+ */
+export function formatAreaString(area: unknown): string {
+  if (!area) return '';
+  const parts = Array.isArray(area)
+    ? area
+    : String(area).split(/[/,]/);
+  return parts
+    .map((s) => String(s || '').trim().replace(/^\$+/, '').trim())
+    .filter(Boolean)
+    .join(' / ');
+}
+
 export function formatApptDisplayTitle(a: Assignment, defaultOrder?: { customer?: string; plant?: string } | null): string {
   if (!a) return '';
 
@@ -637,7 +652,7 @@ export function formatApptDisplayTitle(a: Assignment, defaultOrder?: { customer?
     // Label Formatting for "IA" (Internal Audit) Type:
     // Sequence: IA · {Department} · {Area} - {Site}
     const dept = (a.department2 || a.department1 || '').trim();
-    const area = (a.area || '').trim();
+    const area = formatAreaString(a.area);
     const site = normalizeSites((a.site2 || a.site1 || '').trim());
 
     const mainSegments: string[] = ['IA'];

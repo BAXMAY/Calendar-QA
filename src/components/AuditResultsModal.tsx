@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import type { VM } from '../useScheduler';
 import type { Assignment, SiteAuditResult } from '../types';
 import { css, HButton } from '../ui';
-import { isInternalAssignment, normalizeSite, normalizeAuditResults, isAuditResultCompleted, sortSites } from '../types';
+import { isInternalAssignment, normalizeSite, normalizeAuditResults, isAuditResultCompleted, sortSites, formatAreaString } from '../types';
 
 function AuditResultsDialog({ vm, target }: { vm: VM; target: Assignment }) {
   const isInternal = isInternalAssignment(target);
@@ -186,7 +186,7 @@ function AuditResultsDialog({ vm, target }: { vm: VM; target: Assignment }) {
               </span>
             </div>
             <div style={css('font-size:12px;color:#5c625c;margin-top:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap')}>
-              <span style={css('font-weight:600;color:#15191e')}>{isInternal ? (target.area ? `${target.area} · ` : '') + 'Internal Audit' : customerTitle}</span>
+              <span style={css('font-weight:600;color:#15191e')}>{isInternal ? (target.area ? `${formatAreaString(target.area)} · ` : '') + 'Internal Audit' : customerTitle}</span>
               <span>·</span>
               <span>Site: {seriesSiteDisplay || 'Unassigned'}</span>
               {standardText && (

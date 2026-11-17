@@ -1,4 +1,5 @@
 import type { Order } from '../types';
+import { formatAreaString } from '../types';
 
 export interface AuditStatsResult {
   totalAudits: number;
@@ -70,7 +71,7 @@ export const calculateAuditStats = (
 
     const rawEntity =
       (type === 'internal'
-        ? (r.standard || r.auditCategory || r.area || (Array.isArray(r.department2) ? r.department2.join('/') : r.department2))
+        ? (r.standard || r.auditCategory || formatAreaString(r.area) || (Array.isArray(r.department2) ? r.department2.join('/') : r.department2))
         : (r.customerName || r.customer || r.customerNames || (Array.isArray(r.customerName) ? r.customerName.join('/') : '') || (o ? o.customer : ''))
       ) || 'Unknown';
     const entity = String(rawEntity).trim();
@@ -93,8 +94,9 @@ export const calculateAuditStats = (
       'Unknown';
     const site = cleanSite(String(rawSite).trim());
 
+    const resolvedArea = formatAreaString((r as any).area);
     const rawPurpose =
-      (type === 'internal' ? ((r as any).area || r.purpose) : r.purpose) ||
+      (type === 'internal' ? (resolvedArea || r.purpose) : r.purpose) ||
       r.apptPurpose ||
       (r as any).auditScope ||
       (r as any).auditCategory ||
@@ -232,7 +234,7 @@ export const getGroupedAuditEvents = (
 
     const rawEntity =
       (type === 'internal'
-        ? (r.standard || r.auditCategory || r.area || (Array.isArray(r.department2) ? r.department2.join('/') : r.department2))
+        ? (r.standard || r.auditCategory || formatAreaString(r.area) || (Array.isArray(r.department2) ? r.department2.join('/') : r.department2))
         : (r.customerName || r.customer || r.customerNames || (Array.isArray(r.customerName) ? r.customerName.join('/') : '') || (o ? o.customer : ''))
       ) || 'Unknown';
     const entity = String(rawEntity).trim();
@@ -244,8 +246,9 @@ export const getGroupedAuditEvents = (
       'Unknown';
     const site = String(rawSite).trim();
 
+    const resolvedArea = formatAreaString((r as any).area);
     const rawPurpose =
-      r.purpose ||
+      (type === 'internal' ? (resolvedArea || r.purpose) : r.purpose) ||
       r.apptPurpose ||
       (r as any).auditScope ||
       (r as any).auditCategory ||

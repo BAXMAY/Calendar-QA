@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState, useMemo } from 'react';
 import type { VM } from '../useScheduler';
 import { getApptCardColors } from '../useScheduler';
-import { isAuditResultCompleted, formatCardSubtitle, STATUS_COLOR_MAP, STATUS_COLOR_LIST } from '../types';
+import { isAuditResultCompleted, formatCardSubtitle, STATUS_COLOR_MAP, STATUS_COLOR_LIST, formatAreaString } from '../types';
 import { css, HButton, HInput } from '../ui';
 import { getHolidayStyle, isOfficialHoliday } from '../holidays';
 
@@ -409,7 +409,7 @@ function ApptCard({ chip }: { chip: any }) {
             ) : (
               <>
                 {chip.auditCategory && <div>Audit Category: <span style={css('color:#3c423d')}>{chip.auditCategory}</span></div>}
-                {chip.area && <div>Area: <span style={css('color:#15191e;font-weight:600')}>{chip.area}</span></div>}
+                {chip.area && <div>Area: <span style={css('color:#15191e;font-weight:600')}>{formatAreaString(chip.area)}</span></div>}
                 <div>
                   QMS Host: {chip.auditor && chip.auditor !== 'Unassigned' ? (
                     <span style={css('color:#3c423d')}>{chip.auditor}</span>
@@ -991,7 +991,7 @@ function SearchRowItem({ dateLabel, chip, isLast }: { dateLabel: string; chip: a
             ) : (
               <>
                 {chip.auditCategory && <div>Audit Category: <span style={css('color:#3c423d')}>{chip.auditCategory}</span></div>}
-                {chip.area && <div>Area: <span style={css('color:#15191e;font-weight:600')}>{chip.area}</span></div>}
+                {chip.area && <div>Area: <span style={css('color:#15191e;font-weight:600')}>{formatAreaString(chip.area)}</span></div>}
                 <div>
                   QMS Host: {chip.auditor && chip.auditor !== 'Unassigned' ? (
                     <span style={css('color:#3c423d')}>{chip.auditor}</span>

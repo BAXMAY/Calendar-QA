@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import type { VM } from '../useScheduler';
 import type { Assignment, SiteAuditResult } from '../types';
 import { css } from '../ui';
-import { isInternalAssignment, calculateUnifiedAuditMetrics } from '../types';
+import { isInternalAssignment, calculateUnifiedAuditMetrics, formatAreaString } from '../types';
 
 export const CANONICAL_SITE_ORDER = [
   'UTL1',
@@ -222,7 +222,7 @@ export function SummaryDashboard({ vm }: { vm: VM }) {
       const site = normalizeToTargetSite((isInternal ? (a.site2 || a.site1) : (a.site1 || a.site2)) || '');
       const standard = (isInternal ? (a.department2 || a.department1) : (a.department1 || a.department2)) || '';
       const auditCategory = isInternal ? (a.auditCategory || '') : '';
-      const purpose = (isInternal ? (a.area || a.purpose) : (a.purpose || '')) || '';
+      const purpose = (isInternal ? (formatAreaString(a.area) || a.purpose) : (a.purpose || '')) || '';
 
       list.push({
         id: a.id,
