@@ -134,13 +134,24 @@ function AdminFilterDropdown({ label, count, selected, items, onToggle }: { labe
 
 function DepartmentFilterDropdown({
   selected,
-  onSelect,
+  onToggle,
+  onClear,
 }: {
-  selected: 'All' | 'QA' | 'Non-QA';
-  onSelect: (val: 'All' | 'QA' | 'Non-QA') => void;
+  selected: ('QA' | 'Non-QA')[];
+  onToggle: (val: 'QA' | 'Non-QA') => void;
+  onClear: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const active = selected !== 'All';
+  const isOnlyQa = selected.includes('QA') && !selected.includes('Non-QA');
+  const isOnlyNonQa = !selected.includes('QA') && selected.includes('Non-QA');
+  const active = isOnlyQa || isOnlyNonQa;
+
+  let buttonLabel = 'Department';
+  if (isOnlyQa) {
+    buttonLabel = 'QA';
+  } else if (isOnlyNonQa) {
+    buttonLabel = 'Non-QA';
+  }
 
   return (
     <div style={css('position:relative')}>
@@ -159,13 +170,13 @@ function DepartmentFilterDropdown({
             ";cursor:pointer;font-family:'Archivo',sans-serif;transition:all .12s ease"
         )}
       >
-        <span>{selected === 'All' ? 'Department' : `Department: ${selected}`}</span>
+        <span>{buttonLabel}</span>
         {active && (
           <span
             role="button"
             onClick={(e) => {
               e.stopPropagation();
-              onSelect('All');
+              onClear();
             }}
             title="Clear filter"
             style={css(
@@ -183,27 +194,26 @@ function DepartmentFilterDropdown({
           <div onClick={() => setOpen(false)} style={css('position:fixed;inset:0;z-index:99')} />
           <div
             style={css(
-              'position:absolute;top:100%;right:0;z-index:100;margin-top:4px;background:#fff;border:1px solid #dde0d9;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);min-width:160px;padding:5px'
+              'position:absolute;top:100%;right:0;z-index:100;margin-top:4px;background:#fff;border:1px solid #dde0d9;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);min-width:140px;padding:5px'
             )}
           >
-            {([
-              { value: 'All', label: 'All Departments' },
-              { value: 'QA', label: 'QA' },
-              { value: 'Non-QA', label: 'Non-QA' },
-            ] as const).map((opt) => {
-              const isChecked = selected === opt.value;
+            {(['QA', 'Non-QA'] as const).map((dept) => {
+              const isChecked = selected.includes(dept);
               return (
                 <div
-                  key={opt.value}
+                  key={dept}
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    onSelect(opt.value);
-                    setOpen(false);
-                  }}
+                  onClick={() => onToggle(dept)}
                   style={css(
                     "display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:5px;cursor:pointer;font-size:11.5px;font-family:'Archivo',sans-serif;color:#27272a;user-select:none;outline:none;transition:background .1s ease;" +
                       (isChecked ? 'background:#eef2fd;font-weight:600;' : 'background:#fff;font-weight:400;')
                   )}
+                  onMouseEnter={(e) => {
+                    if (!isChecked) e.currentTarget.style.background = '#f8fafc';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isChecked) e.currentTarget.style.background = '#fff';
+                  }}
                 >
                   <span
                     style={css(
@@ -216,7 +226,7 @@ function DepartmentFilterDropdown({
                   >
                     {isChecked ? '✓' : ''}
                   </span>
-                  <span>{opt.label}</span>
+                  <span>{dept}</span>
                 </div>
               );
             })}
@@ -228,13 +238,33 @@ function DepartmentFilterDropdown({
 }
 
 function EngineersTable({ vm }: { vm: VM }) {
-  const [selectedDepartment, setSelectedDepartment] = useState<'All' | 'QA' | 'Non-QA'>('All');
+  const [selectedDepartments, setSelectedDepartments] = useState<('QA' | 'Non-QA')[]>([]);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
 
+  const handleToggleDepartment = (dept: 'QA' | 'Non-QA') => {
+    setSelectedDepartments((prev) =>
+      prev.includes(dept) ? prev.filter((d) => d !== dept) : [...prev, dept]
+    );
+  };
+
+  const handleClearDepartment = () => {
+    setSelectedDepartments([]);
+  };
+
   const filteredEngineers = vm.adminEngineers.filter((e) => {
-    if (selectedDepartment === 'All') return true;
-    return e.department === selectedDepartment;
+    const hasQa = selectedDepartments.includes('QA');
+    const hasNonQa = selectedDepartments.includes('Non-QA');
+    if ((!hasQa && !hasNonQa) || (hasQa && hasNonQa)) {
+      return true;
+    }
+    if (hasQa) {
+      return e.department === 'QA';
+    }
+    if (hasNonQa) {
+      return e.department === 'Non-QA';
+    }
+    return true;
   });
 
   return (
@@ -257,8 +287,9 @@ function EngineersTable({ vm }: { vm: VM }) {
             onToggle={vm.toggleAdminFilterDept}
           />
           <DepartmentFilterDropdown
-            selected={selectedDepartment}
-            onSelect={setSelectedDepartment}
+            selected={selectedDepartments}
+            onToggle={handleToggleDepartment}
+            onClear={handleClearDepartment}
           />
           <HButton onClick={vm.addEngineer} style={css("background:#15191e;color:#fff;border:none;border-radius:7px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Archivo',sans-serif")} hover={{ background: '#23282e' }}>+ New QMS Host</HButton>
         </div>
