@@ -340,7 +340,7 @@ function EngineersTable({ vm }: { vm: VM }) {
 
   return (
     <div style={css('background:#fff;border:1px solid #e2e5de;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,0.02);overflow:visible;position:relative;z-index:10')}>
-      <div style={css('display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid #eef1ea;flex-wrap:wrap;gap:10px;position:relative;z-index:50;border-top-left-radius:14px;border-top-right-radius:14px;background:#fff;overflow:visible')}>
+      <div style={css('display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid #eef1ea;flex-wrap:wrap;gap:10px;position:relative;z-index:40;border-top-left-radius:14px;border-top-right-radius:14px;background:#fff;overflow:visible')}>
         <div style={css('font-size:13.5px;font-weight:700;color:#15191e')}>QMS Host <span style={css('color:#9aa097;font-weight:500')}>· {filteredEngineers.length}</span></div>
         <div style={css('display:flex;align-items:center;gap:8px;flex-wrap:wrap')}>
           <AdminFilterDropdown
@@ -379,122 +379,117 @@ function EngineersTable({ vm }: { vm: VM }) {
           <HButton onClick={vm.addEngineer} style={css("background:#15191e;color:#fff;border:none;border-radius:7px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Archivo',sans-serif")} hover={{ background: '#23282e' }}>+ New QMS Host</HButton>
         </div>
       </div>
-      {filteredEngineers.map((e, idx) => {
-        const isLast = idx === filteredEngineers.length - 1;
-        return (
-        <div
-          key={e.id}
-          draggable
-          onDragStart={(evt) => {
-            setDraggedIdx(idx);
-            evt.dataTransfer.effectAllowed = 'move';
-            evt.dataTransfer.setData('text/plain', String(idx));
-          }}
-          onDragOver={(evt) => {
-            evt.preventDefault();
-            evt.dataTransfer.dropEffect = 'move';
-            if (dropTargetIdx !== idx) setDropTargetIdx(idx);
-          }}
-          onDrop={(evt) => {
-            evt.preventDefault();
-            if (draggedIdx !== null && dropTargetIdx !== null && draggedIdx !== dropTargetIdx) {
-              const draggedItem = filteredEngineers[draggedIdx];
-              const targetItem = filteredEngineers[dropTargetIdx];
-              if (draggedItem && targetItem) {
-                const next = [...vm.adminEngineers];
-                const from = next.findIndex((item) => item.id === draggedItem.id);
-                const to = next.findIndex((item) => item.id === targetItem.id);
-                if (from !== -1 && to !== -1) {
-                  const [moved] = next.splice(from, 1);
-                  next.splice(to, 0, moved);
-                  vm.reorderEngineers(next);
+      <div style={css('position:relative;z-index:1')}>
+        {filteredEngineers.map((e, idx) => {
+          const isLast = idx === filteredEngineers.length - 1;
+          return (
+          <div
+            key={e.id}
+            draggable
+            onDragStart={(evt) => {
+              setDraggedIdx(idx);
+              evt.dataTransfer.effectAllowed = 'move';
+              evt.dataTransfer.setData('text/plain', String(idx));
+            }}
+            onDragOver={(evt) => {
+              evt.preventDefault();
+              evt.dataTransfer.dropEffect = 'move';
+              if (dropTargetIdx !== idx) setDropTargetIdx(idx);
+            }}
+            onDrop={(evt) => {
+              evt.preventDefault();
+              if (draggedIdx !== null && dropTargetIdx !== null && draggedIdx !== dropTargetIdx) {
+                const draggedItem = filteredEngineers[draggedIdx];
+                const targetItem = filteredEngineers[dropTargetIdx];
+                if (draggedItem && targetItem) {
+                  const next = [...vm.adminEngineers];
+                  const from = next.findIndex((item) => item.id === draggedItem.id);
+                  const to = next.findIndex((item) => item.id === targetItem.id);
+                  if (from !== -1 && to !== -1) {
+                    const [moved] = next.splice(from, 1);
+                    next.splice(to, 0, moved);
+                    vm.reorderEngineers(next);
+                  }
                 }
               }
-            }
-            setDraggedIdx(null);
-            setDropTargetIdx(null);
-          }}
-          onDragEnd={() => {
-            setDraggedIdx(null);
-            setDropTargetIdx(null);
-          }}
-          style={css(
-            'display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:' +
-              (isLast ? 'none' : '1px solid #f1f3ee') +
-              ';transition:background 0.15s ease, transform 0.15s ease;background:' +
-              (dropTargetIdx === idx && draggedIdx !== idx ? '#eef2fd' : '#fff') +
-              ';opacity:' +
-              (draggedIdx === idx ? '0.4' : '1') +
-              ';box-shadow:' +
-              (draggedIdx === idx ? '0 4px 12px rgba(0,0,0,0.12)' : 'none') +
-              ';cursor:grab;' +
-              (isLast ? 'border-bottom-left-radius:14px;border-bottom-right-radius:14px;' : '')
-          )}
-          onMouseEnter={(evt) => {
-            if (dropTargetIdx !== idx) evt.currentTarget.style.background = '#f9faf7';
-          }}
-          onMouseLeave={(evt) => {
-            if (dropTargetIdx !== idx) evt.currentTarget.style.background = '#fff';
-          }}
-        >
-          <div style={css('display:flex;align-items:center;gap:12px;min-width:0;flex:1')}>
-            <span style={css('color:#9aa097;font-size:13px;cursor:grab;user-select:none;line-height:1;padding:4px 6px;margin-left:-4px;flex-shrink:0')}>⋮⋮</span>
-            <div onClick={() => vm.openEditEngineer(e.id)} style={css('display:flex;align-items:center;gap:12px;min-width:0;cursor:pointer;flex:1')}>
-              <div style={e.avatarStyle}>{e.initials}</div>
-              <div style={css('min-width:0')}>
-                <div style={css('font-size:13px;font-weight:600;color:#15191e;text-decoration:none;display:flex;align-items:center;gap:8px')}>
-                  <span>{e.name}</span>
-                  {e.department && (e.department === 'QA' || e.department === 'Non-QA') && (
-                    <span
-                      style={css(
-                        `font-size:10.5px;font-weight:700;padding:2px 7.5px;border-radius:5px;font-family:'IBM Plex Mono',monospace;line-height:1.2;user-select:none;` +
-                          (e.department === 'QA'
-                            ? 'background:#f0f9ff;color:#0369a1;border:1px solid #bae6fd;'
-                            : 'background:#fef3c7;color:#92400e;border:1px solid #fde68a;')
-                      )}
-                    >
-                      {e.department}
-                    </span>
-                  )}
-                </div>
-                <div style={css('font-size:11px;color:#8a9088;margin-top:2px')}>{e.site || 'UTL1'}{e.subDepartments.length > 0 ? ' · ' + e.subDepartments.join(', ') : ''}</div>
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={e.onDelete}
-            title="Remove QMS Host"
-            style={css("background:none;border:none;cursor:pointer;color:#9aa097;font-size:16px;padding:6px 10px;border-radius:6px;transition:all 0.12s;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0")}
+              setDraggedIdx(null);
+              setDropTargetIdx(null);
+            }}
+            onDragEnd={() => {
+              setDraggedIdx(null);
+              setDropTargetIdx(null);
+            }}
+            style={css(
+              'display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:' +
+                (isLast ? 'none' : '1px solid #f1f3ee') +
+                ';transition:background 0.15s ease, transform 0.15s ease;background:' +
+                (dropTargetIdx === idx && draggedIdx !== idx ? '#eef2fd' : '#fff') +
+                ';opacity:' +
+                (draggedIdx === idx ? '0.4' : '1') +
+                ';box-shadow:' +
+                (draggedIdx === idx ? '0 4px 12px rgba(0,0,0,0.12)' : 'none') +
+                ';cursor:grab;' +
+                (isLast ? 'border-bottom-left-radius:14px;border-bottom-right-radius:14px;' : '')
+            )}
             onMouseEnter={(evt) => {
-              evt.currentTarget.style.color = '#ef4444';
-              evt.currentTarget.style.background = '#fef2f2';
+              if (dropTargetIdx !== idx) evt.currentTarget.style.background = '#f9faf7';
             }}
             onMouseLeave={(evt) => {
-              evt.currentTarget.style.color = '#9aa097';
-              evt.currentTarget.style.background = 'none';
+              if (dropTargetIdx !== idx) evt.currentTarget.style.background = '#fff';
             }}
           >
-            ×
-          </button>
-        </div>
-        );
-      })}
+            <div style={css('display:flex;align-items:center;gap:12px;min-width:0;flex:1')}>
+              <span style={css('color:#9aa097;font-size:13px;cursor:grab;user-select:none;line-height:1;padding:4px 6px;margin-left:-4px;flex-shrink:0')}>⋮⋮</span>
+              <div onClick={() => vm.openEditEngineer(e.id)} style={css('display:flex;align-items:center;gap:12px;min-width:0;cursor:pointer;flex:1')}>
+                <div style={e.avatarStyle}>{e.initials}</div>
+                <div style={css('min-width:0')}>
+                  <div style={css('font-size:13px;font-weight:600;color:#15191e;text-decoration:none;display:flex;align-items:center;gap:8px')}>
+                    <span>{e.name}</span>
+                    {e.department && (e.department === 'QA' || e.department === 'Non-QA') && (
+                      <span
+                        style={css(
+                          `font-size:10.5px;font-weight:700;padding:2px 7.5px;border-radius:5px;font-family:'IBM Plex Mono',monospace;line-height:1.2;user-select:none;` +
+                            (e.department === 'QA'
+                              ? 'background:#f0f9ff;color:#0369a1;border:1px solid #bae6fd;'
+                              : 'background:#fef3c7;color:#92400e;border:1px solid #fde68a;')
+                        )}
+                      >
+                        {e.department}
+                      </span>
+                    )}
+                  </div>
+                  <div style={css('font-size:11px;color:#8a9088;margin-top:2px')}>{e.site || 'UTL1'}{e.subDepartments.length > 0 ? ' · ' + e.subDepartments.join(', ') : ''}</div>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={e.onDelete}
+              title="Remove QMS Host"
+              style={css("background:none;border:none;cursor:pointer;color:#9aa097;font-size:16px;padding:6px 10px;border-radius:6px;transition:all 0.12s;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0")}
+              onMouseEnter={(evt) => {
+                evt.currentTarget.style.color = '#ef4444';
+                evt.currentTarget.style.background = '#fef2f2';
+              }}
+              onMouseLeave={(evt) => {
+                evt.currentTarget.style.color = '#9aa097';
+                evt.currentTarget.style.background = 'none';
+              }}
+            >
+              ×
+            </button>
+          </div>
+          );
+        })}
+      </div>
       {filteredEngineers.length === 0 && (
-        <div style={css('padding:36px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;border-bottom-left-radius:14px;border-bottom-right-radius:14px;background:#fff')}>
+        <div
+          style={css(
+            'min-height:240px;display:flex;align-items:center;justify-content:center;padding:36px 20px;text-align:center;border-bottom-left-radius:14px;border-bottom-right-radius:14px;background:#fff;position:relative;z-index:1'
+          )}
+        >
           <div style={css('font-size:13px;color:#8a9088;font-style:italic')}>
             No QMS hosts match the selected filters.
           </div>
-          {hasAnyFilter && (
-            <button
-              type="button"
-              onClick={handleClearAllFilters}
-              style={css("font-size:12px;font-weight:600;color:#2756d6;background:#eef2fd;border:1px solid #bfdbfe;padding:6px 14px;border-radius:7px;cursor:pointer;font-family:'Archivo',sans-serif;transition:all .12s ease")}
-              onMouseEnter={(e) => { e.currentTarget.style.background = '#dbeafe'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = '#eef2fd'; }}
-            >
-              Clear all filters
-            </button>
-          )}
         </div>
       )}
     </div>
