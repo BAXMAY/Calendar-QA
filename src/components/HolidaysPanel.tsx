@@ -36,7 +36,6 @@ interface UnifiedRuleItem {
 export function HolidaysPanel({ vm }: { vm: VM }) {
   const today = useMemo(() => new Date(), []);
   const [selectedYear, setSelectedYear] = useState<number>(() => today.getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState<number>(() => today.getMonth()); // 0-indexed for highlight
 
   // Sidebar Filter & Search
   const [filterCategory, setFilterCategory] = useState<FilterCategory>('ALL');
@@ -69,7 +68,6 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
   const nextYear = () => setSelectedYear((y) => y + 1);
   const goToCurrentYear = () => {
     setSelectedYear(today.getFullYear());
-    setSelectedMonth(today.getMonth());
   };
 
   // Open configuration modal for a specific calendar cell
@@ -96,7 +94,8 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
 
   // Open modal for custom range creation
   const handleOpenRangeModal = () => {
-    const defaultDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-01`;
+    const defaultMonth = selectedYear === today.getFullYear() ? today.getMonth() : 0;
+    const defaultDate = `${selectedYear}-${String(defaultMonth + 1).padStart(2, '0')}-01`;
     setModalFromDate(defaultDate);
     setModalToDate(defaultDate);
     setIsRangeMode(true);
@@ -285,7 +284,8 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
 
   // Add / Edit Public Holiday Dialog Handlers
   const handleOpenAddHoliday = () => {
-    const defaultDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-01`;
+    const defaultMonth = selectedYear === today.getFullYear() ? today.getMonth() : 0;
+    const defaultDate = `${selectedYear}-${String(defaultMonth + 1).padStart(2, '0')}-01`;
     setEditHolidayData({ oldDate: '', date: defaultDate, name: '', isNew: true });
     setEditHolidayModalOpen(true);
   };
@@ -847,7 +847,7 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
                 YEAR VIEW CALENDAR · {selectedYear}
               </div>
               <div style={css("font-size:13px;font-weight:600;color:#5c625c;margin-top:1px")}>
-                Click any month card to select/highlight · Click any date to configure rules
+                Click any date to configure rules
               </div>
             </div>
 
@@ -899,56 +899,31 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
             }}
           >
             {yearMonthsData.map((m) => {
-              const isSelected = selectedMonth === m.monthIndex;
               const isCurrentMonth = today.getFullYear() === selectedYear && today.getMonth() === m.monthIndex;
 
               return (
                 <div
                   key={m.monthIndex}
-                  onClick={() => setSelectedMonth(m.monthIndex)}
                   style={{
                     background: '#ffffff',
-                    border: isSelected
-                      ? '2px solid #2563eb'
-                      : isCurrentMonth
+                    border: isCurrentMonth
                       ? '1.5px solid #93c5fd'
                       : '1px solid #e4e7e0',
                     borderRadius: '12px',
                     padding: '12px 14px',
-                    cursor: 'pointer',
-                    transition: 'all .15s ease',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '8px',
-                    boxShadow: isSelected
-                      ? '0 4px 14px rgba(37,99,235,0.12)'
-                      : '0 1px 3px rgba(0,0,0,0.02)',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isSelected) {
-                      e.currentTarget.style.borderColor = '#2563eb';
-                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.06)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isSelected) {
-                      e.currentTarget.style.borderColor = isCurrentMonth ? '#93c5fd' : '#e4e7e0';
-                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.02)';
-                    }
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
                   }}
                 >
                   {/* Month Card Header */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f1f3ee', paddingBottom: '6px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ fontSize: '13.5px', fontWeight: 800, color: isSelected ? '#2563eb' : '#0f172a' }}>
+                      <span style={{ fontSize: '13.5px', fontWeight: 800, color: '#0f172a' }}>
                         {m.monthName}
                       </span>
-                      {isSelected && (
-                        <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: '9px', fontWeight: 700, background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '1px 5px', borderRadius: '4px' }}>
-                          SELECTED
-                        </span>
-                      )}
-                      {isCurrentMonth && !isSelected && (
+                      {isCurrentMonth && (
                         <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: '9px', fontWeight: 700, background: '#eef2fd', color: '#2756d6', border: '1px solid #d8e2fa', padding: '1px 5px', borderRadius: '4px' }}>
                           NOW
                         </span>
@@ -1040,9 +1015,17 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
                           }}
                           onMouseEnter={(e) => {
                             e.currentTarget.style.filter = 'brightness(0.92)';
+                            if (!hol && !isToday) {
+                              e.currentTarget.style.background = '#f1f5f9';
+                              e.currentTarget.style.borderColor = '#cbd5e1';
+                            }
                           }}
                           onMouseLeave={(e) => {
                             e.currentTarget.style.filter = 'none';
+                            if (!hol && !isToday) {
+                              e.currentTarget.style.background = cellBg;
+                              e.currentTarget.style.borderColor = cellBorder;
+                            }
                           }}
                           title={
                             hol
