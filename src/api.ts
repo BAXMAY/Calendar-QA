@@ -27,7 +27,7 @@ export interface ApiState {
   customHolidays?: CustomHolidayRecord[];
 }
 
-export type CustomHolidayType = 'PUBLIC_HOLIDAY' | 'SHUTDOWN_PLANT' | 'NO_CUSTOMER_AUDITS';
+export type CustomHolidayType = 'PUBLIC_HOLIDAY' | 'SHUTDOWN_PLANT' | 'NO_CUSTOMER_AUDITS' | 'WORKING_DAY';
 
 export interface CustomHolidayRecord {
   date: string; // 'YYYY-MM-DD'

@@ -46,6 +46,7 @@ import {
 import {
   getHolidayForDate,
   getHolidayStyle,
+  isBuiltinPublicHoliday,
   isDateCompletelyBlocked,
   isDateRestrictedToInternalAuditOnly,
   setCustomHolidays,
@@ -2732,6 +2733,30 @@ export function useScheduler() {
   const deleteHolidayRule = async (date: string) => {
     const cleanDate = date.trim();
     if (!cleanDate) return;
+
+    const parts = cleanDate.split('-');
+    const dt = parts.length === 3 ? new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])) : new Date(cleanDate + 'T00:00:00');
+    const isBuiltin = isBuiltinPublicHoliday(dt).isBuiltin;
+    const current = (S.customHolidays || {})[cleanDate];
+
+    // If it's a built-in holiday that has not already been marked as WORKING_DAY:
+    // Mark as WORKING_DAY so it becomes a normal working day in the calendar.
+    if (isBuiltin && (!current || current.type !== 'WORKING_DAY')) {
+      const item: CustomHoliday = { date: cleanDate, type: 'WORKING_DAY', note: '' };
+      setState((s) => {
+        const next = { ...s.customHolidays, [cleanDate]: item };
+        setCustomHolidays(next);
+        return { customHolidays: next };
+      });
+      try {
+        await api.saveHoliday(item);
+      } catch (err) {
+        console.error('Failed to override built-in holiday to working day in D1:', err);
+      }
+      return;
+    }
+
+    // Normal deletion from customHolidays and D1
     setState((s) => {
       const next = { ...s.customHolidays };
       delete next[cleanDate];
@@ -2742,6 +2767,46 @@ export function useScheduler() {
       await api.deleteHoliday(cleanDate);
     } catch (err) {
       console.error('Failed to delete holiday from D1:', err);
+    }
+  };
+
+  const updatePublicHoliday = async (oldDate: string, newDate: string, newName: string) => {
+    const cleanOld = oldDate.trim();
+    const cleanNew = newDate.trim();
+    const cleanName = newName.trim();
+    if (!cleanNew) return;
+
+    if (cleanOld && cleanOld !== cleanNew) {
+      // Date was moved: delete or override old date
+      await deleteHolidayRule(cleanOld);
+    }
+
+    await saveHolidayRule(cleanNew, 'PUBLIC_HOLIDAY', cleanName);
+  };
+
+  const resetYearPublicHolidays = async (year: number) => {
+    const prefix = `${year}-`;
+    const datesToDelete: string[] = [];
+    for (const [d, item] of Object.entries(S.customHolidays || {})) {
+      if (d.startsWith(prefix) && (item.type === 'PUBLIC_HOLIDAY' || item.type === 'WORKING_DAY')) {
+        datesToDelete.push(d);
+      }
+    }
+    if (datesToDelete.length === 0) return;
+
+    setState((s) => {
+      const next = { ...s.customHolidays };
+      for (const d of datesToDelete) {
+        delete next[d];
+      }
+      setCustomHolidays(next);
+      return { customHolidays: next };
+    });
+
+    try {
+      await api.deleteHolidays(datesToDelete);
+    } catch (err) {
+      console.error('Failed to reset year public holidays in D1:', err);
     }
   };
 
@@ -4836,6 +4901,8 @@ export function useScheduler() {
     deleteHolidayRule,
     saveHolidayRangeRules,
     deleteHolidayRangeRules,
+    updatePublicHoliday,
+    resetYearPublicHolidays,
     adminEngineers, engCount: adminEngineers.length,
     adminFilterSite: S.adminFilterSite, adminFilterDept: S.adminFilterDept, adminDeptOptions,
     toggleAdminFilterSite, toggleAdminFilterDept,

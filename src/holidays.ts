@@ -1,4 +1,4 @@
-export type CustomHolidayType = 'PUBLIC_HOLIDAY' | 'SHUTDOWN_PLANT' | 'NO_CUSTOMER_AUDITS';
+export type CustomHolidayType = 'PUBLIC_HOLIDAY' | 'SHUTDOWN_PLANT' | 'NO_CUSTOMER_AUDITS' | 'WORKING_DAY';
 
 export interface CustomHoliday {
   date: string; // 'YYYY-MM-DD'
@@ -6,6 +6,19 @@ export interface CustomHoliday {
   note?: string;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface EffectivePublicHoliday {
+  date: string; // 'YYYY-MM-DD'
+  name: string;
+  isBuiltin: boolean;
+  isSubstitute?: boolean;
+  isCustom: boolean;
+  shifts?: string[];
+  dayOfWeek: string;
+  dayOfWeekTh: string;
+  dateFormattedEn: string;
+  dateFormattedTh: string;
 }
 
 export interface HolidayInfo {
@@ -137,6 +150,106 @@ export function isBuiltinPublicHoliday(date: Date): { isBuiltin: boolean; name?:
 }
 
 /**
+ * Returns the effective list of all Public Holidays for a given year in chronological order.
+ * Merges statutory reference holidays with user customizations (edits, additions, deletions).
+ */
+export function getEffectivePublicHolidaysForYear(
+  year: number,
+  customMap?: Record<string, CustomHoliday>
+): EffectivePublicHoliday[] {
+  const map = customMap || activeCustomHolidays;
+  const list: EffectivePublicHoliday[] = [];
+  const processedDates = new Set<string>();
+
+  const DAYS_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const DAYS_TH = ['วันอาทิตย์', 'วันจันทร์', 'วันอังคาร', 'วันพุธ', 'วันพฤหัสบดี', 'วันศุกร์', 'วันเสาร์'];
+  const MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const MONTHS_TH = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+  // 1. Scan all calendar days in the year
+  for (let m = 0; m < 12; m++) {
+    const daysInMonth = new Date(year, m + 1, 0).getDate();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dt = new Date(year, m, d);
+      const dateStr = formatYMD(dt);
+      processedDates.add(dateStr);
+
+      const custom = map[dateStr];
+      if (custom) {
+        if (custom.type === 'WORKING_DAY') {
+          // Explicitly deleted / overridden to normal working day
+          continue;
+        }
+        if (custom.type === 'PUBLIC_HOLIDAY') {
+          const builtin = isBuiltinPublicHoliday(dt);
+          const name = custom.note ? custom.note : (builtin.name || 'Public Holiday');
+          list.push({
+            date: dateStr,
+            name,
+            isBuiltin: builtin.isBuiltin,
+            isSubstitute: builtin.isSubstitute,
+            isCustom: true,
+            shifts: builtin.isSubstitute ? ['Shift E', 'Shift E1'] : undefined,
+            dayOfWeek: DAYS_EN[dt.getDay()],
+            dayOfWeekTh: DAYS_TH[dt.getDay()],
+            dateFormattedEn: `${String(d).padStart(2, '0')} ${MONTHS_EN[m]} ${year}`,
+            dateFormattedTh: `${d} ${MONTHS_TH[m]} ${year}`,
+          });
+          continue;
+        }
+        // SHUTDOWN_PLANT or NO_CUSTOMER_AUDITS -> plant restrictions, not public holidays
+        continue;
+      }
+
+      // Default statutory built-in public holiday
+      const builtin = isBuiltinPublicHoliday(dt);
+      if (builtin.isBuiltin && builtin.name) {
+        list.push({
+          date: dateStr,
+          name: builtin.name,
+          isBuiltin: true,
+          isSubstitute: builtin.isSubstitute,
+          isCustom: false,
+          shifts: builtin.isSubstitute ? ['Shift E', 'Shift E1'] : undefined,
+          dayOfWeek: DAYS_EN[dt.getDay()],
+          dayOfWeekTh: DAYS_TH[dt.getDay()],
+          dateFormattedEn: `${String(d).padStart(2, '0')} ${MONTHS_EN[m]} ${year}`,
+          dateFormattedTh: `${d} ${MONTHS_TH[m]} ${year}`,
+        });
+      }
+    }
+  }
+
+  // 2. Also check any dates in customMap for this year not caught
+  for (const [dateStr, custom] of Object.entries(map)) {
+    if (!processedDates.has(dateStr) && dateStr.startsWith(`${year}-`)) {
+      if (custom.type === 'PUBLIC_HOLIDAY') {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+          const dt = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+          if (!isNaN(dt.getTime())) {
+            const m = dt.getMonth();
+            const d = dt.getDate();
+            list.push({
+              date: dateStr,
+              name: custom.note || 'Public Holiday',
+              isBuiltin: false,
+              isCustom: true,
+              dayOfWeek: DAYS_EN[dt.getDay()],
+              dayOfWeekTh: DAYS_TH[dt.getDay()],
+              dateFormattedEn: `${String(d).padStart(2, '0')} ${MONTHS_EN[m]} ${year}`,
+              dateFormattedTh: `${d} ${MONTHS_TH[m]} ${year}`,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return list.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
  * Checks if a given Date is a holiday or restricted day.
  * Precedence:
  * 1. Explicit Custom Holiday configured in Manage -> Holidays (D1 backed):
@@ -156,10 +269,14 @@ export function getHolidayForDate(date: Date, customMap?: Record<string, CustomH
 
   // 1. Explicit Custom Holiday / Restriction from Manage -> Holidays
   if (custom) {
+    if (custom.type === 'WORKING_DAY') {
+      // Explicitly removed by user -> treated as normal working day
+      return null;
+    }
     if (custom.type === 'PUBLIC_HOLIDAY') {
       return {
-        name: custom.note ? custom.note : 'General Holiday',
-        subtitle: custom.note ? 'General Holiday' : undefined,
+        name: custom.note ? custom.note : 'Public Holiday',
+        subtitle: custom.note ? 'Public Holiday' : undefined,
         isTraditional: true,
         isCustom: true,
         holidayType: 'PUBLIC_HOLIDAY',

@@ -1,7 +1,10 @@
 import { useState, useMemo } from 'react';
 import type { VM } from '../useScheduler';
-import type { CustomHolidayType, CustomHoliday } from '../holidays';
-import { isBuiltinPublicHoliday } from '../holidays';
+import type { CustomHolidayType, CustomHoliday, EffectivePublicHoliday } from '../holidays';
+import {
+  getHolidayForDate,
+  getEffectivePublicHolidaysForYear,
+} from '../holidays';
 import { css } from '../ui';
 
 const MONTH_NAMES = [
@@ -17,14 +20,29 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
   const [selectedYear, setSelectedYear] = useState<number>(() => today.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number>(() => today.getMonth()); // 0-indexed
 
-  // Modal State for date/range configuration
+  // Modal State for single date / date range configuration
   const [modalOpen, setModalOpen] = useState(false);
   const [modalFromDate, setModalFromDate] = useState('');
   const [modalToDate, setModalToDate] = useState('');
   const [modalType, setModalType] = useState<CustomHolidayType>('NO_CUSTOMER_AUDITS');
   const [modalNote, setModalNote] = useState('');
   const [isRangeMode, setIsRangeMode] = useState(false);
-  const [builtinModalInfo, setBuiltinModalInfo] = useState<{ name: string; dateStr: string } | null>(null);
+
+  // Breakdown Modal State for Public Holidays
+  const [breakdownModalOpen, setBreakdownModalOpen] = useState(false);
+  const [holidaySearchQuery, setHolidaySearchQuery] = useState('');
+
+  // Add / Edit Public Holiday Dialog State
+  const [editHolidayModalOpen, setEditHolidayModalOpen] = useState(false);
+  const [editHolidayData, setEditHolidayData] = useState<{
+    oldDate: string;
+    date: string;
+    name: string;
+    isNew: boolean;
+  }>({ oldDate: '', date: '', name: '', isNew: false });
+
+  // Confirmation dialog for Reset to Reference Holidays
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
 
   const customHolidays = vm.customHolidays || EMPTY_CUSTOM_HOLIDAYS;
 
@@ -52,19 +70,19 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
     setSelectedMonth(today.getMonth());
   };
 
-  // Open modal for a specific day
+  // Open configuration modal for a specific calendar cell
   const handleDayClick = (dateStr: string, dateObj: Date) => {
-    const builtin = isBuiltinPublicHoliday(dateObj);
-    if (builtin.isBuiltin && builtin.name) {
-      setBuiltinModalInfo({ name: builtin.name, dateStr });
-      return;
-    }
-
+    const hol = getHolidayForDate(dateObj, customHolidays);
     const existing = customHolidays[dateStr];
+
     setModalFromDate(dateStr);
     setModalToDate(dateStr);
     setIsRangeMode(false);
-    if (existing) {
+
+    if (hol) {
+      setModalType(hol.holidayType || 'PUBLIC_HOLIDAY');
+      setModalNote(hol.name || '');
+    } else if (existing) {
       setModalType(existing.type);
       setModalNote(existing.note || '');
     } else {
@@ -85,7 +103,7 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
     setModalOpen(true);
   };
 
-  // Handle saving holiday rule
+  // Handle saving holiday / restriction rule
   const handleSave = async () => {
     if (!modalFromDate) return;
     const from = modalFromDate;
@@ -113,7 +131,7 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
     setModalOpen(false);
   };
 
-  // Handle removing holiday rule
+  // Handle removing holiday / resetting date to normal working day
   const handleDelete = async () => {
     if (!modalFromDate) return;
     const from = modalFromDate;
@@ -137,6 +155,44 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
     setModalOpen(false);
   };
 
+  // Effective Public Holidays for Selected Year
+  const effectivePublicHolidays = useMemo(() => {
+    return getEffectivePublicHolidaysForYear(selectedYear, customHolidays);
+  }, [selectedYear, customHolidays]);
+
+  // Filtered Public Holidays for Breakdown Modal Search
+  const filteredPublicHolidays = useMemo(() => {
+    if (!holidaySearchQuery.trim()) return effectivePublicHolidays;
+    const q = holidaySearchQuery.trim().toLowerCase();
+    return effectivePublicHolidays.filter(
+      (h) =>
+        h.name.toLowerCase().includes(q) ||
+        h.date.includes(q) ||
+        h.dayOfWeek.toLowerCase().includes(q) ||
+        h.dayOfWeekTh.includes(q)
+    );
+  }, [effectivePublicHolidays, holidaySearchQuery]);
+
+  // Statistics for Current Year
+  const yearStats = useMemo(() => {
+    let shutdownCount = 0;
+    let noCsCount = 0;
+
+    for (const [dateKey, itemVal] of Object.entries(customHolidays)) {
+      const item = itemVal as CustomHoliday;
+      if (dateKey.startsWith(`${selectedYear}-`)) {
+        if (item.type === 'SHUTDOWN_PLANT') shutdownCount++;
+        else if (item.type === 'NO_CUSTOMER_AUDITS') noCsCount++;
+      }
+    }
+
+    return {
+      publicHolidaysCount: effectivePublicHolidays.length,
+      shutdownCount,
+      noCsCount,
+    };
+  }, [selectedYear, customHolidays, effectivePublicHolidays.length]);
+
   // Build Month Calendar Cells
   const calendarCells = useMemo(() => {
     const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
@@ -151,7 +207,7 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
       dateObj: Date;
       isToday: boolean;
       isWeekend: boolean;
-      builtin: { isBuiltin: boolean; name?: string; isSubstitute?: boolean };
+      hol: ReturnType<typeof getHolidayForDate>;
       custom?: CustomHoliday;
     }> = [];
 
@@ -164,7 +220,7 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
         dateObj: new Date(),
         isToday: false,
         isWeekend: false,
-        builtin: { isBuiltin: false },
+        hol: null,
       });
     }
 
@@ -179,7 +235,7 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
       const dow = dateObj.getDay();
       const isWeekend = dow === 0 || dow === 6;
       const isToday = today.getFullYear() === y && today.getMonth() === selectedMonth && today.getDate() === d;
-      const builtin = isBuiltinPublicHoliday(dateObj);
+      const hol = getHolidayForDate(dateObj, customHolidays);
       const custom = customHolidays[dateStr];
 
       cells.push({
@@ -189,7 +245,7 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
         dateObj,
         isToday,
         isWeekend,
-        builtin,
+        hol,
         custom,
       });
     }
@@ -203,48 +259,56 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
         dateObj: new Date(),
         isToday: false,
         isWeekend: false,
-        builtin: { isBuiltin: false },
+        hol: null,
       });
     }
 
     return cells;
   }, [selectedYear, selectedMonth, customHolidays, today]);
 
-  // Statistics for Current Year
-  const yearStats = useMemo(() => {
-    let builtinCount = 0;
-    let customPublicCount = 0;
-    let shutdownCount = 0;
-    let noCsCount = 0;
-
-    // Count built-ins for selectedYear
-    for (let m = 0; m < 12; m++) {
-      const days = new Date(selectedYear, m + 1, 0).getDate();
-      for (let d = 1; d <= days; d++) {
-        const dt = new Date(selectedYear, m, d);
-        if (isBuiltinPublicHoliday(dt).isBuiltin) {
-          builtinCount++;
-        }
-      }
-    }
-
-    // Count custom holidays for selectedYear
-    for (const [dateKey, itemVal] of Object.entries(customHolidays)) {
-      const item = itemVal as CustomHoliday;
-      if (dateKey.startsWith(`${selectedYear}-`)) {
-        if (item.type === 'PUBLIC_HOLIDAY') customPublicCount++;
-        else if (item.type === 'SHUTDOWN_PLANT') shutdownCount++;
-        else if (item.type === 'NO_CUSTOMER_AUDITS') noCsCount++;
-      }
-    }
-
-    return { builtinCount, customPublicCount, shutdownCount, noCsCount };
-  }, [selectedYear, customHolidays]);
-
   // List of active custom rules sorted by date
   const activeCustomList = useMemo(() => {
-    return (Object.values(customHolidays) as CustomHoliday[]).sort((a: CustomHoliday, b: CustomHoliday) => a.date.localeCompare(b.date));
+    return (Object.values(customHolidays) as CustomHoliday[]).sort(
+      (a: CustomHoliday, b: CustomHoliday) => a.date.localeCompare(b.date)
+    );
   }, [customHolidays]);
+
+  // Handlers for Add / Edit Public Holiday
+  const handleOpenAddHoliday = () => {
+    const defaultDate = `${selectedYear}-01-01`;
+    setEditHolidayData({ oldDate: '', date: defaultDate, name: '', isNew: true });
+    setEditHolidayModalOpen(true);
+  };
+
+  const handleOpenEditHoliday = (h: EffectivePublicHoliday) => {
+    setEditHolidayData({ oldDate: h.date, date: h.date, name: h.name, isNew: false });
+    setEditHolidayModalOpen(true);
+  };
+
+  const handleSaveEditHoliday = async () => {
+    if (!editHolidayData.date.trim() || !editHolidayData.name.trim()) return;
+    if (editHolidayData.isNew) {
+      await vm.saveHolidayRule(editHolidayData.date.trim(), 'PUBLIC_HOLIDAY', editHolidayData.name.trim());
+    } else {
+      await vm.updatePublicHoliday(editHolidayData.oldDate, editHolidayData.date.trim(), editHolidayData.name.trim());
+    }
+    setEditHolidayModalOpen(false);
+  };
+
+  const handleDeleteHolidayFromList = async (h: EffectivePublicHoliday) => {
+    if (
+      window.confirm(
+        `Are you sure you want to remove "${h.name}" (${h.date}) from Public Holidays? This date will become a normal working day.`
+      )
+    ) {
+      await vm.deleteHolidayRule(h.date);
+    }
+  };
+
+  const handleConfirmResetHolidays = async () => {
+    await vm.resetYearPublicHolidays(selectedYear);
+    setResetConfirmOpen(false);
+  };
 
   return (
     <div style={css('display:flex;flex-direction:column;gap:20px;padding-bottom:40px')}>
@@ -276,33 +340,79 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
           </div>
         </div>
 
-        {/* Year Statistics Bar */}
-        <div style={css('display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:16px;padding-top:16px;border-top:1px solid #f1f3ee')}>
-          <div style={css('background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:10px 14px')}>
-            <div style={css('font-size:11px;font-weight:600;color:#64748b')}>Built-in Public Holidays ({selectedYear})</div>
-            <div style={css("font-size:18px;font-weight:700;color:#334155;margin-top:2px;font-family:'Archivo',sans-serif")}>
-              {yearStats.builtinCount} <span style={css('font-size:11px;font-weight:500;color:#94a3b8')}>days (Locked 🔒)</span>
+        {/* 3 Unified Summary Cards */}
+        <div style={css('display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:16px;padding-top:16px;border-top:1px solid #f1f3ee')}>
+          {/* Card 1: Unified Public Holidays (Clickable Breakdown) */}
+          <div
+            onClick={() => setBreakdownModalOpen(true)}
+            style={{
+              background: '#f8fafc',
+              border: '1.5px solid #cbd5e1',
+              borderRadius: '10px',
+              padding: '12px 16px',
+              cursor: 'pointer',
+              transition: 'all .15s ease',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#f1f5f9';
+              e.currentTarget.style.borderColor = '#2563eb';
+              e.currentTarget.style.boxShadow = '0 3px 10px rgba(37,99,235,0.1)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = '#f8fafc';
+              e.currentTarget.style.borderColor = '#cbd5e1';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+            title="Click to view full Public Holidays breakdown, edit names, dates, or add holidays"
+          >
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={css("font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px")}>
+                  Public Holidays ({selectedYear})
+                </div>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#2563eb', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                  Manage List ↗
+                </span>
+              </div>
+              <div style={css("font-size:22px;font-weight:800;color:#1e293b;margin-top:4px;font-family:'Archivo',sans-serif")}>
+                {yearStats.publicHolidaysCount} <span style={css('font-size:12px;font-weight:500;color:#64748b')}>days</span>
+              </div>
+            </div>
+            <div style={css('font-size:11px;color:#64748b;margin-top:8px')}>
+              Official statutory & corporate holidays · Click to edit, delete, or add
             </div>
           </div>
 
-          <div style={css('background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:10px 14px')}>
-            <div style={css('font-size:11px;font-weight:600;color:#64748b')}>General / Custom Holidays</div>
-            <div style={css("font-size:18px;font-weight:700;color:#475569;margin-top:2px;font-family:'Archivo',sans-serif")}>
-              {yearStats.customPublicCount} <span style={css('font-size:11px;font-weight:500;color:#94a3b8')}>days</span>
+          {/* Card 2: Shutdown Plant */}
+          <div style={css('background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 16px;display:flex;flex-direction:column;justify-content:space-between')}>
+            <div>
+              <div style={css("font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:0.4px")}>
+                Shutdown Plant
+              </div>
+              <div style={css("font-size:22px;font-weight:800;color:#1d4ed8;margin-top:4px;font-family:'Archivo',sans-serif")}>
+                {yearStats.shutdownCount} <span style={css('font-size:12px;font-weight:500;color:#60a5fa')}>days</span>
+              </div>
+            </div>
+            <div style={css('font-size:11px;color:#3b82f6;margin-top:8px')}>
+              Plant fully closed · Blocks CS & IA appointments
             </div>
           </div>
 
-          <div style={css('background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;padding:10px 14px')}>
-            <div style={css('font-size:11px;font-weight:600;color:#1e40af')}>Shutdown Plant</div>
-            <div style={css("font-size:18px;font-weight:700;color:#1d4ed8;margin-top:2px;font-family:'Archivo',sans-serif")}>
-              {yearStats.shutdownCount} <span style={css('font-size:11px;font-weight:500;color:#60a5fa')}>days</span>
+          {/* Card 3: No Customer Audits */}
+          <div style={css('background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 16px;display:flex;flex-direction:column;justify-content:space-between')}>
+            <div>
+              <div style={css("font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:0.4px")}>
+                No Customer Audits
+              </div>
+              <div style={css("font-size:22px;font-weight:800;color:#1d4ed8;margin-top:4px;font-family:'Archivo',sans-serif")}>
+                {yearStats.noCsCount} <span style={css('font-size:12px;font-weight:500;color:#60a5fa')}>days</span>
+              </div>
             </div>
-          </div>
-
-          <div style={css('background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;padding:10px 14px')}>
-            <div style={css('font-size:11px;font-weight:600;color:#1e40af')}>No Customer Audits</div>
-            <div style={css("font-size:18px;font-weight:700;color:#1d4ed8;margin-top:2px;font-family:'Archivo',sans-serif")}>
-              {yearStats.noCsCount} <span style={css('font-size:11px;font-weight:500;color:#60a5fa')}>days</span>
+            <div style={css('font-size:11px;color:#3b82f6;margin-top:8px')}>
+              Customer audits restricted · Internal audits permitted
             </div>
           </div>
         </div>
@@ -379,8 +489,8 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
           </div>
         </div>
 
-        {/* 7-Day Column Headers */}
-        <div style={css('display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid #eef1ea;background:#f8faf8')}>
+        {/* Weekday Headers */}
+        <div style={css('display:grid;grid-template-columns:repeat(7,1fr);background:#f8faf6;border-bottom:1px solid #e6e9e2')}>
           {WEEKDAY_NAMES.map((wd, i) => (
             <div
               key={wd}
@@ -398,7 +508,7 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
               return <div key={i} style={css('background:#fafafa;min-height:96px')} />;
             }
 
-            const { builtin, custom, isToday, isWeekend, dateStr, dayNum, dateObj } = c;
+            const { hol, custom, isToday, isWeekend, dateStr, dayNum, dateObj } = c;
 
             // Determine styling
             let cellBg = '#ffffff';
@@ -408,40 +518,32 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
             let badgeText = '#475569';
             let statusLabel = '';
             let subtitle = '';
-            let isLocked = false;
 
-            if (builtin.isBuiltin) {
-              cellBg = '#f3f4f6';
-              titleColor = '#374151';
-              badgeBg = '#e5e7eb';
-              badgeBorder = '#d1d5db';
-              badgeText = '#374151';
-              statusLabel = `🔒 ${builtin.name}`;
-              isLocked = true;
-            } else if (custom) {
-              if (custom.type === 'PUBLIC_HOLIDAY') {
+            if (hol) {
+              if (hol.holidayType === 'PUBLIC_HOLIDAY') {
                 cellBg = '#f3f4f6';
                 titleColor = '#374151';
                 badgeBg = '#e5e7eb';
                 badgeBorder = '#d1d5db';
                 badgeText = '#374151';
-                statusLabel = custom.note ? `● ${custom.note}` : '● General Holiday';
-              } else if (custom.type === 'SHUTDOWN_PLANT') {
+                statusLabel = `● ${hol.name}`;
+                subtitle = hol.isSubstitute ? 'Shift E & E1' : (hol.isCustom ? 'Custom' : '');
+              } else if (hol.holidayType === 'SHUTDOWN_PLANT') {
                 cellBg = '#eff6ff';
                 titleColor = '#1d4ed8';
                 badgeBg = '#dbeafe';
                 badgeBorder = '#bfdbfe';
                 badgeText = '#1d4ed8';
                 statusLabel = '🏭 Shutdown Plant';
-                subtitle = custom.note || '';
-              } else if (custom.type === 'NO_CUSTOMER_AUDITS') {
+                subtitle = hol.note || '';
+              } else if (hol.holidayType === 'NO_CUSTOMER_AUDITS') {
                 cellBg = '#eff6ff';
                 titleColor = '#1d4ed8';
                 badgeBg = '#dbeafe';
                 badgeBorder = '#bfdbfe';
                 badgeText = '#1d4ed8';
                 statusLabel = '🚫 No Customer Audits';
-                subtitle = custom.note || '';
+                subtitle = hol.note || '';
               }
             } else if (isWeekend) {
               cellBg = '#fcfcfc';
@@ -456,7 +558,7 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
                   background: cellBg,
                   minHeight: '100px',
                   padding: '8px 10px',
-                  cursor: isLocked ? 'default' : 'pointer',
+                  cursor: 'pointer',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
@@ -464,14 +566,14 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
                   position: 'relative',
                 }}
                 onMouseEnter={(e) => {
-                  if (!isLocked) e.currentTarget.style.filter = 'brightness(0.97)';
+                  e.currentTarget.style.filter = 'brightness(0.97)';
                 }}
                 onMouseLeave={(e) => {
-                  if (!isLocked) e.currentTarget.style.filter = 'none';
+                  e.currentTarget.style.filter = 'none';
                 }}
                 title={
-                  isLocked
-                    ? `${dateStr}: ${builtin.name} (Built-in Public Holiday)`
+                  hol
+                    ? `${dateStr}: ${hol.name} — Click to edit or reset`
                     : custom
                     ? `${dateStr}: ${statusLabel} ${subtitle ? `(${subtitle})` : ''} — Click to edit`
                     : `${dateStr}: Click to set holiday or plant restriction`
@@ -521,27 +623,14 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
                         wordBreak: 'break-word',
                       }}
                     >
-                      <div>{statusLabel}</div>
+                      {statusLabel}
                       {subtitle && (
                         <div style={{ fontSize: '9.5px', fontWeight: 500, opacity: 0.85, marginTop: '2px' }}>
                           {subtitle}
                         </div>
                       )}
                     </div>
-                  ) : (
-                    <div
-                      style={{
-                        fontSize: '10.5px',
-                        color: '#cbd5e1',
-                        fontStyle: 'italic',
-                        textAlign: 'center',
-                        opacity: 0,
-                      }}
-                      className="hover-hint"
-                    >
-                      + Set rule
-                    </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
             );
@@ -558,25 +647,45 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
 
           <div style={css('display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;margin-top:10px')}>
             {activeCustomList.map((item: CustomHoliday) => {
+              const isWorkingDay = item.type === 'WORKING_DAY';
               const isBlue = item.type === 'SHUTDOWN_PLANT' || item.type === 'NO_CUSTOMER_AUDITS';
               const typeLabel =
                 item.type === 'PUBLIC_HOLIDAY'
-                  ? 'General Holiday'
+                  ? 'Public Holiday'
                   : item.type === 'SHUTDOWN_PLANT'
                   ? 'Shutdown Plant'
-                  : 'No Customer Audits';
+                  : item.type === 'NO_CUSTOMER_AUDITS'
+                  ? 'No Customer Audits'
+                  : 'Overridden to Normal Day';
 
               return (
                 <div
                   key={item.date}
-                  style={css(`display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:8px;border:1px solid ${isBlue ? '#bfdbfe' : '#d1d5db'};background:${isBlue ? '#eff6ff' : '#f3f4f6'}`)}
+                  style={css(
+                    `display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:8px;border:1px solid ${
+                      isWorkingDay ? '#e2e8f0' : isBlue ? '#bfdbfe' : '#d1d5db'
+                    };background:${isWorkingDay ? '#f8fafc' : isBlue ? '#eff6ff' : '#f3f4f6'}`
+                  )}
                 >
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: '12px', fontWeight: 700, color: isBlue ? '#1d4ed8' : '#374151' }}>
+                      <span
+                        style={{
+                          fontFamily: "'IBM Plex Mono',monospace",
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          color: isWorkingDay ? '#64748b' : isBlue ? '#1d4ed8' : '#374151',
+                        }}
+                      >
                         {item.date}
                       </span>
-                      <span style={{ fontSize: '11px', fontWeight: 600, color: isBlue ? '#1e40af' : '#475569' }}>
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          color: isWorkingDay ? '#64748b' : isBlue ? '#1e40af' : '#475569',
+                        }}
+                      >
                         {typeLabel}
                       </span>
                     </div>
@@ -598,7 +707,7 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
                       e.currentTarget.style.background = 'transparent';
                       e.currentTarget.style.color = '#94a3b8';
                     }}
-                    title={`Delete rule for ${item.date}`}
+                    title={isWorkingDay ? `Restore default holiday on ${item.date}` : `Delete rule for ${item.date}`}
                   >
                     ✕
                   </button>
@@ -609,30 +718,207 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
         </div>
       )}
 
-      {/* 5. Built-in Holiday Notice Modal (Locked) */}
-      {builtinModalInfo && (
+      {/* ========================================================================= */}
+      {/* 5. INTERACTIVE PUBLIC HOLIDAYS BREAKDOWN MODAL                            */}
+      {/* ========================================================================= */}
+      {breakdownModalOpen && (
         <div style={css('position:fixed;inset:0;background:rgba(15,23,42,0.45);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:9999')}>
-          <div style={css('background:#fff;border-radius:14px;padding:22px 24px;max-width:400px;width:90%;box-shadow:0 12px 30px rgba(0,0,0,0.15)')}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '20px' }}>🔒</span>
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              padding: '24px',
+              maxWidth: '740px',
+              width: '92%',
+              maxHeight: '85vh',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.18)',
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
               <div>
-                <div style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>
-                  {builtinModalInfo.name}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '22px' }}>🗓️</span>
+                  <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.3px', fontFamily: "'Archivo',sans-serif" }}>
+                    Public Holidays Breakdown · {selectedYear}
+                  </div>
                 </div>
-                <div style={{ fontSize: '12px', color: '#64748b', fontFamily: "'IBM Plex Mono',monospace", marginTop: '2px' }}>
-                  {builtinModalInfo.dateStr}
+                <div style={{ fontSize: '12.5px', color: '#64748b', marginTop: '3px' }}>
+                  {effectivePublicHolidays.length} holidays scheduled for {selectedYear} · Unlocked for full customization
                 </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={handleOpenAddHoliday}
+                  style={css("display:inline-flex;align-items:center;gap:6px;background:#2563eb;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;font-family:'Archivo',sans-serif;cursor:pointer;transition:background .15s")}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#1d4ed8')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = '#2563eb')}
+                >
+                  <span>＋</span>
+                  <span>Add Public Holiday</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setResetConfirmOpen(true)}
+                  style={css("display:inline-flex;align-items:center;gap:5px;background:#f8fafc;color:#475569;border:1px solid #cbd5e1;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;font-family:'Archivo',sans-serif;cursor:pointer")}
+                  title="Reset all public holidays for this year back to statutory reference list"
+                >
+                  <span>↺</span>
+                  <span>Reset Defaults</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setBreakdownModalOpen(false)}
+                  style={css('width:32px;height:32px;border:1px solid #e2e8f0;background:#fff;border-radius:8px;cursor:pointer;color:#64748b;font-size:15px;display:flex;align-items:center;justify-content:center')}
+                >
+                  ✕
+                </button>
               </div>
             </div>
 
-            <p style={{ fontSize: '13px', color: '#475569', marginTop: '14px', lineHeight: '1.5' }}>
-              This is a standard <strong>Official Company Public Holiday</strong> permanently registered in the corporate calendar. It remains locked as Gray and blocks all appointment creation.
-            </p>
+            {/* Search Input Bar */}
+            <div style={{ position: 'relative' }}>
+              <input
+                type="text"
+                value={holidaySearchQuery}
+                onChange={(e) => setHolidaySearchQuery(e.target.value)}
+                placeholder="🔍 Search holiday name, date (YYYY-MM-DD), or day of week..."
+                style={css("width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:9px;padding:8px 12px;font-size:13px;font-family:'Archivo',sans-serif;color:#1e293b;outline:none")}
+              />
+              {holidaySearchQuery && (
+                <button
+                  onClick={() => setHolidaySearchQuery('')}
+                  style={css('position:absolute;right:10px;top:50%;transform:translateY(-50%);border:none;background:transparent;color:#94a3b8;cursor:pointer;font-size:13px')}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+            {/* Scrollable Holiday List */}
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}>
+              {filteredPublicHolidays.length === 0 ? (
+                <div style={{ padding: '36px 12px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
+                  No public holidays found matching "{holidaySearchQuery}"
+                </div>
+              ) : (
+                filteredPublicHolidays.map((h) => {
+                  return (
+                    <div
+                      key={h.date}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '10px 14px',
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '10px',
+                        gap: '12px',
+                        transition: 'all .12s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = '#cbd5e1';
+                        e.currentTarget.style.background = '#f1f5f9';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = '#e2e8f0';
+                        e.currentTarget.style.background = '#f8fafc';
+                      }}
+                    >
+                      {/* Left: Date Badge */}
+                      <div style={{ minWidth: '130px', display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: '13px', fontWeight: 800, color: '#1e293b' }}>
+                          {h.dateFormattedEn}
+                        </span>
+                        <span style={{ fontSize: '11px', color: '#64748b', marginTop: '1px' }}>
+                          {h.dayOfWeek} · {h.dayOfWeekTh}
+                        </span>
+                      </div>
+
+                      {/* Middle: Name & Badges */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
+                            {h.name}
+                          </span>
+                          {h.isSubstitute && (
+                            <span style={{ background: '#e2e8f0', color: '#334155', borderRadius: '4px', padding: '2px 7px', fontSize: '10.5px', fontWeight: 600 }}>
+                              Shift E & E1 Substitute
+                            </span>
+                          )}
+                          {h.isCustom && (
+                            <span style={{ background: '#dbeafe', color: '#1d4ed8', borderRadius: '4px', padding: '2px 7px', fontSize: '10.5px', fontWeight: 600 }}>
+                              Custom / Edited
+                            </span>
+                          )}
+                          {h.isBuiltin && !h.isCustom && (
+                            <span style={{ background: '#f1f5f9', color: '#64748b', borderRadius: '4px', padding: '2px 7px', fontSize: '10.5px', fontWeight: 600 }}>
+                              Official Reference
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#94a3b8', fontFamily: "'IBM Plex Mono',monospace", marginTop: '2px' }}>
+                          {h.date} · Blocks Customer & Internal Audits
+                        </div>
+                      </div>
+
+                      {/* Right: Actions */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditHoliday(h)}
+                          style={css("border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600;font-family:'Archivo',sans-serif;cursor:pointer;transition:all .12s")}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = '#94a3b8';
+                            e.currentTarget.style.background = '#f8fafc';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = '#cbd5e1';
+                            e.currentTarget.style.background = '#fff';
+                          }}
+                          title="Edit holiday date or name"
+                        >
+                          ✏️ Edit
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteHolidayFromList(h)}
+                          style={css("border:1px solid #fecaca;background:#fff;color:#dc2626;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600;font-family:'Archivo',sans-serif;cursor:pointer;transition:all .12s")}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#fee2e2';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = '#fff';
+                          }}
+                          title="Delete holiday (converts to normal working day)"
+                        >
+                          🗑️ Delete
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '12px', borderTop: '1px solid #f1f3ee' }}>
+              <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+                💡 Additions, edits, and deletions persist in Cloudflare D1 and reflect immediately on the Schedule calendar.
+              </div>
               <button
-                onClick={() => setBuiltinModalInfo(null)}
-                style={css("background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;padding:7px 16px;border-radius:8px;font-size:12.5px;font-weight:600;font-family:'Archivo',sans-serif;cursor:pointer")}
+                type="button"
+                onClick={() => setBreakdownModalOpen(false)}
+                style={css("background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;padding:7px 18px;border-radius:8px;font-size:12.5px;font-weight:600;font-family:'Archivo',sans-serif;cursor:pointer")}
               >
                 Close
               </button>
@@ -641,7 +927,110 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
         </div>
       )}
 
-      {/* 6. Custom Holiday / Restriction Configuration Modal */}
+      {/* ========================================================================= */}
+      {/* 6. ADD / EDIT PUBLIC HOLIDAY SUB-MODAL                                    */}
+      {/* ========================================================================= */}
+      {editHolidayModalOpen && (
+        <div style={css('position:fixed;inset:0;background:rgba(15,23,42,0.5);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:10000')}>
+          <div style={css('background:#fff;border-radius:14px;padding:22px;max-width:440px;width:90%;box-shadow:0 16px 36px rgba(0,0,0,0.2);display:flex;flex-direction:column;gap:14px')}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>
+                {editHolidayData.isNew ? '＋ Add Public Holiday' : '✏️ Edit Public Holiday'}
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditHolidayModalOpen(false)}
+                style={css('width:28px;height:28px;border:1px solid #e2e8f0;background:#fff;border-radius:7px;cursor:pointer;color:#64748b;font-size:14px')}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#334155' }}>
+                HOLIDAY DATE
+              </label>
+              <input
+                type="date"
+                value={editHolidayData.date}
+                onChange={(e) => setEditHolidayData({ ...editHolidayData, date: e.target.value })}
+                style={css("width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:7px;padding:8px 10px;font-size:13px;font-family:'IBM Plex Mono',monospace;color:#1e293b;outline:none")}
+              />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#334155' }}>
+                HOLIDAY NAME / DESCRIPTION
+              </label>
+              <input
+                type="text"
+                value={editHolidayData.name}
+                onChange={(e) => setEditHolidayData({ ...editHolidayData, name: e.target.value })}
+                placeholder="e.g. Makha Bucha Day, Company Sports Day, Special Holiday..."
+                style={css("width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:7px;padding:8px 12px;font-size:13px;font-family:'Archivo',sans-serif;color:#1e293b;outline:none")}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px', paddingTop: '12px', borderTop: '1px solid #f1f3ee' }}>
+              <button
+                type="button"
+                onClick={() => setEditHolidayModalOpen(false)}
+                style={css("background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;padding:7px 14px;border-radius:8px;font-size:12.5px;font-weight:600;font-family:'Archivo',sans-serif;cursor:pointer")}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEditHoliday}
+                style={css("background:#2563eb;color:#fff;border:none;padding:7px 18px;border-radius:8px;font-size:12.5px;font-weight:600;font-family:'Archivo',sans-serif;cursor:pointer")}
+              >
+                Save Holiday
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 7. RESET TO DEFAULTS CONFIRMATION MODAL                                  */}
+      {/* ========================================================================= */}
+      {resetConfirmOpen && (
+        <div style={css('position:fixed;inset:0;background:rgba(15,23,42,0.5);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:10001')}>
+          <div style={css('background:#fff;border-radius:14px;padding:22px;max-width:420px;width:90%;box-shadow:0 16px 36px rgba(0,0,0,0.2);display:flex;flex-direction:column;gap:12px')}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '20px' }}>⚠️</span>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>
+                Reset Public Holidays to Defaults?
+              </div>
+            </div>
+
+            <p style={{ fontSize: '13px', color: '#475569', lineHeight: '1.5', margin: '4px 0 0 0' }}>
+              This will restore all <strong>Public Holidays for {selectedYear}</strong> to the official statutory reference list. Any custom holiday additions, edits, or removals for this year will be cleared.
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setResetConfirmOpen(false)}
+                style={css("background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;padding:7px 14px;border-radius:8px;font-size:12.5px;font-weight:600;font-family:'Archivo',sans-serif;cursor:pointer")}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmResetHolidays}
+                style={css("background:#dc2626;color:#fff;border:none;padding:7px 18px;border-radius:8px;font-size:12.5px;font-weight:600;font-family:'Archivo',sans-serif;cursor:pointer")}
+              >
+                Reset to Defaults
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 8. SINGLE DATE / DATE RANGE RESTRICTION CONFIGURATION MODAL               */}
+      {/* ========================================================================= */}
       {modalOpen && (
         <div style={css('position:fixed;inset:0;background:rgba(15,23,42,0.45);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:9999')}>
           <div style={css('background:#fff;border-radius:14px;padding:24px;max-width:480px;width:92%;box-shadow:0 12px 30px rgba(0,0,0,0.15);display:flex;flex-direction:column;gap:18px')}>
@@ -655,6 +1044,7 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setModalOpen(false)}
                 style={css('width:28px;height:28px;border:1px solid #e2e8f0;background:#fff;border-radius:7px;cursor:pointer;color:#64748b;font-size:14px')}
               >
@@ -742,7 +1132,7 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
                   />
                   <div>
                     <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b' }}>
-                      🔘 General / Public Holiday (Gray)
+                      🔘 Public / General Holiday (Gray)
                     </div>
                     <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '1px' }}>
                       Styled in Gray. Disabled/locked in Schedule — blocks both CS and IA appointments.
@@ -816,27 +1206,28 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
               </div>
             </div>
 
-            {/* Optional Note */}
+            {/* Optional Note / Holiday Name */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155' }}>
-                NOTE / SUBTITLE (OPTIONAL)
+                HOLIDAY NAME / NOTE (OPTIONAL)
               </label>
               <input
                 type="text"
                 value={modalNote}
                 onChange={(e) => setModalNote(e.target.value)}
-                placeholder="e.g., Annual Maintenance, Facility Shut Down, Ship-out support..."
+                placeholder="e.g., Annual Maintenance, Songkran Festival, Facility Shut Down..."
                 style={css("width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:7px;padding:8px 12px;font-size:12.5px;font-family:'Archivo',sans-serif;color:#1e293b;outline:none")}
               />
             </div>
 
             {/* Modal Actions */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px', paddingTop: '14px', borderTop: '1px solid #f1f3ee' }}>
-              {customHolidays[modalFromDate] ? (
+              {customHolidays[modalFromDate] || (modalFromDate && getHolidayForDate(new Date(modalFromDate + 'T00:00:00'), customHolidays)) ? (
                 <button
                   type="button"
                   onClick={handleDelete}
                   style={css("background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;font-family:'Archivo',sans-serif;cursor:pointer")}
+                  title="Remove holiday/restriction and reset this date to a normal working day"
                 >
                   Reset to Normal Day
                 </button>

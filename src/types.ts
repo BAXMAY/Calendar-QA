@@ -1198,7 +1198,7 @@ export interface ActivityLog {
   metadata?: Record<string, any>;
 }
 
-export type { CustomHolidayType, CustomHoliday, HolidayInfo, HolidayStyle } from './holidays';
+export type { CustomHolidayType, CustomHoliday, HolidayInfo, HolidayStyle, EffectivePublicHoliday } from './holidays';
 export {
   getHolidayForDate,
   getHolidayStyle,
@@ -1208,6 +1208,7 @@ export {
   setCustomHolidays,
   getCustomHolidays,
   formatYMD,
+  getEffectivePublicHolidaysForYear,
 } from './holidays';
 
 export type Page = 'schedule' | 'table' | 'admin' | 'profile' | 'summary' | 'history';

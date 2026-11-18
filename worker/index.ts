@@ -648,7 +648,7 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
         const d = String(item.date || '').trim();
         const t = String(item.type || '').trim().toUpperCase();
         const note = String(item.note || '').trim();
-        if (!d || !['PUBLIC_HOLIDAY', 'SHUTDOWN_PLANT', 'NO_CUSTOMER_AUDITS'].includes(t)) {
+        if (!d || !['PUBLIC_HOLIDAY', 'SHUTDOWN_PLANT', 'NO_CUSTOMER_AUDITS', 'WORKING_DAY'].includes(t)) {
           continue;
         }
         await DB.prepare(
