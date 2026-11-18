@@ -803,7 +803,14 @@ export function useScheduler() {
   const toggleFilterValue = (field: 'filterEmp' | 'filterSite' | 'filterCompany' | 'filterAuditType' | 'filterAuditTopic' | 'filterTargetPackage' | 'filterCustomerName' | 'filterAuditCategory' | 'adminFilterSite' | 'adminFilterDept', value: string) =>
     setState((s) => {
       const arr = s[field] as unknown as string[];
-      const nextArr = arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
+      const matchIdx = arr.findIndex(
+        (v) =>
+          v.toLowerCase().trim() === value.toLowerCase().trim() ||
+          v.replace(/\s+/g, '').toLowerCase() === value.replace(/\s+/g, '').toLowerCase()
+      );
+      const nextArr = matchIdx !== -1
+        ? arr.filter((_, idx) => idx !== matchIdx)
+        : [...arr, value];
       if (field === 'filterAuditTopic') {
         const hasEHS = nextArr.includes('EHS');
         const validSites = hasEHS ? ['UTL1', 'UTL2', 'UTL3', 'U1', 'U2', 'U3'] : s.siteCodeOptions;
@@ -4466,7 +4473,16 @@ export function useScheduler() {
       .filter((e) => {
         const engSite = normalizeSite(e.site || (e.department && e.department !== 'QA' && e.department !== 'Non-QA' ? e.department : 'UTL1'));
         if (S.adminFilterSite.length > 0 && !S.adminFilterSite.some((s) => normalizeSite(s) === engSite)) return false;
-        if (S.adminFilterDept.length > 0 && !e.subDepartments.some((d) => S.adminFilterDept.includes(d))) return false;
+        if (S.adminFilterDept.length > 0) {
+          const matchesDept = e.subDepartments.some((d) =>
+            S.adminFilterDept.some(
+              (f) =>
+                f.toLowerCase().trim() === d.toLowerCase().trim() ||
+                f.replace(/\s+/g, '').toLowerCase() === d.replace(/\s+/g, '').toLowerCase()
+            )
+          );
+          if (!matchesDept) return false;
+        }
         return true;
       })
       .map((e) => {
@@ -4527,6 +4543,15 @@ export function useScheduler() {
   }, [S.assignments, removedSet]);
   const toggleAdminFilterSite = (v: string) => toggleFilterValue('adminFilterSite', v);
   const toggleAdminFilterDept = (v: string) => toggleFilterValue('adminFilterDept', v);
+  const clearAdminFilters = useCallback(() => {
+    setState({ adminFilterSite: [], adminFilterDept: [] });
+  }, [setState]);
+  const clearAdminFilterSite = useCallback(() => {
+    setState({ adminFilterSite: [] });
+  }, [setState]);
+  const clearAdminFilterDept = useCallback(() => {
+    setState({ adminFilterDept: [] });
+  }, [setState]);
 
   const employeeOptions = useMemo(() => {
     const filterOptions = S.engineers
@@ -4627,13 +4652,32 @@ export function useScheduler() {
 
   useEffect(() => {
     if (S.adminFilterDept.length > 0) {
-      const validDepts = new Set(adminDeptOptions.map((d) => d.toLowerCase()));
-      const cleaned = S.adminFilterDept.filter((f) => validDepts.has(f.toLowerCase()));
-      if (cleaned.length !== S.adminFilterDept.length) {
-        setState({ adminFilterDept: cleaned });
+      if (adminDeptOptions.length === 0) {
+        if (S.assignments.length > 0) {
+          setState({ adminFilterDept: [] });
+        }
+        return;
+      }
+      const normalizedDepts: string[] = [];
+      for (const f of S.adminFilterDept) {
+        const match = adminDeptOptions.find(
+          (opt) =>
+            opt.toLowerCase().trim() === f.toLowerCase().trim() ||
+            opt.replace(/\s+/g, '').toLowerCase() === f.replace(/\s+/g, '').toLowerCase()
+        );
+        if (match && !normalizedDepts.includes(match)) {
+          normalizedDepts.push(match);
+        }
+      }
+      const isDifferent =
+        normalizedDepts.length !== S.adminFilterDept.length ||
+        normalizedDepts.some((v, i) => v !== S.adminFilterDept[i]);
+
+      if (isDifferent) {
+        setState({ adminFilterDept: normalizedDepts });
       }
     }
-  }, [adminDeptOptions, S.adminFilterDept, setState]);
+  }, [adminDeptOptions, S.adminFilterDept, S.assignments.length, setState]);
   const auditTypes = typeIsIA ? [] : computedPurposeOptions;
   const apptTypeOptions = [{ value: 'CS', label: 'Customer Audit (CS)' }, { value: 'IA', label: 'Internal Audit (IA)' }];
   const hasFilters = !!(
@@ -4906,6 +4950,7 @@ export function useScheduler() {
     adminEngineers, engCount: adminEngineers.length,
     adminFilterSite: S.adminFilterSite, adminFilterDept: S.adminFilterDept, adminDeptOptions,
     toggleAdminFilterSite, toggleAdminFilterDept,
+    clearAdminFilters, clearAdminFilterSite, clearAdminFilterDept,
     addEngineer: openEngForm,
     summaryPeriods, summaryRows, summaryCells, utlRows, utlCells, summaryYear: S.summaryYear,
     setSummaryYear: (y: number) => setState({ summaryYear: y }),

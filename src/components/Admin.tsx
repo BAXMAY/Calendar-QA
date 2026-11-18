@@ -65,12 +65,39 @@ export function Admin({ vm }: { vm: VM }) {
   );
 }
 
-function AdminFilterDropdown({ label, count, selected, items, onToggle }: { label: string; count: number; selected: string[]; items: { value: string; label: string }[]; onToggle: (v: string) => void }) {
+function AdminFilterDropdown({
+  label,
+  count,
+  selected,
+  items,
+  onToggle,
+  onClear,
+}: {
+  label: string;
+  count?: number;
+  selected: string[];
+  items: { value: string; label: string }[];
+  onToggle: (v: string) => void;
+  onClear?: () => void;
+}) {
   const [open, setOpen] = useState(false);
-  const active = selected.length > 0;
+
+  // Normalize comparison so that items with formatting/whitespace differences still match
+  const validSelected = items.filter((item) =>
+    selected.some(
+      (s) =>
+        s.toLowerCase().trim() === item.value.toLowerCase().trim() ||
+        s.replace(/\s+/g, '').toLowerCase() === item.value.replace(/\s+/g, '').toLowerCase()
+    )
+  );
+  // Ensure the badge count strictly equals selected items that actually exist in available items
+  const effectiveCount = count !== undefined ? Math.min(count, validSelected.length) : validSelected.length;
+  const active = effectiveCount > 0;
+
   return (
     <div style={css('position:relative')}>
       <button
+        type="button"
         onClick={() => setOpen(!open)}
         style={css(
           'display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:7px;border:1px solid ' +
@@ -84,20 +111,39 @@ function AdminFilterDropdown({ label, count, selected, items, onToggle }: { labe
             ";cursor:pointer;font-family:'Archivo',sans-serif;transition:all .12s ease"
         )}
       >
-        {label}
-        {count > 0 && (
-          <span style={css('background:#2756d6;color:#fff;border-radius:10px;padding:0 5px;font-size:9.5px;font-weight:600')}>
-            {count}
+        <span>{label}</span>
+        {effectiveCount > 0 && (
+          <span style={css('background:#2756d6;color:#fff;border-radius:10px;padding:0 5px;font-size:9.5px;font-weight:600;min-width:14px;text-align:center')}>
+            {effectiveCount}
+          </span>
+        )}
+        {active && onClear && (
+          <span
+            role="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClear();
+            }}
+            title={`Clear ${label} filter`}
+            style={css(
+              'display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:#2756d6;color:#fff;font-size:10px;line-height:1;margin-left:2px;cursor:pointer'
+            )}
+          >
+            ×
           </span>
         )}
         <span style={css('font-size:9px;color:' + (active ? '#2756d6' : '#8a9088'))}>▾</span>
       </button>
       {open && (
         <>
-          <div onClick={() => setOpen(false)} style={css('position:fixed;inset:0;z-index:99')} />
-          <div style={css('position:absolute;top:100%;right:0;z-index:100;margin-top:4px;background:#fff;border:1px solid #dde0d9;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);min-width:140px;max-height:220px;overflow-y:auto;padding:5px')}>
+          <div onClick={() => setOpen(false)} style={css('position:fixed;inset:0;z-index:999')} />
+          <div style={css('position:absolute;top:100%;right:0;z-index:1000;margin-top:4px;background:#fff;border:1px solid #dde0d9;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.15);min-width:140px;max-height:220px;overflow-y:auto;padding:5px')}>
             {items.map((item) => {
-              const on = selected.includes(item.value);
+              const on = selected.some(
+                (s) =>
+                  s.toLowerCase().trim() === item.value.toLowerCase().trim() ||
+                  s.replace(/\s+/g, '').toLowerCase() === item.value.replace(/\s+/g, '').toLowerCase()
+              );
               return (
                 <div
                   key={item.value}
@@ -109,6 +155,12 @@ function AdminFilterDropdown({ label, count, selected, items, onToggle }: { labe
                       ';font-weight:' +
                       (on ? '600' : '400')
                   )}
+                  onMouseEnter={(e) => {
+                    if (!on) e.currentTarget.style.background = '#f8fafc';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!on) e.currentTarget.style.background = '#fff';
+                  }}
                 >
                   <span
                     style={css(
@@ -191,10 +243,10 @@ function DepartmentFilterDropdown({
 
       {open && (
         <>
-          <div onClick={() => setOpen(false)} style={css('position:fixed;inset:0;z-index:99')} />
+          <div onClick={() => setOpen(false)} style={css('position:fixed;inset:0;z-index:999')} />
           <div
             style={css(
-              'position:absolute;top:100%;right:0;z-index:100;margin-top:4px;background:#fff;border:1px solid #dde0d9;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);min-width:140px;padding:5px'
+              'position:absolute;top:100%;right:0;z-index:1000;margin-top:4px;background:#fff;border:1px solid #dde0d9;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.15);min-width:140px;padding:5px'
             )}
           >
             {(['QA', 'Non-QA'] as const).map((dept) => {
@@ -252,6 +304,25 @@ function EngineersTable({ vm }: { vm: VM }) {
     setSelectedDepartments([]);
   };
 
+  // Standard filter is active only if at least one selected standard matches an available standard
+  const activeStandardsCount = vm.adminFilterDept.filter((f) =>
+    vm.adminDeptOptions.some(
+      (opt) =>
+        opt.toLowerCase().trim() === f.toLowerCase().trim() ||
+        opt.replace(/\s+/g, '').toLowerCase() === f.replace(/\s+/g, '').toLowerCase()
+    )
+  ).length;
+
+  const hasSiteFilter = vm.adminFilterSite.length > 0;
+  const hasDeptFilter = activeStandardsCount > 0;
+  const hasDepartmentFilter = selectedDepartments.length === 1;
+  const hasAnyFilter = hasSiteFilter || hasDeptFilter || hasDepartmentFilter;
+
+  const handleClearAllFilters = () => {
+    vm.clearAdminFilters?.();
+    setSelectedDepartments([]);
+  };
+
   const filteredEngineers = vm.adminEngineers.filter((e) => {
     const hasQa = selectedDepartments.includes('QA');
     const hasNonQa = selectedDepartments.includes('Non-QA');
@@ -268,8 +339,8 @@ function EngineersTable({ vm }: { vm: VM }) {
   });
 
   return (
-    <div style={css('background:#fff;border:1px solid #e2e5de;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,0.02);overflow:hidden;position:relative;z-index:10')}>
-      <div style={css('display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid #eef1ea;flex-wrap:wrap;gap:10px;position:relative;z-index:20')}>
+    <div style={css('background:#fff;border:1px solid #e2e5de;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,0.02);overflow:visible;position:relative;z-index:10')}>
+      <div style={css('display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid #eef1ea;flex-wrap:wrap;gap:10px;position:relative;z-index:50;border-top-left-radius:14px;border-top-right-radius:14px;background:#fff;overflow:visible')}>
         <div style={css('font-size:13.5px;font-weight:700;color:#15191e')}>QMS Host <span style={css('color:#9aa097;font-weight:500')}>· {filteredEngineers.length}</span></div>
         <div style={css('display:flex;align-items:center;gap:8px;flex-wrap:wrap')}>
           <AdminFilterDropdown
@@ -278,23 +349,39 @@ function EngineersTable({ vm }: { vm: VM }) {
             selected={vm.adminFilterSite}
             items={vm.siteCodeOptions.map((s) => ({ value: s, label: s }))}
             onToggle={vm.toggleAdminFilterSite}
+            onClear={vm.clearAdminFilterSite}
           />
           <AdminFilterDropdown
             label="Standard"
-            count={vm.adminFilterDept.length}
+            count={activeStandardsCount}
             selected={vm.adminFilterDept}
             items={vm.adminDeptOptions.map((d) => ({ value: d, label: d }))}
             onToggle={vm.toggleAdminFilterDept}
+            onClear={vm.clearAdminFilterDept}
           />
           <DepartmentFilterDropdown
             selected={selectedDepartments}
             onToggle={handleToggleDepartment}
             onClear={handleClearDepartment}
           />
+          {hasAnyFilter && (
+            <button
+              type="button"
+              onClick={handleClearAllFilters}
+              style={css("background:none;border:none;color:#ef4444;font-size:11.5px;font-weight:600;cursor:pointer;padding:5px 8px;border-radius:6px;display:flex;align-items:center;gap:4px;font-family:'Archivo',sans-serif;transition:all .12s ease")}
+              onMouseEnter={(e) => { e.currentTarget.style.background = '#fef2f2'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
+              title="Clear all active filters"
+            >
+              ✕ Clear filters
+            </button>
+          )}
           <HButton onClick={vm.addEngineer} style={css("background:#15191e;color:#fff;border:none;border-radius:7px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Archivo',sans-serif")} hover={{ background: '#23282e' }}>+ New QMS Host</HButton>
         </div>
       </div>
-      {filteredEngineers.map((e, idx) => (
+      {filteredEngineers.map((e, idx) => {
+        const isLast = idx === filteredEngineers.length - 1;
+        return (
         <div
           key={e.id}
           draggable
@@ -333,14 +420,15 @@ function EngineersTable({ vm }: { vm: VM }) {
           }}
           style={css(
             'display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:' +
-              (idx === filteredEngineers.length - 1 ? 'none' : '1px solid #f1f3ee') +
+              (isLast ? 'none' : '1px solid #f1f3ee') +
               ';transition:background 0.15s ease, transform 0.15s ease;background:' +
               (dropTargetIdx === idx && draggedIdx !== idx ? '#eef2fd' : '#fff') +
               ';opacity:' +
               (draggedIdx === idx ? '0.4' : '1') +
               ';box-shadow:' +
               (draggedIdx === idx ? '0 4px 12px rgba(0,0,0,0.12)' : 'none') +
-              ';cursor:grab'
+              ';cursor:grab;' +
+              (isLast ? 'border-bottom-left-radius:14px;border-bottom-right-radius:14px;' : '')
           )}
           onMouseEnter={(evt) => {
             if (dropTargetIdx !== idx) evt.currentTarget.style.background = '#f9faf7';
@@ -389,10 +477,24 @@ function EngineersTable({ vm }: { vm: VM }) {
             ×
           </button>
         </div>
-      ))}
+        );
+      })}
       {filteredEngineers.length === 0 && (
-        <div style={css('padding:28px;text-align:center;font-size:13px;color:#8a9088;font-style:italic')}>
-          No QMS hosts match the selected filters.
+        <div style={css('padding:36px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;border-bottom-left-radius:14px;border-bottom-right-radius:14px;background:#fff')}>
+          <div style={css('font-size:13px;color:#8a9088;font-style:italic')}>
+            No QMS hosts match the selected filters.
+          </div>
+          {hasAnyFilter && (
+            <button
+              type="button"
+              onClick={handleClearAllFilters}
+              style={css("font-size:12px;font-weight:600;color:#2756d6;background:#eef2fd;border:1px solid #bfdbfe;padding:6px 14px;border-radius:7px;cursor:pointer;font-family:'Archivo',sans-serif;transition:all .12s ease")}
+              onMouseEnter={(e) => { e.currentTarget.style.background = '#dbeafe'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = '#eef2fd'; }}
+            >
+              Clear all filters
+            </button>
+          )}
         </div>
       )}
     </div>
