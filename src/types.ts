@@ -1179,8 +1179,8 @@ export interface EditScopePrompt {
   totalDays: number;
 }
 
-export type ActionType = 'CREATE' | 'UPDATE' | 'DELETE' | 'REORDER' | 'MANAGE_ITEM' | 'OTHER';
-export type EntityType = 'APPOINTMENT' | 'CUSTOMER' | 'END_CUSTOMER' | 'AUDITOR' | 'QMS_HOST' | 'SITE' | 'STANDARD' | 'DEPARTMENT' | 'PURPOSE' | 'TARGET_PACKAGE' | 'CUSTOMER_NAME' | 'AUDIT_CATEGORY';
+export type ActionType = 'CREATE' | 'UPDATE' | 'DELETE' | 'REORDER' | 'MANAGE_ITEM' | 'RESET' | 'OTHER';
+export type EntityType = 'APPOINTMENT' | 'CUSTOMER' | 'END_CUSTOMER' | 'AUDITOR' | 'QMS_HOST' | 'SITE' | 'STANDARD' | 'DEPARTMENT' | 'PURPOSE' | 'TARGET_PACKAGE' | 'CUSTOMER_NAME' | 'AUDIT_CATEGORY' | 'HOLIDAY';
 
 export interface ActivityUser {
   name: string;
@@ -1229,6 +1229,8 @@ export interface UserSession {
   username: string;
   name?: string;
   role?: string;
+  email?: string;
+  avatarInitials?: string;
 }
 
 export interface State {

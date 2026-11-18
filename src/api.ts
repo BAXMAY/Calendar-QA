@@ -82,12 +82,31 @@ export const api = {
     req('/options/reorder', { method: 'PUT', body: JSON.stringify({ category, values }) }),
 
   getHolidays: () => req<CustomHolidayRecord[]>('/holidays'),
-  saveHoliday: (data: { date?: string; type?: CustomHolidayType; note?: string; items?: Array<{ date: string; type: CustomHolidayType; note?: string }> }) =>
-    req<{ ok: boolean }>('/holidays', { method: 'POST', body: JSON.stringify(data) }),
-  deleteHoliday: (date: string) =>
-    req<{ ok: boolean }>('/holidays/' + encodeURIComponent(date), { method: 'DELETE' }),
-  deleteHolidays: (dates: string[]) =>
-    req<{ ok: boolean }>('/holidays', { method: 'DELETE', body: JSON.stringify({ dates }) }),
+  saveHoliday: (data: {
+    date?: string;
+    type?: CustomHolidayType;
+    note?: string;
+    items?: Array<{ date: string; type: CustomHolidayType; note?: string }>;
+    actor?: string;
+    description?: string;
+    actionType?: string;
+  }) =>
+    req<{ ok: boolean; activity?: Activity }>('/holidays', { method: 'POST', body: JSON.stringify(data) }),
+  deleteHoliday: (date: string, meta?: { actor?: string; description?: string; actionType?: string }) =>
+    req<{ ok: boolean; activity?: Activity }>('/holidays/' + encodeURIComponent(date), {
+      method: 'DELETE',
+      body: meta ? JSON.stringify(meta) : undefined,
+    }),
+  deleteHolidays: (dates: string[], meta?: { actor?: string; description?: string; actionType?: string }) =>
+    req<{ ok: boolean; activity?: Activity }>('/holidays', {
+      method: 'DELETE',
+      body: JSON.stringify({ dates, ...meta }),
+    }),
+  resetHolidays: (year: number, meta?: { actor?: string; description?: string }) =>
+    req<{ ok: boolean; activity?: Activity }>('/holidays/reset', {
+      method: 'POST',
+      body: JSON.stringify({ year, ...meta }),
+    }),
 
   register: (userId: string, password: string, name?: string): Promise<AuthResult> =>
     authClient.register(userId, password, name),

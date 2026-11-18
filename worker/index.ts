@@ -84,6 +84,60 @@ function normalizeAuditResults(results: any): Record<string, any> {
   return out;
 }
 
+async function insertActivityLog(
+  DB: D1Database,
+  entry: {
+    id?: string;
+    who: string;
+    text: string;
+    ago?: string;
+    color?: string;
+    actionType?: string;
+    entityType?: string;
+    date?: string;
+    note?: string;
+    timestamp?: string;
+  }
+) {
+  const actId = entry.id || ('act_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
+  const ts = entry.timestamp || new Date().toISOString();
+  const who = entry.who || 'Jordan Lee';
+  const text = entry.text || '';
+  const ago = entry.ago || 'just now';
+  const color = entry.color || '#0f9d8c';
+  const actionType = entry.actionType || 'CREATE';
+  const entityType = entry.entityType || 'HOLIDAY';
+  const date = entry.date || '';
+  const note = entry.note || '';
+
+  try {
+    await DB.prepare(
+      'INSERT INTO activity (id, who, text, ago, color, action_type, entity_type, date, note, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(actId, who, text, ago, color, actionType, entityType, date, note, ts).run();
+  } catch {
+    try {
+      await DB.prepare(
+        'INSERT INTO activity (id, who, text, ago, color) VALUES (?, ?, ?, ?, ?)'
+      ).bind(actId, who, text, ago, color).run();
+    } catch (e2) {
+      console.error('Failed to insert activity:', e2);
+    }
+  }
+
+  return {
+    id: actId,
+    who,
+    text,
+    ago,
+    color,
+    actionType,
+    entityType,
+    date,
+    note,
+    timestamp: ts,
+  };
+}
+
 function engineerOut(r: any) {
   const dept = (r.host_department === 'Non-QA' || r.department === 'Non-QA')
     ? 'Non-QA'
@@ -347,7 +401,7 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
         DB.prepare('SELECT * FROM orders').all(),
         DB.prepare('SELECT * FROM assignments').all(),
         DB.prepare('SELECT * FROM comments').all(),
-        DB.prepare('SELECT * FROM activity ORDER BY rowid DESC LIMIT 9').all(),
+        DB.prepare('SELECT * FROM activity ORDER BY rowid DESC LIMIT 50').all(),
         DB.prepare('SELECT * FROM options').all(),
         DB.prepare('SELECT date, type, note, created_at, updated_at FROM custom_holidays ORDER BY date ASC').all().catch(() => ({ results: [] })),
       ]);
@@ -639,6 +693,25 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
       const { results } = await DB.prepare('SELECT date, type, note, created_at, updated_at FROM custom_holidays ORDER BY date ASC').all();
       return json(results);
     }
+    if (method === 'POST' && path === 'holidays/reset') {
+      const year = Number(body?.year) || new Date().getFullYear();
+      const prefix = `${year}-%`;
+      await DB.prepare("DELETE FROM custom_holidays WHERE date LIKE ? AND type IN ('PUBLIC_HOLIDAY', 'WORKING_DAY')").bind(prefix).run();
+
+      const actor = String(body?.actor || body?.user || 'Jordan Lee').trim();
+      const desc = String(body?.description || `Reset Public Holidays to default reference list (${year})`).trim();
+
+      const activity = await insertActivityLog(DB, {
+        who: actor,
+        text: desc,
+        actionType: 'RESET',
+        entityType: 'HOLIDAY',
+        color: '#b45309',
+        date: String(year),
+      });
+
+      return json({ ok: true, activity });
+    }
     if (method === 'POST' && path === 'holidays') {
       const items = Array.isArray(body?.items) ? body.items : (body ? [body] : []);
       if (items.length === 0) {
@@ -657,13 +730,86 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
            ON CONFLICT(date) DO UPDATE SET type = excluded.type, note = excluded.note, updated_at = CURRENT_TIMESTAMP`
         ).bind(d, t, note).run();
       }
-      return json({ ok: true });
+
+      // Log activity into D1
+      const actor = String(body?.actor || body?.user || 'Jordan Lee').trim();
+      let actionType = String(body?.actionType || 'CREATE').toUpperCase();
+      let desc = String(body?.description || '').trim();
+      let color = '#0f9d8c';
+
+      if (!desc) {
+        if (items.length === 1) {
+          const it = items[0];
+          const d = String(it.date || '').trim();
+          const t = String(it.type || '').trim().toUpperCase();
+          const n = String(it.note || '').trim();
+          if (t === 'PUBLIC_HOLIDAY') {
+            desc = `Added Public Holiday "${n || 'Public Holiday'}" on ${d}`;
+            color = '#b45309';
+          } else if (t === 'SHUTDOWN_PLANT') {
+            desc = `Set Shutdown Plant on ${d}`;
+            color = '#dc2626';
+          } else if (t === 'NO_CUSTOMER_AUDITS') {
+            desc = `Set No Customer Audits on ${d}`;
+            color = '#d97706';
+          } else if (t === 'WORKING_DAY') {
+            desc = `Removed Public Holiday on ${d}`;
+            actionType = 'DELETE';
+            color = '#64748b';
+          }
+        } else {
+          const first = items[0];
+          const last = items[items.length - 1];
+          const t = String(first.type || '').trim().toUpperCase();
+          const typeLabel = t === 'SHUTDOWN_PLANT' ? 'Shutdown Plant' : (t === 'NO_CUSTOMER_AUDITS' ? 'No Customer Audits' : 'Public Holiday');
+          desc = `Set ${typeLabel} on ${first.date} to ${last.date}`;
+          color = t === 'SHUTDOWN_PLANT' ? '#dc2626' : (t === 'NO_CUSTOMER_AUDITS' ? '#d97706' : '#b45309');
+        }
+      }
+
+      const activity = await insertActivityLog(DB, {
+        who: actor,
+        text: desc,
+        actionType,
+        entityType: 'HOLIDAY',
+        color,
+        date: items[0]?.date || '',
+        note: items[0]?.note || '',
+      });
+
+      return json({ ok: true, activity });
     }
     const holidayDateMatch = path.match(/^holidays\/(.+)$/);
     if (holidayDateMatch && method === 'DELETE') {
       const dateKey = decodeURIComponent(holidayDateMatch[1]).trim();
+      const existing = await DB.prepare('SELECT type, note FROM custom_holidays WHERE date = ?').bind(dateKey).first() as { type?: string; note?: string } | null;
       await DB.prepare('DELETE FROM custom_holidays WHERE date = ?').bind(dateKey).run();
-      return json({ ok: true });
+
+      const actor = String(body?.actor || body?.user || 'Jordan Lee').trim();
+      let desc = String(body?.description || '').trim();
+      if (!desc) {
+        if (existing?.type === 'PUBLIC_HOLIDAY') {
+          desc = `Removed Public Holiday "${existing.note || 'Public Holiday'}" on ${dateKey}`;
+        } else if (existing?.type === 'SHUTDOWN_PLANT') {
+          desc = `Removed Shutdown Plant restriction on ${dateKey}`;
+        } else if (existing?.type === 'NO_CUSTOMER_AUDITS') {
+          desc = `Removed No Customer Audits restriction on ${dateKey}`;
+        } else {
+          desc = `Removed restriction on ${dateKey}`;
+        }
+      }
+
+      const activity = await insertActivityLog(DB, {
+        who: actor,
+        text: desc,
+        actionType: 'DELETE',
+        entityType: 'HOLIDAY',
+        color: '#d9534f',
+        date: dateKey,
+        note: existing?.note || '',
+      });
+
+      return json({ ok: true, activity });
     }
     if (method === 'DELETE' && path === 'holidays') {
       const dates = Array.isArray(body?.dates) ? body.dates : (body?.date ? [body.date] : []);
@@ -673,7 +819,26 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
           await DB.prepare('DELETE FROM custom_holidays WHERE date = ?').bind(dateKey).run();
         }
       }
-      return json({ ok: true });
+
+      const actor = String(body?.actor || body?.user || 'Jordan Lee').trim();
+      let desc = String(body?.description || '').trim();
+      const actionType = String(body?.actionType || 'DELETE').toUpperCase();
+      if (!desc) {
+        desc = dates.length > 1
+          ? `Removed calendar restrictions on ${dates[0]} to ${dates[dates.length - 1]}`
+          : `Removed calendar restriction on ${dates[0] || 'date'}`;
+      }
+
+      const activity = await insertActivityLog(DB, {
+        who: actor,
+        text: desc,
+        actionType,
+        entityType: 'HOLIDAY',
+        color: '#d9534f',
+        date: dates[0] || '',
+      });
+
+      return json({ ok: true, activity });
     }
 
     return json({ error: 'not found', path, method }, 404);

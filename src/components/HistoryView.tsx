@@ -13,6 +13,8 @@ function getActionBadgeStyle(actionType: ActionType): { bg: string; color: strin
       return { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' };
     case 'DELETE':
       return { bg: '#fef2f2', color: '#b91c1c', border: '#fca5a5' };
+    case 'RESET':
+      return { bg: '#fffbeb', color: '#b45309', border: '#fde68a' };
     default:
       return { bg: '#f8fafc', color: '#475569', border: '#e2e8f0' };
   }
@@ -41,6 +43,8 @@ function getEntityBadgeStyle(entityType: EntityType): { bg: string; color: strin
       return { bg: '#e0e7ff', color: '#3730a3' };
     case 'AUDIT_CATEGORY':
       return { bg: '#ecfdf5', color: '#065f46' };
+    case 'HOLIDAY':
+      return { bg: '#fef3c7', color: '#92400e' };
     default:
       return { bg: '#f3f4f6', color: '#4b5563' };
   }
@@ -181,6 +185,7 @@ export function HistoryView({ vm }: { vm: VM }) {
             <option value="DELETE">DELETE</option>
             <option value="REORDER">REORDER</option>
             <option value="MANAGE_ITEM">MANAGE_ITEM</option>
+            <option value="RESET">RESET</option>
           </select>
         </div>
 
@@ -194,6 +199,7 @@ export function HistoryView({ vm }: { vm: VM }) {
           >
             <option value="ALL">All Entities</option>
             <option value="APPOINTMENT">Appointment</option>
+            <option value="HOLIDAY">Holiday / Restriction</option>
             <option value="CUSTOMER">Customer</option>
             <option value="END_CUSTOMER">End Customer</option>
             <option value="QMS_HOST">QMS Host</option>

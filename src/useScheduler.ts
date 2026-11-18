@@ -341,21 +341,33 @@ export function useScheduler() {
     const ss = String(now.getSeconds()).padStart(2, '0');
     const timestamp = `${dd}/${mm}/${yyyy} ${hh}:${min}:${ss}`;
 
-    const newLog: ActivityLog = {
-      id: 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
-      timestamp,
-      user: {
-        name: 'Jordan Lee',
-        email: 'jordan.lee@nexsil.com',
-        avatarInitials: 'JL',
-      },
-      actionType,
-      entityType,
-      description,
-      metadata,
-    };
-
     setRaw((prev) => {
+      const uName = prev.currentUser?.name || 'Jordan Lee';
+      const uEmail = prev.currentUser?.email || (uName === 'Jordan Lee' ? 'jordan.lee@nexsil.com' : undefined);
+      const uInitials =
+        prev.currentUser?.avatarInitials ||
+        uName
+          .split(' ')
+          .map((n: string) => n[0])
+          .join('')
+          .slice(0, 2)
+          .toUpperCase() ||
+        'JL';
+
+      const newLog: ActivityLog = {
+        id: 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+        timestamp,
+        user: {
+          name: uName,
+          email: uEmail,
+          avatarInitials: uInitials,
+        },
+        actionType,
+        entityType,
+        description,
+        metadata,
+      };
+
       const updatedLogs = [newLog, ...(prev.activityLogs || [])];
       try {
         const snap = localStorage.getItem('calendar_qa_snapshot');
@@ -2720,7 +2732,12 @@ export function useScheduler() {
   const setAdminTab = (t: State['adminTab']) => setState({ adminTab: t });
 
   // ---- holidays & restrictions ----
-  const saveHolidayRule = async (date: string, type: CustomHolidayType, note?: string) => {
+  const saveHolidayRule = async (
+    date: string,
+    type: CustomHolidayType,
+    note?: string,
+    options?: { skipLog?: boolean; customDesc?: string; actionType?: ActionType }
+  ) => {
     const cleanDate = date.trim();
     if (!cleanDate) return;
     const cleanNote = (note || '').trim();
@@ -2730,33 +2747,83 @@ export function useScheduler() {
       setCustomHolidays(next);
       return { customHolidays: next };
     });
+
+    let desc = options?.customDesc;
+    let actType: ActionType = options?.actionType || 'CREATE';
+    let dotColor = '#0f9d8c';
+
+    if (!desc) {
+      if (type === 'PUBLIC_HOLIDAY') {
+        desc = `Added Public Holiday "${cleanNote || 'Public Holiday'}" on ${cleanDate}`;
+        dotColor = '#b45309';
+      } else if (type === 'SHUTDOWN_PLANT') {
+        desc = `Set Shutdown Plant on ${cleanDate}`;
+        dotColor = '#dc2626';
+      } else if (type === 'NO_CUSTOMER_AUDITS') {
+        desc = `Set No Customer Audits on ${cleanDate}`;
+        dotColor = '#d97706';
+      } else if (type === 'WORKING_DAY') {
+        desc = `Removed Public Holiday on ${cleanDate}`;
+        actType = 'DELETE';
+        dotColor = '#64748b';
+      } else {
+        desc = `Updated calendar rule on ${cleanDate}`;
+      }
+    }
+
+    if (!options?.skipLog && desc) {
+      logActivity(actType, 'HOLIDAY', desc, { date: cleanDate, type, note: cleanNote });
+      log('You', desc, dotColor);
+    }
+
     try {
-      await api.saveHoliday({ date: cleanDate, type, note: cleanNote });
+      await api.saveHoliday({
+        date: cleanDate,
+        type,
+        note: cleanNote,
+        actor: S.currentUser?.name,
+        description: desc,
+        actionType: actType,
+      });
     } catch (err) {
       console.error('Failed to save holiday to D1:', err);
     }
   };
 
-  const deleteHolidayRule = async (date: string) => {
+  const deleteHolidayRule = async (date: string, options?: { skipLog?: boolean }) => {
     const cleanDate = date.trim();
     if (!cleanDate) return;
 
     const parts = cleanDate.split('-');
     const dt = parts.length === 3 ? new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])) : new Date(cleanDate + 'T00:00:00');
-    const isBuiltin = isBuiltinPublicHoliday(dt).isBuiltin;
+    const builtin = isBuiltinPublicHoliday(dt);
+    const isBuiltin = builtin.isBuiltin;
     const current = (S.customHolidays || {})[cleanDate];
 
     // If it's a built-in holiday that has not already been marked as WORKING_DAY:
     // Mark as WORKING_DAY so it becomes a normal working day in the calendar.
     if (isBuiltin && (!current || current.type !== 'WORKING_DAY')) {
       const item: CustomHoliday = { date: cleanDate, type: 'WORKING_DAY', note: '' };
+      const holidayName = builtin.name || 'Public Holiday';
+      const desc = `Removed Public Holiday "${holidayName}" on ${cleanDate}`;
+
+      if (!options?.skipLog) {
+        logActivity('DELETE', 'HOLIDAY', desc, { date: cleanDate, type: 'WORKING_DAY', holidayName });
+        log('You', desc, '#d9534f');
+      }
+
       setState((s) => {
         const next = { ...s.customHolidays, [cleanDate]: item };
         setCustomHolidays(next);
         return { customHolidays: next };
       });
       try {
-        await api.saveHoliday(item);
+        await api.saveHoliday({
+          ...item,
+          actor: S.currentUser?.name,
+          description: desc,
+          actionType: 'DELETE',
+        });
       } catch (err) {
         console.error('Failed to override built-in holiday to working day in D1:', err);
       }
@@ -2764,6 +2831,26 @@ export function useScheduler() {
     }
 
     // Normal deletion from customHolidays and D1
+    let desc = `Removed restriction on ${cleanDate}`;
+    if (current) {
+      if (current.type === 'PUBLIC_HOLIDAY') {
+        const hName = current.note || builtin.name || 'Public Holiday';
+        desc = `Removed Public Holiday "${hName}" on ${cleanDate}`;
+      } else if (current.type === 'SHUTDOWN_PLANT') {
+        desc = `Removed Shutdown Plant restriction on ${cleanDate}`;
+      } else if (current.type === 'NO_CUSTOMER_AUDITS') {
+        desc = `Removed No Customer Audits restriction on ${cleanDate}`;
+      } else if (current.type === 'WORKING_DAY') {
+        const hName = builtin.name || 'Public Holiday';
+        desc = `Restored default Public Holiday "${hName}" on ${cleanDate}`;
+      }
+    }
+
+    if (!options?.skipLog) {
+      logActivity('DELETE', 'HOLIDAY', desc, { date: cleanDate, previousType: current?.type });
+      log('You', desc, '#d9534f');
+    }
+
     setState((s) => {
       const next = { ...s.customHolidays };
       delete next[cleanDate];
@@ -2771,7 +2858,11 @@ export function useScheduler() {
       return { customHolidays: next };
     });
     try {
-      await api.deleteHoliday(cleanDate);
+      await api.deleteHoliday(cleanDate, {
+        actor: S.currentUser?.name,
+        description: desc,
+        actionType: 'DELETE',
+      });
     } catch (err) {
       console.error('Failed to delete holiday from D1:', err);
     }
@@ -2783,12 +2874,23 @@ export function useScheduler() {
     const cleanName = newName.trim();
     if (!cleanNew) return;
 
+    const desc = cleanOld && cleanOld !== cleanNew
+      ? `Updated Public Holiday on ${cleanOld} to "${cleanName}" (${cleanNew})`
+      : `Updated Public Holiday on ${cleanNew} to "${cleanName}"`;
+
+    logActivity('UPDATE', 'HOLIDAY', desc, { oldDate: cleanOld, newDate: cleanNew, name: cleanName });
+    log('You', desc, '#2756d6');
+
     if (cleanOld && cleanOld !== cleanNew) {
-      // Date was moved: delete or override old date
-      await deleteHolidayRule(cleanOld);
+      // Date was moved: delete or override old date without duplicate log
+      await deleteHolidayRule(cleanOld, { skipLog: true });
     }
 
-    await saveHolidayRule(cleanNew, 'PUBLIC_HOLIDAY', cleanName);
+    await saveHolidayRule(cleanNew, 'PUBLIC_HOLIDAY', cleanName, {
+      skipLog: true,
+      customDesc: desc,
+      actionType: 'UPDATE',
+    });
   };
 
   const resetYearPublicHolidays = async (year: number) => {
@@ -2801,6 +2903,10 @@ export function useScheduler() {
     }
     if (datesToDelete.length === 0) return;
 
+    const desc = `Reset Public Holidays to default reference list (${year})`;
+    logActivity('RESET', 'HOLIDAY', desc, { year, datesCount: datesToDelete.length });
+    log('You', desc, '#b45309');
+
     setState((s) => {
       const next = { ...s.customHolidays };
       for (const d of datesToDelete) {
@@ -2811,7 +2917,10 @@ export function useScheduler() {
     });
 
     try {
-      await api.deleteHolidays(datesToDelete);
+      await api.resetHolidays(year, {
+        actor: S.currentUser?.name,
+        description: desc,
+      });
     } catch (err) {
       console.error('Failed to reset year public holidays in D1:', err);
     }
@@ -2820,6 +2929,31 @@ export function useScheduler() {
   const saveHolidayRangeRules = async (dates: string[], type: CustomHolidayType, note?: string) => {
     if (!dates || dates.length === 0) return;
     const cleanNote = (note || '').trim();
+    const sortedDates = [...dates].sort();
+    const rangeStr = sortedDates.length > 1
+      ? `${sortedDates[0]} to ${sortedDates[sortedDates.length - 1]}`
+      : sortedDates[0];
+
+    let desc = '';
+    let dotColor = '#0f9d8c';
+    if (type === 'SHUTDOWN_PLANT') {
+      desc = sortedDates.length > 1 ? `Set Shutdown Plant on ${rangeStr}` : `Set Shutdown Plant on ${sortedDates[0]}`;
+      dotColor = '#dc2626';
+    } else if (type === 'NO_CUSTOMER_AUDITS') {
+      desc = sortedDates.length > 1 ? `Set No Customer Audits on ${rangeStr}` : `Set No Customer Audits on ${sortedDates[0]}`;
+      dotColor = '#d97706';
+    } else if (type === 'PUBLIC_HOLIDAY') {
+      desc = sortedDates.length > 1
+        ? `Added Public Holiday "${cleanNote || 'Public Holiday'}" on ${rangeStr}`
+        : `Added Public Holiday "${cleanNote || 'Public Holiday'}" on ${sortedDates[0]}`;
+      dotColor = '#b45309';
+    } else {
+      desc = `Updated calendar rules on ${rangeStr}`;
+    }
+
+    logActivity('CREATE', 'HOLIDAY', desc, { dates, type, note: cleanNote, range: rangeStr });
+    log('You', desc, dotColor);
+
     const items = dates.map((d) => ({ date: d.trim(), type, note: cleanNote }));
     setState((s) => {
       const next = { ...s.customHolidays };
@@ -2830,7 +2964,12 @@ export function useScheduler() {
       return { customHolidays: next };
     });
     try {
-      await api.saveHoliday({ items });
+      await api.saveHoliday({
+        items,
+        actor: S.currentUser?.name,
+        description: desc,
+        actionType: 'CREATE',
+      });
     } catch (err) {
       console.error('Failed to save holiday range to D1:', err);
     }
@@ -2838,6 +2977,15 @@ export function useScheduler() {
 
   const deleteHolidayRangeRules = async (dates: string[]) => {
     if (!dates || dates.length === 0) return;
+    const sortedDates = [...dates].sort();
+    const rangeStr = sortedDates.length > 1
+      ? `${sortedDates[0]} to ${sortedDates[sortedDates.length - 1]}`
+      : sortedDates[0];
+    const desc = `Removed calendar restrictions on ${rangeStr}`;
+
+    logActivity('DELETE', 'HOLIDAY', desc, { dates, range: rangeStr });
+    log('You', desc, '#d9534f');
+
     setState((s) => {
       const next = { ...s.customHolidays };
       for (const d of dates) {
@@ -2847,7 +2995,11 @@ export function useScheduler() {
       return { customHolidays: next };
     });
     try {
-      await api.deleteHolidays(dates);
+      await api.deleteHolidays(dates, {
+        actor: S.currentUser?.name,
+        description: desc,
+        actionType: 'DELETE',
+      });
     } catch (err) {
       console.error('Failed to delete holiday range from D1:', err);
     }
