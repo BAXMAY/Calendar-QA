@@ -28,7 +28,6 @@ const SITE_ORDER = [
   'UTL2B',
   'UTL3',
   'UTL3A',
-  'UTL3B',
   'UTL3T',
 ] as const;
 
@@ -228,6 +227,7 @@ async function ensureAssignmentColumns(DB: D1Database) {
     await DB.prepare("UPDATE options SET value = 'UTL3' WHERE category = 'site_code' AND value = 'U3'").run();
     await DB.prepare("UPDATE options SET value = 'UTL3A' WHERE category = 'site_code' AND value = 'U3A'").run();
     await DB.prepare("UPDATE options SET value = 'UTL3T' WHERE category = 'site_code' AND value = 'U3T'").run();
+    await DB.prepare("INSERT OR IGNORE INTO options (category, value, meta) VALUES ('site_code', 'UTL3', '#1e5fa8')").run();
   } catch {}
   migrationChecked = true;
 }
@@ -786,7 +786,7 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
             color = '#b45309';
           } else if (t === 'SHUTDOWN_PLANT') {
             const sites = parseLockedSites(it.lockedSites !== undefined ? it.lockedSites : it.locked_sites);
-            const sitesStr = sites.length > 0 ? (sites.length >= 6 ? 'All Sites' : sites.join(', ')) : 'All Sites';
+            const sitesStr = sites.length > 0 ? (sites.length >= SITE_ORDER.length ? 'All Sites' : sites.join(', ')) : 'All Sites';
             desc = `Set Shutdown Plant (${sitesStr}) on ${d}`;
             color = '#dc2626';
           } else if (t === 'NO_CUSTOMER_AUDITS') {
@@ -803,7 +803,7 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
           const t = String(first.type || '').trim().toUpperCase();
           if (t === 'SHUTDOWN_PLANT') {
             const sites = parseLockedSites(first.lockedSites !== undefined ? first.lockedSites : first.locked_sites);
-            const sitesStr = sites.length > 0 ? (sites.length >= 6 ? 'All Sites' : sites.join(', ')) : 'All Sites';
+            const sitesStr = sites.length > 0 ? (sites.length >= SITE_ORDER.length ? 'All Sites' : sites.join(', ')) : 'All Sites';
             desc = `Set Shutdown Plant (${sitesStr}) on ${first.date} to ${last.date}`;
             color = '#dc2626';
           } else {
@@ -839,7 +839,7 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
           desc = `Removed Public Holiday "${existing.note || 'Public Holiday'}" on ${dateKey}`;
         } else if (existing?.type === 'SHUTDOWN_PLANT') {
           const sites = parseLockedSites(existing.locked_sites);
-          const sitesSuffix = sites.length > 0 ? ` (${sites.length >= 6 ? 'All Sites' : sites.join(', ')})` : '';
+          const sitesSuffix = sites.length > 0 ? ` (${sites.length >= SITE_ORDER.length ? 'All Sites' : sites.join(', ')})` : '';
           desc = `Removed Shutdown Plant${sitesSuffix} restriction on ${dateKey}`;
         } else if (existing?.type === 'NO_CUSTOMER_AUDITS') {
           desc = `Removed No Customer Audits restriction on ${dateKey}`;

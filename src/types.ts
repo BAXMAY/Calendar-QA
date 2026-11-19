@@ -46,7 +46,6 @@ export const SITE_ORDER = [
   'UTL2B',
   'UTL3',
   'UTL3A',
-  'UTL3B',
   'UTL3T',
 ] as const;
 

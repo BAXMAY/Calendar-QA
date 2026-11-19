@@ -1,6 +1,6 @@
 export type CustomHolidayType = 'PUBLIC_HOLIDAY' | 'SHUTDOWN_PLANT' | 'NO_CUSTOMER_AUDITS' | 'WORKING_DAY';
 
-export const SHUTDOWN_SITE_OPTIONS = ['UTL1', 'UTL2', 'UTL2A', 'UTL2B', 'UTL3A', 'UTL3T'] as const;
+export const SHUTDOWN_SITE_OPTIONS = ['UTL1', 'UTL2', 'UTL2A', 'UTL2B', 'UTL3', 'UTL3A', 'UTL3T'] as const;
 
 export interface CustomHoliday {
   date: string; // 'YYYY-MM-DD'

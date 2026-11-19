@@ -1299,7 +1299,7 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
                       </button>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(95px, 1fr))', gap: '8px' }}>
                       {SHUTDOWN_SITE_OPTIONS.map((site) => {
                         const isChecked = modalLockedSites.includes(site);
                         return (

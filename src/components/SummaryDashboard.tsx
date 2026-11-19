@@ -929,7 +929,7 @@ export function SummaryDashboard({ vm }: { vm: VM }) {
                 Audit Visits by Site
               </div>
               <div style={css("font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8a9088;margin-top:2px")}>
-                Customer Audits (CS) · 5 Sites (UTL1, UTL2A, UTL2B, UTL3A, UTL3T) · 12 Months · Year {vm.summaryYear}
+                Customer Audits (CS) · 7 Sites (UTL1, UTL2, UTL2A, UTL2B, UTL3, UTL3A, UTL3T) · 12 Months · Year {vm.summaryYear}
               </div>
             </div>
 

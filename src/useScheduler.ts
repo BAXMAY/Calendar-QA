@@ -50,6 +50,7 @@ import {
   isDateCompletelyBlocked,
   isDateRestrictedToInternalAuditOnly,
   getShutdownSitesForRange,
+  SHUTDOWN_SITE_OPTIONS,
   setCustomHolidays,
   type HolidayInfo,
   type CustomHolidayType,
@@ -2805,7 +2806,7 @@ export function useScheduler() {
         desc = `Added Public Holiday "${cleanNote || 'Public Holiday'}" on ${cleanDate}`;
         dotColor = '#b45309';
       } else if (type === 'SHUTDOWN_PLANT') {
-        const sites = lockedSites && lockedSites.length > 0 ? (lockedSites.length >= 6 ? 'All Sites' : lockedSites.join(', ')) : 'All Sites';
+        const sites = lockedSites && lockedSites.length > 0 ? (lockedSites.length >= SHUTDOWN_SITE_OPTIONS.length ? 'All Sites' : lockedSites.join(', ')) : 'All Sites';
         desc = `Set Shutdown Plant (${sites}) on ${cleanDate}`;
         dotColor = '#dc2626';
       } else if (type === 'NO_CUSTOMER_AUDITS') {
@@ -2887,7 +2888,7 @@ export function useScheduler() {
         const hName = current.note || builtin.name || 'Public Holiday';
         desc = `Removed Public Holiday "${hName}" on ${cleanDate}`;
       } else if (current.type === 'SHUTDOWN_PLANT') {
-        const sites = current.lockedSites && current.lockedSites.length > 0 ? (current.lockedSites.length >= 6 ? 'All Sites' : current.lockedSites.join(', ')) : '';
+        const sites = current.lockedSites && current.lockedSites.length > 0 ? (current.lockedSites.length >= SHUTDOWN_SITE_OPTIONS.length ? 'All Sites' : current.lockedSites.join(', ')) : '';
         const sitesSuffix = sites ? ` (${sites})` : '';
         desc = `Removed Shutdown Plant${sitesSuffix} restriction on ${cleanDate}`;
       } else if (current.type === 'NO_CUSTOMER_AUDITS') {
@@ -2995,7 +2996,7 @@ export function useScheduler() {
     let desc = '';
     let dotColor = '#0f9d8c';
     if (type === 'SHUTDOWN_PLANT') {
-      const sites = lockedSites && lockedSites.length > 0 ? (lockedSites.length >= 6 ? 'All Sites' : lockedSites.join(', ')) : 'All Sites';
+      const sites = lockedSites && lockedSites.length > 0 ? (lockedSites.length >= SHUTDOWN_SITE_OPTIONS.length ? 'All Sites' : lockedSites.join(', ')) : 'All Sites';
       desc = sortedDates.length > 1 ? `Set Shutdown Plant (${sites}) on ${rangeStr}` : `Set Shutdown Plant (${sites}) on ${sortedDates[0]}`;
       dotColor = '#dc2626';
     } else if (type === 'NO_CUSTOMER_AUDITS') {
