@@ -49,7 +49,7 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
   const [modalToDate, setModalToDate] = useState('');
   const [modalType, setModalType] = useState<CustomHolidayType>('NO_CUSTOMER_AUDITS');
   const [modalNote, setModalNote] = useState('');
-  const [modalLockedSites, setModalLockedSites] = useState<string[]>([...SHUTDOWN_SITE_OPTIONS]);
+  const [modalLockedSites, setModalLockedSites] = useState<string[]>([]);
   const [isRangeMode, setIsRangeMode] = useState(false);
 
   // Add / Edit Public Holiday Dialog State
@@ -112,22 +112,22 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
       setModalType(hol.holidayType || 'PUBLIC_HOLIDAY');
       setModalNote(hol.note || (hol.holidayType === 'SHUTDOWN_PLANT' ? '' : hol.name || ''));
       if (hol.holidayType === 'SHUTDOWN_PLANT') {
-        setModalLockedSites(hol.lockedSites && hol.lockedSites.length > 0 ? hol.lockedSites : [...SHUTDOWN_SITE_OPTIONS]);
+        setModalLockedSites(hol.lockedSites && hol.lockedSites.length > 0 ? [...hol.lockedSites] : [...SHUTDOWN_SITE_OPTIONS]);
       } else {
-        setModalLockedSites([...SHUTDOWN_SITE_OPTIONS]);
+        setModalLockedSites([]);
       }
     } else if (existing) {
       setModalType(existing.type);
       setModalNote(existing.note || '');
       if (existing.type === 'SHUTDOWN_PLANT') {
-        setModalLockedSites(existing.lockedSites && existing.lockedSites.length > 0 ? existing.lockedSites : [...SHUTDOWN_SITE_OPTIONS]);
+        setModalLockedSites(existing.lockedSites && existing.lockedSites.length > 0 ? [...existing.lockedSites] : [...SHUTDOWN_SITE_OPTIONS]);
       } else {
-        setModalLockedSites([...SHUTDOWN_SITE_OPTIONS]);
+        setModalLockedSites([]);
       }
     } else {
       setModalType('NO_CUSTOMER_AUDITS');
       setModalNote('');
-      setModalLockedSites([...SHUTDOWN_SITE_OPTIONS]);
+      setModalLockedSites([]);
     }
     setModalOpen(true);
   };
@@ -141,18 +141,17 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
     setIsRangeMode(true);
     setModalType('NO_CUSTOMER_AUDITS');
     setModalNote('');
-    setModalLockedSites([...SHUTDOWN_SITE_OPTIONS]);
+    setModalLockedSites([]);
     setModalOpen(true);
   };
 
   // Handle saving holiday / restriction rule
   const handleSave = async () => {
     if (!modalFromDate) return;
+    if (modalType === 'SHUTDOWN_PLANT' && modalLockedSites.length === 0) return;
     const from = modalFromDate;
     const to = isRangeMode && modalToDate ? modalToDate : from;
-    const lockedSites = modalType === 'SHUTDOWN_PLANT'
-      ? (modalLockedSites.length > 0 ? modalLockedSites : [...SHUTDOWN_SITE_OPTIONS])
-      : undefined;
+    const lockedSites = modalType === 'SHUTDOWN_PLANT' ? modalLockedSites : undefined;
 
     if (from === to) {
       await vm.saveHolidayRule(from, modalType, modalNote.trim(), { lockedSites });
@@ -1295,7 +1294,7 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
                         }}
                         style={css("background:transparent;border:none;color:#2563eb;font-size:11px;font-weight:700;cursor:pointer;font-family:'Archivo',sans-serif")}
                       >
-                        {modalLockedSites.length === SHUTDOWN_SITE_OPTIONS.length ? 'Deselect All' : 'Select All Sites'}
+                        {modalLockedSites.length === SHUTDOWN_SITE_OPTIONS.length ? 'Deselect All' : 'Select All'}
                       </button>
                     </div>
 
@@ -1340,7 +1339,7 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
                     </div>
                     {modalLockedSites.length === 0 && (
                       <div style={{ fontSize: '11px', color: '#dc2626', fontWeight: 600 }}>
-                        ⚠️ Please select at least one site, or choose "Select All Sites".
+                        ⚠️ Please select at least one site, or choose "Select All".
                       </div>
                     )}
                   </div>
@@ -1420,7 +1419,12 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
                 <button
                   type="button"
                   onClick={handleSave}
-                  style={css("background:#2756d6;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:12.5px;font-weight:600;font-family:'Archivo',sans-serif;cursor:pointer")}
+                  disabled={modalType === 'SHUTDOWN_PLANT' && modalLockedSites.length === 0}
+                  style={{
+                    ...css("background:#2756d6;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:12.5px;font-weight:600;font-family:'Archivo',sans-serif;cursor:pointer"),
+                    ...(modalType === 'SHUTDOWN_PLANT' && modalLockedSites.length === 0 ? { opacity: 0.5, cursor: 'not-allowed', background: '#94a3b8' } : {}),
+                  }}
+                  title={modalType === 'SHUTDOWN_PLANT' && modalLockedSites.length === 0 ? 'Please select at least 1 site for Shutdown Plant' : 'Save Status'}
                 >
                   Save Status
                 </button>
