@@ -58,8 +58,6 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
     isNew: boolean;
   }>({ oldDate: '', date: '', name: '', isNew: false });
 
-  // Confirmation dialog for Reset to Reference Holidays
-  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
 
   const customHolidays = vm.customHolidays || EMPTY_CUSTOM_HOLIDAYS;
 
@@ -282,14 +280,7 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
     }
   };
 
-  // Add / Edit Public Holiday Dialog Handlers
-  const handleOpenAddHoliday = () => {
-    const defaultMonth = selectedYear === today.getFullYear() ? today.getMonth() : 0;
-    const defaultDate = `${selectedYear}-${String(defaultMonth + 1).padStart(2, '0')}-01`;
-    setEditHolidayData({ oldDate: '', date: defaultDate, name: '', isNew: true });
-    setEditHolidayModalOpen(true);
-  };
-
+  // Edit Public Holiday Dialog Handler
   const handleOpenEditRule = (rule: UnifiedRuleItem) => {
     if (rule.type === 'PUBLIC_HOLIDAY') {
       setEditHolidayData({ oldDate: rule.date, date: rule.date, name: rule.name, isNew: false });
@@ -309,11 +300,6 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
       await vm.updatePublicHoliday(editHolidayData.oldDate, editHolidayData.date.trim(), editHolidayData.name.trim());
     }
     setEditHolidayModalOpen(false);
-  };
-
-  const handleConfirmResetHolidays = async () => {
-    await vm.resetYearPublicHolidays(selectedYear);
-    setResetConfirmOpen(false);
   };
 
   // --------------------------------------------------------------------------
@@ -568,37 +554,13 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
             maxHeight: 'calc(100vh - 40px)',
           }}
         >
-          {/* Sidebar Header & Quick Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-            <div>
-              <div style={css("font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:#8a9088;text-transform:uppercase;letter-spacing:0.5px")}>
-                Calendar Rules · {selectedYear}
-              </div>
-              <div style={css("font-size:16px;font-weight:800;color:#15191e;font-family:'Archivo',sans-serif;margin-top:1px")}>
-                Configured Rules
-              </div>
+          {/* Sidebar Header */}
+          <div>
+            <div style={css("font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:#8a9088;text-transform:uppercase;letter-spacing:0.5px")}>
+              Calendar Rules · {selectedYear}
             </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <button
-                type="button"
-                onClick={handleOpenAddHoliday}
-                style={css("background:#2563eb;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:11.5px;font-weight:600;font-family:'Archivo',sans-serif;cursor:pointer;transition:background .15s")}
-                onMouseEnter={(e) => (e.currentTarget.style.background = '#1d4ed8')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = '#2563eb')}
-                title="Add a custom Public Holiday"
-              >
-                ＋ Add
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setResetConfirmOpen(true)}
-                style={css("background:#f8fafc;color:#475569;border:1px solid #cbd5e1;border-radius:7px;padding:6px 10px;font-size:11.5px;font-weight:600;font-family:'Archivo',sans-serif;cursor:pointer")}
-                title="Reset all public holidays for this year back to statutory reference list"
-              >
-                ↺ Reset
-              </button>
+            <div style={css("font-size:16px;font-weight:800;color:#15191e;font-family:'Archivo',sans-serif;margin-top:1px")}>
+              Configured Rules
             </div>
           </div>
 
@@ -1109,42 +1071,6 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* 5. RESET TO DEFAULTS CONFIRMATION MODAL                                  */}
-      {/* ========================================================================= */}
-      {resetConfirmOpen && (
-        <div style={css('position:fixed;inset:0;background:rgba(15,23,42,0.5);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:10001')}>
-          <div style={css('background:#fff;border-radius:14px;padding:22px;max-width:420px;width:90%;box-shadow:0 16px 36px rgba(0,0,0,0.2);display:flex;flex-direction:column;gap:12px')}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '20px' }}>⚠️</span>
-              <div style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>
-                Reset Public Holidays to Defaults?
-              </div>
-            </div>
-
-            <p style={{ fontSize: '13px', color: '#475569', lineHeight: '1.5', margin: '4px 0 0 0' }}>
-              This will restore all <strong>Public Holidays for {selectedYear}</strong> to the official statutory reference list. Any custom holiday additions, edits, or removals for this year will be cleared.
-            </p>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '10px' }}>
-              <button
-                type="button"
-                onClick={() => setResetConfirmOpen(false)}
-                style={css("background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;padding:7px 14px;border-radius:8px;font-size:12.5px;font-weight:600;font-family:'Archivo',sans-serif;cursor:pointer")}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmResetHolidays}
-                style={css("background:#dc2626;color:#fff;border:none;padding:7px 18px;border-radius:8px;font-size:12.5px;font-weight:600;font-family:'Archivo',sans-serif;cursor:pointer")}
-              >
-                Reset to Defaults
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ========================================================================= */}
       {/* 6. SINGLE DATE / DATE RANGE RESTRICTION CONFIGURATION MODAL               */}
