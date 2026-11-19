@@ -33,6 +33,7 @@ export interface CustomHolidayRecord {
   date: string; // 'YYYY-MM-DD'
   type: CustomHolidayType;
   note?: string;
+  lockedSites?: string[];
   created_at?: string;
   updated_at?: string;
 }
@@ -86,7 +87,8 @@ export const api = {
     date?: string;
     type?: CustomHolidayType;
     note?: string;
-    items?: Array<{ date: string; type: CustomHolidayType; note?: string }>;
+    lockedSites?: string[];
+    items?: Array<{ date: string; type: CustomHolidayType; note?: string; lockedSites?: string[] }>;
     actor?: string;
     description?: string;
     actionType?: string;

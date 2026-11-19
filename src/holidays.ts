@@ -1,9 +1,12 @@
 export type CustomHolidayType = 'PUBLIC_HOLIDAY' | 'SHUTDOWN_PLANT' | 'NO_CUSTOMER_AUDITS' | 'WORKING_DAY';
 
+export const SHUTDOWN_SITE_OPTIONS = ['UTL1', 'UTL2', 'UTL2A', 'UTL2B', 'UTL3A', 'UTL3T'] as const;
+
 export interface CustomHoliday {
   date: string; // 'YYYY-MM-DD'
   type: CustomHolidayType;
   note?: string;
+  lockedSites?: string[];
   created_at?: string;
   updated_at?: string;
 }
@@ -32,6 +35,7 @@ export interface HolidayInfo {
   isCustom?: boolean;
   note?: string;
   dateStr?: string;
+  lockedSites?: string[];
   // Legacy optional properties preserved for backwards compatibility
   isMonthEndLock?: boolean;
   isDecBlockout?: boolean;
@@ -285,14 +289,22 @@ export function getHolidayForDate(date: Date, customMap?: Record<string, CustomH
       };
     }
     if (custom.type === 'SHUTDOWN_PLANT') {
+      const sites = custom.lockedSites && custom.lockedSites.length > 0 ? custom.lockedSites : [...SHUTDOWN_SITE_OPTIONS];
+      let sitesLabel = '';
+      if (sites.length >= SHUTDOWN_SITE_OPTIONS.length) {
+        sitesLabel = ' · All Sites';
+      } else if (sites.length > 0) {
+        sitesLabel = ` · ${sites.join(', ')}`;
+      }
       return {
-        name: 'Shutdown Plant',
+        name: `Shutdown Plant${sitesLabel}`,
         subtitle: custom.note || undefined,
         isTraditional: false,
         isCustom: true,
         holidayType: 'SHUTDOWN_PLANT',
         dateStr: ymd,
         note: custom.note,
+        lockedSites: sites,
       };
     }
     if (custom.type === 'NO_CUSTOMER_AUDITS') {
@@ -394,22 +406,78 @@ export function isOfficialHoliday(holiday: HolidayInfo | null | undefined): bool
 
 /**
  * Helper to check if a date completely blocks appointment creation (both Customer & Internal Audits).
- * Returns true for PUBLIC_HOLIDAY and SHUTDOWN_PLANT.
+ * Returns true strictly for PUBLIC_HOLIDAY (and built-in / substitutes).
+ * Note: SHUTDOWN_PLANT is not completely blocked; it allows Internal Audits (IA) for non-shutdown sites.
  */
 export function isDateCompletelyBlocked(holiday: HolidayInfo | null | undefined): boolean {
   if (!holiday) return false;
   return holiday.holidayType === 'PUBLIC_HOLIDAY' ||
-    holiday.holidayType === 'SHUTDOWN_PLANT' ||
     Boolean(holiday.isTraditional || holiday.isSubstitute);
 }
 
 /**
  * Helper to check if a date restricts appointment creation to Internal Audit (IA) only.
- * Returns true strictly for NO_CUSTOMER_AUDITS.
+ * Returns true for NO_CUSTOMER_AUDITS and SHUTDOWN_PLANT.
  */
 export function isDateRestrictedToInternalAuditOnly(holiday: HolidayInfo | null | undefined): boolean {
   if (!holiday) return false;
-  return holiday.holidayType === 'NO_CUSTOMER_AUDITS';
+  return holiday.holidayType === 'NO_CUSTOMER_AUDITS' || holiday.holidayType === 'SHUTDOWN_PLANT';
+}
+
+/**
+ * Returns the list of shutdown sites for a specific date (or empty array if not a Shutdown Plant date).
+ */
+export function getShutdownSitesForDate(
+  date: Date | string,
+  customMap?: Record<string, CustomHoliday>
+): string[] {
+  const ymd = typeof date === 'string' ? date : formatYMD(date);
+  if (!ymd) return [];
+  const map = customMap || activeCustomHolidays;
+  const rule = map[ymd];
+  if (rule && rule.type === 'SHUTDOWN_PLANT') {
+    return rule.lockedSites && rule.lockedSites.length > 0 ? rule.lockedSites : [...SHUTDOWN_SITE_OPTIONS];
+  }
+  return [];
+}
+
+/**
+ * Inspects all dates within [dateFrom, dateTo] and returns the union of locked sites
+ * across all Shutdown Plant days in that range, along with a per-date mapping.
+ */
+export function getShutdownSitesForRange(
+  dateFrom: string,
+  dateTo?: string,
+  customMap?: Record<string, CustomHoliday>
+): { sites: string[]; dateMap: Record<string, string[]> } {
+  if (!dateFrom) return { sites: [], dateMap: {} };
+  const to = dateTo || dateFrom;
+  const map = customMap || activeCustomHolidays;
+  const allSites = new Set<string>();
+  const dateMap: Record<string, string[]> = {};
+
+  const cur = new Date(dateFrom + 'T00:00:00');
+  const end = new Date(to + 'T00:00:00');
+  if (isNaN(cur.getTime()) || isNaN(end.getTime())) return { sites: [], dateMap: {} };
+
+  const startIter = cur <= end ? cur : new Date(end);
+  const endIter = cur <= end ? end : new Date(cur);
+
+  const runner = new Date(startIter);
+  while (runner <= endIter) {
+    const ymd = formatYMD(runner);
+    const rule = map[ymd];
+    if (rule && rule.type === 'SHUTDOWN_PLANT') {
+      const sites = rule.lockedSites && rule.lockedSites.length > 0 ? rule.lockedSites : [...SHUTDOWN_SITE_OPTIONS];
+      if (sites.length > 0) {
+        dateMap[ymd] = sites;
+        for (const s of sites) allSites.add(s);
+      }
+    }
+    runner.setDate(runner.getDate() + 1);
+  }
+
+  return { sites: Array.from(allSites), dateMap };
 }
 
 /** Automatically checks if a given Date is the last day of its month. */

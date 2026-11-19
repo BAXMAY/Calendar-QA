@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import type { Assignment, Engineer } from '../types';
 import { normalizeSite, sortSites } from '../types';
-import { getHolidayForDate, isDateRestrictedToInternalAuditOnly } from '../holidays';
+import {
+  getHolidayForDate,
+  getShutdownSitesForRange,
+} from '../holidays';
 import { getActiveDropdownOptions, MASTER_PLANT_SITES } from '../utils/auditOptionsHelper';
 import { css } from '../ui';
 import { AvailabilityDatePicker } from './AvailabilityDatePicker';
@@ -303,6 +306,7 @@ function MultiSiteSelect({
   value,
   onChange,
   siteOptions,
+  disabledSites,
   tabIndex,
   hasError,
 }: {
@@ -310,6 +314,7 @@ function MultiSiteSelect({
   value: string;
   onChange: (val: string) => void;
   siteOptions: string[];
+  disabledSites?: string[];
   tabIndex?: number;
   hasError?: boolean;
 }) {
@@ -421,37 +426,60 @@ function MultiSiteSelect({
         >
           {sortedSiteOptions.map((s) => {
             const isSel = selectedSites.includes(s);
+            const isShutDown = Boolean(disabledSites && disabledSites.includes(s));
             return (
               <div
                 key={s}
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => toggleSite(s)}
+                onClick={() => {
+                  if (!isShutDown) toggleSite(s);
+                }}
                 style={{
                   padding: '7px 10px',
                   borderRadius: '6px',
-                  cursor: 'pointer',
+                  cursor: isShutDown ? 'not-allowed' : 'pointer',
                   fontSize: '12.5px',
                   fontFamily: "'Archivo',sans-serif",
                   fontWeight: isSel ? 600 : 400,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  background: isSel ? '#eef2fd' : '#fff',
-                  color: isSel ? '#2756d6' : '#23282a',
+                  background: isShutDown ? '#f8fafc' : isSel ? '#eef2fd' : '#fff',
+                  color: isShutDown ? '#94a3b8' : isSel ? '#2756d6' : '#23282a',
                   transition: 'background .1s ease',
                   userSelect: 'none',
                   WebkitUserSelect: 'none',
                   outline: 'none',
+                  opacity: isShutDown ? 0.7 : 1,
                 }}
               >
-                <span style={{ userSelect: 'none', WebkitUserSelect: 'none', cursor: 'pointer' }}>{s}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ userSelect: 'none', WebkitUserSelect: 'none', cursor: isShutDown ? 'not-allowed' : 'pointer' }}>{s}</span>
+                  {isShutDown && (
+                    <span
+                      style={{
+                        fontSize: '9.5px',
+                        fontWeight: 700,
+                        background: '#fee2e2',
+                        border: '1px solid #fca5a5',
+                        color: '#dc2626',
+                        padding: '1px 5px',
+                        borderRadius: '4px',
+                        letterSpacing: '0.2px',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      Shutdown
+                    </span>
+                  )}
+                </div>
                 <span
                   style={{
                     width: '14px',
                     height: '14px',
                     borderRadius: '3px',
-                    border: '1px solid ' + (isSel ? '#2756d6' : '#cdd2c9'),
-                    background: isSel ? '#2756d6' : '#fff',
+                    border: '1px solid ' + (isShutDown ? '#cbd5e1' : isSel ? '#2756d6' : '#cdd2c9'),
+                    background: isShutDown ? '#f1f5f9' : isSel ? '#2756d6' : '#fff',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -460,7 +488,7 @@ function MultiSiteSelect({
                     flexShrink: 0,
                     userSelect: 'none',
                     WebkitUserSelect: 'none',
-                    cursor: 'pointer',
+                    cursor: isShutDown ? 'not-allowed' : 'pointer',
                   }}
                 >
                   {isSel ? '✓' : ''}
@@ -2592,20 +2620,47 @@ export function AppointmentFormFields({
   const errCustFrom = isWarn && !isInternal && !v.dateFrom?.trim();
   const errCustTo = isWarn && !isInternal && (!v.dateTo?.trim() || (Boolean(v.dateFrom && v.dateTo) && v.dateFrom > v.dateTo));
 
-  // Check if date range touches a "No Customer Audits" restricted day
-  const isDateInternalOnly = useMemo(() => {
-    if (!v.dateFrom) return false;
+  // Check if date range touches a "No Customer Audits" or "Shutdown Plant" restricted day
+  const dateRestrictionInfo = useMemo(() => {
+    if (!v.dateFrom) return { isInternalOnly: false, hasShutdown: false, hasNoCs: false };
     const start = new Date(v.dateFrom + 'T00:00:00');
     const end = v.dateTo ? new Date(v.dateTo + 'T00:00:00') : new Date(start);
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) return false;
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return { isInternalOnly: false, hasShutdown: false, hasNoCs: false };
+    }
     const cur = new Date(start);
+    let hasShutdown = false;
+    let hasNoCs = false;
     while (cur <= end) {
       const hol = getHolidayForDate(cur);
-      if (isDateRestrictedToInternalAuditOnly(hol)) return true;
+      if (hol?.holidayType === 'SHUTDOWN_PLANT') hasShutdown = true;
+      if (hol?.holidayType === 'NO_CUSTOMER_AUDITS') hasNoCs = true;
       cur.setDate(cur.getDate() + 1);
     }
-    return false;
+    return {
+      isInternalOnly: hasShutdown || hasNoCs,
+      hasShutdown,
+      hasNoCs,
+    };
   }, [v.dateFrom, v.dateTo]);
+
+  const isDateInternalOnly = dateRestrictionInfo.isInternalOnly;
+
+  // Shutdown sites across selected date range
+  const shutdownInfo = useMemo(() => {
+    return getShutdownSitesForRange(v.dateFrom, v.dateTo);
+  }, [v.dateFrom, v.dateTo]);
+  const shutdownSites = shutdownInfo.sites;
+
+  useEffect(() => {
+    if (v.sectionType === 'internal' && shutdownSites.length > 0 && v.site2) {
+      const selected = v.site2.split(/[/,]/).map((s) => normalizeSite(s.trim())).filter(Boolean);
+      const filtered = selected.filter((s) => !shutdownSites.includes(s));
+      if (filtered.length !== selected.length) {
+        onChange({ site2: filtered.join('/') });
+      }
+    }
+  }, [shutdownSites, v.sectionType, v.site2, onChange]);
 
   useEffect(() => {
     if (isDateInternalOnly && v.sectionType !== 'internal') {
@@ -2622,7 +2677,18 @@ export function AppointmentFormFields({
           color: '#1d4ed8', fontSize: '12px', fontWeight: 500, marginBottom: '12px'
         }}>
           <span>🚫</span>
-          <span><strong>No Customer Audits:</strong> The selected date range includes a plant restriction day. Only Internal Audits are allowed.</span>
+          <span>
+            <strong>
+              {dateRestrictionInfo.hasShutdown && dateRestrictionInfo.hasNoCs
+                ? 'Shutdown Plant & No Customer Audits:'
+                : dateRestrictionInfo.hasShutdown
+                ? 'Shutdown Plant:'
+                : 'No Customer Audits:'}
+            </strong>{' '}
+            {dateRestrictionInfo.hasShutdown
+              ? 'The selected date range includes a Shutdown Plant date. Customer Audits are blocked; Internal Audits are permitted for non-shutdown sites.'
+              : 'The selected date range includes a plant restriction day. Only Internal Audits are allowed.'}
+          </span>
         </div>
       )}
 
@@ -2932,8 +2998,14 @@ export function AppointmentFormFields({
                 value={v.site2}
                 onChange={(site2) => onChange({ site2 })}
                 siteOptions={internalSiteOptions}
+                disabledSites={shutdownSites}
                 hasError={errIntSite}
               />
+              {shutdownSites.length > 0 && (
+                <div style={{ fontSize: '11px', color: '#dc2626', marginTop: '4px', fontWeight: 600 }}>
+                  🔒 Site {shutdownSites.join(', ')} is locked due to Shutdown Plant on this date.
+                </div>
+              )}
             </div>
 
             {/* Row 2: AUDIT CATEGORY | AREA */}

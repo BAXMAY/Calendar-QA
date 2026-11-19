@@ -1200,11 +1200,14 @@ export interface ActivityLog {
 
 export type { CustomHolidayType, CustomHoliday, HolidayInfo, HolidayStyle, EffectivePublicHoliday } from './holidays';
 export {
+  SHUTDOWN_SITE_OPTIONS,
   getHolidayForDate,
   getHolidayStyle,
   isOfficialHoliday,
   isDateCompletelyBlocked,
   isDateRestrictedToInternalAuditOnly,
+  getShutdownSitesForDate,
+  getShutdownSitesForRange,
   setCustomHolidays,
   getCustomHolidays,
   formatYMD,

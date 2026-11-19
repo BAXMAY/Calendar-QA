@@ -49,6 +49,7 @@ import {
   isBuiltinPublicHoliday,
   isDateCompletelyBlocked,
   isDateRestrictedToInternalAuditOnly,
+  getShutdownSitesForRange,
   setCustomHolidays,
   type HolidayInfo,
   type CustomHolidayType,
@@ -1576,11 +1577,34 @@ export function useScheduler() {
       for (let cur = new Date(start); cur <= end; cur.setDate(cur.getDate() + 1)) {
         const hol = getHolidayForDate(cur, S.customHolidays);
         if (isDateRestrictedToInternalAuditOnly(hol)) {
+          const typeName = hol?.holidayType === 'SHUTDOWN_PLANT' ? 'Shutdown Plant' : 'No Customer Audits';
           setState((s) => ({
             createDraft: {
               ...s.createDraft,
               warn: true,
-              warnText: `Customer Audits are not permitted on ${fmtISO(cur)} (No Customer Audits restriction). Please select Internal Audit.`,
+              warnText: `Customer Audits are not permitted on ${fmtISO(cur)} (${typeName} restriction). Please select Internal Audit.`,
+            },
+          }));
+          return;
+        }
+      }
+    }
+
+    if (d.sectionType === 'internal') {
+      const { sites: shutdownSites, dateMap } = getShutdownSitesForRange(dateFrom, dateTo, S.customHolidays);
+      if (shutdownSites.length > 0 && d.site2) {
+        const selectedSites = d.site2.split(/[/,]/).map((s) => normalizeSite(s).toUpperCase()).filter(Boolean);
+        const conflictingSites = selectedSites.filter((s) => shutdownSites.includes(s));
+        if (conflictingSites.length > 0) {
+          const conflictEntries = Object.entries(dateMap).filter(([_, sList]) =>
+            sList.some((s) => conflictingSites.includes(s))
+          );
+          const dateStr = conflictEntries.map(([dt]) => dt).join(', ') || dateFrom;
+          setState((s) => ({
+            createDraft: {
+              ...s.createDraft,
+              warn: true,
+              warnText: `Site ${conflictingSites.join(', ')} is marked as Shutdown Plant on ${dateStr}. Please uncheck shutdown sites or select an active site.`,
             },
           }));
           return;
@@ -1990,11 +2014,34 @@ export function useScheduler() {
       for (let cur = new Date(start); cur <= end; cur.setDate(cur.getDate() + 1)) {
         const hol = getHolidayForDate(cur, S.customHolidays);
         if (isDateRestrictedToInternalAuditOnly(hol)) {
+          const typeName = hol?.holidayType === 'SHUTDOWN_PLANT' ? 'Shutdown Plant' : 'No Customer Audits';
           setState((s) => ({
             editDraft: {
               ...s.editDraft,
               warn: true,
-              warnText: `Customer Audits are not permitted on ${fmtISO(cur)} (No Customer Audits restriction). Please select Internal Audit.`,
+              warnText: `Customer Audits are not permitted on ${fmtISO(cur)} (${typeName} restriction). Please select Internal Audit.`,
+            },
+          }));
+          return;
+        }
+      }
+    }
+
+    if (d.sectionType === 'internal') {
+      const { sites: shutdownSites, dateMap } = getShutdownSitesForRange(dateFrom, dateTo, S.customHolidays);
+      if (shutdownSites.length > 0 && d.site2) {
+        const selectedSites = d.site2.split(/[/,]/).map((s) => normalizeSite(s).toUpperCase()).filter(Boolean);
+        const conflictingSites = selectedSites.filter((s) => shutdownSites.includes(s));
+        if (conflictingSites.length > 0) {
+          const conflictEntries = Object.entries(dateMap).filter(([_, sList]) =>
+            sList.some((s) => conflictingSites.includes(s))
+          );
+          const dateStr = conflictEntries.map(([dt]) => dt).join(', ') || dateFrom;
+          setState((s) => ({
+            editDraft: {
+              ...s.editDraft,
+              warn: true,
+              warnText: `Site ${conflictingSites.join(', ')} is marked as Shutdown Plant on ${dateStr}. Please uncheck shutdown sites or select an active site.`,
             },
           }));
           return;
@@ -2736,12 +2783,13 @@ export function useScheduler() {
     date: string,
     type: CustomHolidayType,
     note?: string,
-    options?: { skipLog?: boolean; customDesc?: string; actionType?: ActionType }
+    options?: { skipLog?: boolean; customDesc?: string; actionType?: ActionType; lockedSites?: string[] }
   ) => {
     const cleanDate = date.trim();
     if (!cleanDate) return;
     const cleanNote = (note || '').trim();
-    const item: CustomHoliday = { date: cleanDate, type, note: cleanNote };
+    const lockedSites = options?.lockedSites;
+    const item: CustomHoliday = { date: cleanDate, type, note: cleanNote, lockedSites };
     setState((s) => {
       const next = { ...s.customHolidays, [cleanDate]: item };
       setCustomHolidays(next);
@@ -2757,7 +2805,8 @@ export function useScheduler() {
         desc = `Added Public Holiday "${cleanNote || 'Public Holiday'}" on ${cleanDate}`;
         dotColor = '#b45309';
       } else if (type === 'SHUTDOWN_PLANT') {
-        desc = `Set Shutdown Plant on ${cleanDate}`;
+        const sites = lockedSites && lockedSites.length > 0 ? (lockedSites.length >= 6 ? 'All Sites' : lockedSites.join(', ')) : 'All Sites';
+        desc = `Set Shutdown Plant (${sites}) on ${cleanDate}`;
         dotColor = '#dc2626';
       } else if (type === 'NO_CUSTOMER_AUDITS') {
         desc = `Set No Customer Audits on ${cleanDate}`;
@@ -2772,7 +2821,7 @@ export function useScheduler() {
     }
 
     if (!options?.skipLog && desc) {
-      logActivity(actType, 'HOLIDAY', desc, { date: cleanDate, type, note: cleanNote });
+      logActivity(actType, 'HOLIDAY', desc, { date: cleanDate, type, note: cleanNote, lockedSites });
       log('You', desc, dotColor);
     }
 
@@ -2781,6 +2830,7 @@ export function useScheduler() {
         date: cleanDate,
         type,
         note: cleanNote,
+        lockedSites,
         actor: S.currentUser?.name,
         description: desc,
         actionType: actType,
@@ -2837,7 +2887,9 @@ export function useScheduler() {
         const hName = current.note || builtin.name || 'Public Holiday';
         desc = `Removed Public Holiday "${hName}" on ${cleanDate}`;
       } else if (current.type === 'SHUTDOWN_PLANT') {
-        desc = `Removed Shutdown Plant restriction on ${cleanDate}`;
+        const sites = current.lockedSites && current.lockedSites.length > 0 ? (current.lockedSites.length >= 6 ? 'All Sites' : current.lockedSites.join(', ')) : '';
+        const sitesSuffix = sites ? ` (${sites})` : '';
+        desc = `Removed Shutdown Plant${sitesSuffix} restriction on ${cleanDate}`;
       } else if (current.type === 'NO_CUSTOMER_AUDITS') {
         desc = `Removed No Customer Audits restriction on ${cleanDate}`;
       } else if (current.type === 'WORKING_DAY') {
@@ -2926,9 +2978,15 @@ export function useScheduler() {
     }
   };
 
-  const saveHolidayRangeRules = async (dates: string[], type: CustomHolidayType, note?: string) => {
+  const saveHolidayRangeRules = async (
+    dates: string[],
+    type: CustomHolidayType,
+    note?: string,
+    options?: { lockedSites?: string[] }
+  ) => {
     if (!dates || dates.length === 0) return;
     const cleanNote = (note || '').trim();
+    const lockedSites = options?.lockedSites;
     const sortedDates = [...dates].sort();
     const rangeStr = sortedDates.length > 1
       ? `${sortedDates[0]} to ${sortedDates[sortedDates.length - 1]}`
@@ -2937,7 +2995,8 @@ export function useScheduler() {
     let desc = '';
     let dotColor = '#0f9d8c';
     if (type === 'SHUTDOWN_PLANT') {
-      desc = sortedDates.length > 1 ? `Set Shutdown Plant on ${rangeStr}` : `Set Shutdown Plant on ${sortedDates[0]}`;
+      const sites = lockedSites && lockedSites.length > 0 ? (lockedSites.length >= 6 ? 'All Sites' : lockedSites.join(', ')) : 'All Sites';
+      desc = sortedDates.length > 1 ? `Set Shutdown Plant (${sites}) on ${rangeStr}` : `Set Shutdown Plant (${sites}) on ${sortedDates[0]}`;
       dotColor = '#dc2626';
     } else if (type === 'NO_CUSTOMER_AUDITS') {
       desc = sortedDates.length > 1 ? `Set No Customer Audits on ${rangeStr}` : `Set No Customer Audits on ${sortedDates[0]}`;
@@ -2951,10 +3010,10 @@ export function useScheduler() {
       desc = `Updated calendar rules on ${rangeStr}`;
     }
 
-    logActivity('CREATE', 'HOLIDAY', desc, { dates, type, note: cleanNote, range: rangeStr });
+    logActivity('CREATE', 'HOLIDAY', desc, { dates, type, note: cleanNote, range: rangeStr, lockedSites });
     log('You', desc, dotColor);
 
-    const items = dates.map((d) => ({ date: d.trim(), type, note: cleanNote }));
+    const items = dates.map((d) => ({ date: d.trim(), type, note: cleanNote, lockedSites }));
     setState((s) => {
       const next = { ...s.customHolidays };
       for (const item of items) {

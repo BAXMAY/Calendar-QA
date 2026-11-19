@@ -84,6 +84,23 @@ function normalizeAuditResults(results: any): Record<string, any> {
   return out;
 }
 
+function parseLockedSites(raw: any): string[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.map((s) => String(s).trim()).filter(Boolean);
+  if (typeof raw === 'string') {
+    const s = raw.trim();
+    if (!s) return [];
+    if (s.startsWith('[') && s.endsWith(']')) {
+      try {
+        const arr = JSON.parse(s);
+        if (Array.isArray(arr)) return arr.map((x) => String(x).trim()).filter(Boolean);
+      } catch {}
+    }
+    return s.split(',').map((x) => x.trim()).filter(Boolean);
+  }
+  return [];
+}
+
 async function insertActivityLog(
   DB: D1Database,
   entry: {
@@ -257,10 +274,14 @@ async function ensureCustomHolidaysTable(DB: D1Database) {
         date TEXT PRIMARY KEY,
         type TEXT NOT NULL,
         note TEXT NOT NULL DEFAULT '',
+        locked_sites TEXT NOT NULL DEFAULT '',
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `).run();
+    try {
+      await DB.prepare("ALTER TABLE custom_holidays ADD COLUMN locked_sites TEXT NOT NULL DEFAULT ''").run();
+    } catch {}
   } catch {}
   customHolidaysTableChecked = true;
 }
@@ -403,7 +424,7 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
         DB.prepare('SELECT * FROM comments').all(),
         DB.prepare('SELECT * FROM activity ORDER BY rowid DESC LIMIT 50').all(),
         DB.prepare('SELECT * FROM options').all(),
-        DB.prepare('SELECT date, type, note, created_at, updated_at FROM custom_holidays ORDER BY date ASC').all().catch(() => ({ results: [] })),
+        DB.prepare('SELECT date, type, note, locked_sites, created_at, updated_at FROM custom_holidays ORDER BY date ASC').all().catch(() => ({ results: [] })),
       ]);
 
       const activePlants: Record<string, boolean> = {};
@@ -492,7 +513,14 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
         targetPackageOptions: applyOrder(targetPackageOptions, 'target_package'),
         customerNameOptions: applyOrder(customerNameOptions, 'customer_names'),
         auditCategoryOptions: applyOrder(auditCategoryOptions, 'audit_category'),
-        customHolidays: (holidaysRows.results as any[]) || [],
+        customHolidays: ((holidaysRows.results as any[]) || []).map((r) => ({
+          date: r.date,
+          type: r.type,
+          note: r.note || '',
+          lockedSites: parseLockedSites(r.locked_sites),
+          created_at: r.created_at,
+          updated_at: r.updated_at,
+        })),
       });
     }
 
@@ -690,8 +718,15 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
 
     // --- holidays (custom holidays & plant restrictions) ---
     if (method === 'GET' && path === 'holidays') {
-      const { results } = await DB.prepare('SELECT date, type, note, created_at, updated_at FROM custom_holidays ORDER BY date ASC').all();
-      return json(results);
+      const { results } = await DB.prepare('SELECT date, type, note, locked_sites, created_at, updated_at FROM custom_holidays ORDER BY date ASC').all();
+      return json((results as any[]).map((r) => ({
+        date: r.date,
+        type: r.type,
+        note: r.note || '',
+        lockedSites: parseLockedSites(r.locked_sites),
+        created_at: r.created_at,
+        updated_at: r.updated_at,
+      })));
     }
     if (method === 'POST' && path === 'holidays/reset') {
       const year = Number(body?.year) || new Date().getFullYear();
@@ -724,11 +759,14 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
         if (!d || !['PUBLIC_HOLIDAY', 'SHUTDOWN_PLANT', 'NO_CUSTOMER_AUDITS', 'WORKING_DAY'].includes(t)) {
           continue;
         }
+        const lockedSitesList = parseLockedSites(item.lockedSites !== undefined ? item.lockedSites : item.locked_sites);
+        const lockedSitesJson = lockedSitesList.length > 0 ? JSON.stringify(lockedSitesList) : '';
+
         await DB.prepare(
-          `INSERT INTO custom_holidays (date, type, note, updated_at)
-           VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-           ON CONFLICT(date) DO UPDATE SET type = excluded.type, note = excluded.note, updated_at = CURRENT_TIMESTAMP`
-        ).bind(d, t, note).run();
+          `INSERT INTO custom_holidays (date, type, note, locked_sites, updated_at)
+           VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+           ON CONFLICT(date) DO UPDATE SET type = excluded.type, note = excluded.note, locked_sites = excluded.locked_sites, updated_at = CURRENT_TIMESTAMP`
+        ).bind(d, t, note, lockedSitesJson).run();
       }
 
       // Log activity into D1
@@ -747,7 +785,9 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
             desc = `Added Public Holiday "${n || 'Public Holiday'}" on ${d}`;
             color = '#b45309';
           } else if (t === 'SHUTDOWN_PLANT') {
-            desc = `Set Shutdown Plant on ${d}`;
+            const sites = parseLockedSites(it.lockedSites !== undefined ? it.lockedSites : it.locked_sites);
+            const sitesStr = sites.length > 0 ? (sites.length >= 6 ? 'All Sites' : sites.join(', ')) : 'All Sites';
+            desc = `Set Shutdown Plant (${sitesStr}) on ${d}`;
             color = '#dc2626';
           } else if (t === 'NO_CUSTOMER_AUDITS') {
             desc = `Set No Customer Audits on ${d}`;
@@ -761,9 +801,16 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
           const first = items[0];
           const last = items[items.length - 1];
           const t = String(first.type || '').trim().toUpperCase();
-          const typeLabel = t === 'SHUTDOWN_PLANT' ? 'Shutdown Plant' : (t === 'NO_CUSTOMER_AUDITS' ? 'No Customer Audits' : 'Public Holiday');
-          desc = `Set ${typeLabel} on ${first.date} to ${last.date}`;
-          color = t === 'SHUTDOWN_PLANT' ? '#dc2626' : (t === 'NO_CUSTOMER_AUDITS' ? '#d97706' : '#b45309');
+          if (t === 'SHUTDOWN_PLANT') {
+            const sites = parseLockedSites(first.lockedSites !== undefined ? first.lockedSites : first.locked_sites);
+            const sitesStr = sites.length > 0 ? (sites.length >= 6 ? 'All Sites' : sites.join(', ')) : 'All Sites';
+            desc = `Set Shutdown Plant (${sitesStr}) on ${first.date} to ${last.date}`;
+            color = '#dc2626';
+          } else {
+            const typeLabel = t === 'NO_CUSTOMER_AUDITS' ? 'No Customer Audits' : 'Public Holiday';
+            desc = `Set ${typeLabel} on ${first.date} to ${last.date}`;
+            color = t === 'NO_CUSTOMER_AUDITS' ? '#d97706' : '#b45309';
+          }
         }
       }
 
@@ -782,7 +829,7 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
     const holidayDateMatch = path.match(/^holidays\/(.+)$/);
     if (holidayDateMatch && method === 'DELETE') {
       const dateKey = decodeURIComponent(holidayDateMatch[1]).trim();
-      const existing = await DB.prepare('SELECT type, note FROM custom_holidays WHERE date = ?').bind(dateKey).first() as { type?: string; note?: string } | null;
+      const existing = await DB.prepare('SELECT type, note, locked_sites FROM custom_holidays WHERE date = ?').bind(dateKey).first() as { type?: string; note?: string; locked_sites?: string } | null;
       await DB.prepare('DELETE FROM custom_holidays WHERE date = ?').bind(dateKey).run();
 
       const actor = String(body?.actor || body?.user || 'Jordan Lee').trim();
@@ -791,7 +838,9 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
         if (existing?.type === 'PUBLIC_HOLIDAY') {
           desc = `Removed Public Holiday "${existing.note || 'Public Holiday'}" on ${dateKey}`;
         } else if (existing?.type === 'SHUTDOWN_PLANT') {
-          desc = `Removed Shutdown Plant restriction on ${dateKey}`;
+          const sites = parseLockedSites(existing.locked_sites);
+          const sitesSuffix = sites.length > 0 ? ` (${sites.length >= 6 ? 'All Sites' : sites.join(', ')})` : '';
+          desc = `Removed Shutdown Plant${sitesSuffix} restriction on ${dateKey}`;
         } else if (existing?.type === 'NO_CUSTOMER_AUDITS') {
           desc = `Removed No Customer Audits restriction on ${dateKey}`;
         } else {

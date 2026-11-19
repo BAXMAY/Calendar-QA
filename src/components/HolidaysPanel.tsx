@@ -4,6 +4,7 @@ import type { CustomHolidayType, CustomHoliday } from '../holidays';
 import {
   getHolidayForDate,
   getEffectivePublicHolidaysForYear,
+  SHUTDOWN_SITE_OPTIONS,
 } from '../holidays';
 import { css } from '../ui';
 
@@ -28,6 +29,7 @@ interface UnifiedRuleItem {
   dayOfWeekTh: string; // e.g. 'วันพฤหัสบดี'
   type: CustomHolidayType;
   name: string;
+  lockedSites?: string[];
   isBuiltin: boolean;
   isCustom: boolean;
   isSubstitute?: boolean;
@@ -47,6 +49,7 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
   const [modalToDate, setModalToDate] = useState('');
   const [modalType, setModalType] = useState<CustomHolidayType>('NO_CUSTOMER_AUDITS');
   const [modalNote, setModalNote] = useState('');
+  const [modalLockedSites, setModalLockedSites] = useState<string[]>([...SHUTDOWN_SITE_OPTIONS]);
   const [isRangeMode, setIsRangeMode] = useState(false);
 
   // Add / Edit Public Holiday Dialog State
@@ -107,13 +110,24 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
 
     if (hol) {
       setModalType(hol.holidayType || 'PUBLIC_HOLIDAY');
-      setModalNote(hol.name || '');
+      setModalNote(hol.note || (hol.holidayType === 'SHUTDOWN_PLANT' ? '' : hol.name || ''));
+      if (hol.holidayType === 'SHUTDOWN_PLANT') {
+        setModalLockedSites(hol.lockedSites && hol.lockedSites.length > 0 ? hol.lockedSites : [...SHUTDOWN_SITE_OPTIONS]);
+      } else {
+        setModalLockedSites([...SHUTDOWN_SITE_OPTIONS]);
+      }
     } else if (existing) {
       setModalType(existing.type);
       setModalNote(existing.note || '');
+      if (existing.type === 'SHUTDOWN_PLANT') {
+        setModalLockedSites(existing.lockedSites && existing.lockedSites.length > 0 ? existing.lockedSites : [...SHUTDOWN_SITE_OPTIONS]);
+      } else {
+        setModalLockedSites([...SHUTDOWN_SITE_OPTIONS]);
+      }
     } else {
       setModalType('NO_CUSTOMER_AUDITS');
       setModalNote('');
+      setModalLockedSites([...SHUTDOWN_SITE_OPTIONS]);
     }
     setModalOpen(true);
   };
@@ -127,6 +141,7 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
     setIsRangeMode(true);
     setModalType('NO_CUSTOMER_AUDITS');
     setModalNote('');
+    setModalLockedSites([...SHUTDOWN_SITE_OPTIONS]);
     setModalOpen(true);
   };
 
@@ -135,9 +150,12 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
     if (!modalFromDate) return;
     const from = modalFromDate;
     const to = isRangeMode && modalToDate ? modalToDate : from;
+    const lockedSites = modalType === 'SHUTDOWN_PLANT'
+      ? (modalLockedSites.length > 0 ? modalLockedSites : [...SHUTDOWN_SITE_OPTIONS])
+      : undefined;
 
     if (from === to) {
-      await vm.saveHolidayRule(from, modalType, modalNote.trim());
+      await vm.saveHolidayRule(from, modalType, modalNote.trim(), { lockedSites });
     } else {
       const dates: string[] = [];
       const cur = new Date(from + 'T00:00:00');
@@ -153,7 +171,7 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
           cur.setDate(cur.getDate() + 1);
         }
       }
-      await vm.saveHolidayRangeRules(dates, modalType, modalNote.trim());
+      await vm.saveHolidayRangeRules(dates, modalType, modalNote.trim(), { lockedSites });
     }
     setModalOpen(false);
   };
@@ -240,6 +258,14 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
           const m = dt.getMonth();
           const dayIdx = dt.getDay();
 
+          const lockedSites = item.lockedSites && item.lockedSites.length > 0 ? item.lockedSites : (item.type === 'SHUTDOWN_PLANT' ? [...SHUTDOWN_SITE_OPTIONS] : undefined);
+          const sitesStr = lockedSites && lockedSites.length >= SHUTDOWN_SITE_OPTIONS.length ? 'All Sites' : lockedSites?.join(', ') || 'All Sites';
+          const ruleName = item.type === 'WORKING_DAY'
+            ? 'Overridden to Normal Day (Holiday Removed)'
+            : item.type === 'SHUTDOWN_PLANT'
+            ? (item.note ? `${item.note} · ${sitesStr}` : `Shutdown Plant · ${sitesStr}`)
+            : item.note || 'No Customer Audits';
+
           rules.push({
             id: `${dateStr}-${item.type}`,
             date: dateStr,
@@ -247,10 +273,8 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
             dayOfWeek: DAYS_EN[dayIdx],
             dayOfWeekTh: DAYS_TH[dayIdx],
             type: item.type,
-            name:
-              item.type === 'WORKING_DAY'
-                ? 'Overridden to Normal Day (Holiday Removed)'
-                : item.note || (item.type === 'SHUTDOWN_PLANT' ? 'Shutdown Plant' : 'No Customer Audits'),
+            name: ruleName,
+            lockedSites: item.type === 'SHUTDOWN_PLANT' ? lockedSites : undefined,
             isBuiltin: item.type === 'WORKING_DAY',
             isCustom: true,
           });
@@ -541,7 +565,7 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
         </div>
         <div style={css('display:flex;align-items:center;gap:6px')}>
           <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#eff6ff', border: '1px solid #bfdbfe' }} />
-          <span style={css('color:#1d4ed8;font-weight:600')}>Shutdown Plant (Blue — Blocks CS & IA)</span>
+          <span style={css('color:#1d4ed8;font-weight:600')}>Shutdown Plant (Blue — CS blocked, IA restricted to non-shutdown sites)</span>
         </div>
         <div style={css('display:flex;align-items:center;gap:6px')}>
           <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#eff6ff', border: '1px solid #bfdbfe' }} />
@@ -713,11 +737,14 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
                 const badgeBg = isWorkingDay ? '#f8fafc' : isBlue ? '#eff6ff' : '#f1f5f9';
                 const badgeBorder = isWorkingDay ? '#cbd5e1' : isBlue ? '#93c5fd' : '#cbd5e1';
                 const badgeColor = isWorkingDay ? '#64748b' : isBlue ? '#1d4ed8' : '#334155';
+                const shutdownSitesStr = r.lockedSites && r.lockedSites.length > 0
+                  ? (r.lockedSites.length >= SHUTDOWN_SITE_OPTIONS.length ? 'All Sites' : r.lockedSites.join(', '))
+                  : 'All Sites';
                 const badgeLabel =
                   r.type === 'PUBLIC_HOLIDAY'
                     ? 'Public Holiday'
                     : r.type === 'SHUTDOWN_PLANT'
-                    ? 'Shutdown Plant'
+                    ? `Shutdown Plant · ${shutdownSitesStr}`
                     : r.type === 'NO_CUSTOMER_AUDITS'
                     ? 'No Customer Audits'
                     : 'Overridden (Normal)';
@@ -1245,10 +1272,79 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
                       🔷 Shutdown Plant (Blue)
                     </div>
                     <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '1px' }}>
-                      Styled in Blue with "Shutdown Plant" label. Completely locked — blocks both CS and IA.
+                      Styled in Blue with "Shutdown Plant" label. Blocks Customer Audits (CS); allows Internal Audits (IA) for non-shutdown sites.
                     </div>
                   </div>
                 </div>
+
+                {/* Shutdown Plant: Site selection */}
+                {modalType === 'SHUTDOWN_PLANT' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', margin: '4px 0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <label style={{ fontSize: '11px', fontWeight: 700, color: '#1e40af', letterSpacing: '0.4px', textTransform: 'uppercase' }}>
+                        AFFECTED SITES (SHUTDOWN)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (modalLockedSites.length === SHUTDOWN_SITE_OPTIONS.length) {
+                            setModalLockedSites([]);
+                          } else {
+                            setModalLockedSites([...SHUTDOWN_SITE_OPTIONS]);
+                          }
+                        }}
+                        style={css("background:transparent;border:none;color:#2563eb;font-size:11px;font-weight:700;cursor:pointer;font-family:'Archivo',sans-serif")}
+                      >
+                        {modalLockedSites.length === SHUTDOWN_SITE_OPTIONS.length ? 'Deselect All' : 'Select All Sites'}
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                      {SHUTDOWN_SITE_OPTIONS.map((site) => {
+                        const isChecked = modalLockedSites.includes(site);
+                        return (
+                          <label
+                            key={site}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '6px 8px',
+                              borderRadius: '6px',
+                              background: isChecked ? '#dbeafe' : '#ffffff',
+                              border: '1px solid ' + (isChecked ? '#93c5fd' : '#cbd5e1'),
+                              cursor: 'pointer',
+                              fontSize: '11.5px',
+                              fontWeight: isChecked ? 700 : 500,
+                              color: isChecked ? '#1d4ed8' : '#334155',
+                              userSelect: 'none',
+                              transition: 'all .1s',
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setModalLockedSites((prev) => [...prev, site]);
+                                } else {
+                                  setModalLockedSites((prev) => prev.filter((s) => s !== site));
+                                }
+                              }}
+                              style={{ cursor: 'pointer' }}
+                            />
+                            <span>{site}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {modalLockedSites.length === 0 && (
+                      <div style={{ fontSize: '11px', color: '#dc2626', fontWeight: 600 }}>
+                        ⚠️ Please select at least one site, or choose "Select All Sites".
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* 3. No Customer Audits */}
                 <div
