@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { VM } from '../useScheduler';
 import type { CustomHolidayType, CustomHoliday } from '../holidays';
 import {
@@ -61,11 +61,39 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
 
   const customHolidays = vm.customHolidays || EMPTY_CUSTOM_HOLIDAYS;
 
-  // Year Navigation Handlers
-  const prevYear = () => setSelectedYear((y) => y - 1);
-  const nextYear = () => setSelectedYear((y) => y + 1);
-  const goToCurrentYear = () => {
-    setSelectedYear(today.getFullYear());
+  // Year Navigation Handlers & Direct Input
+  const prevYear = () => setSelectedYear((y) => Math.max(2000, y - 1));
+  const nextYear = () => setSelectedYear((y) => Math.min(2100, y + 1));
+  const [yearInput, setYearInput] = useState<string>(() => String(selectedYear));
+
+  useEffect(() => {
+    setYearInput(String(selectedYear));
+  }, [selectedYear]);
+
+  const handleYearInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+    setYearInput(val);
+  };
+
+  const handleYearCommit = () => {
+    const num = parseInt(yearInput, 10);
+    if (!isNaN(num) && num >= 2000 && num <= 2100 && yearInput.length === 4) {
+      if (num !== selectedYear) {
+        setSelectedYear(num);
+      }
+    } else {
+      setYearInput(String(selectedYear));
+    }
+  };
+
+  const handleYearKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleYearCommit();
+      (e.target as HTMLInputElement).blur();
+    } else if (e.key === 'Escape') {
+      setYearInput(String(selectedYear));
+      (e.target as HTMLInputElement).blur();
+    }
   };
 
   // Open configuration modal for a specific calendar cell
@@ -813,42 +841,48 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <button
                 type="button"
                 onClick={prevYear}
-                style={css("width:32px;height:32px;border:1px solid #dde0d9;background:#fff;border-radius:7px;cursor:pointer;font-size:14px;color:#475569;display:flex;align-items:center;justify-content:center")}
+                style={css("width:32px;height:32px;border:1px solid #dde0d9;background:#fff;border-radius:7px;cursor:pointer;font-size:14px;color:#475569;display:flex;align-items:center;justify-content:center;transition:background .12s")}
                 title="Previous Year"
+                onMouseEnter={(e) => (e.currentTarget.style.background = '#f8fafc')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = '#fff')}
               >
                 ◀
               </button>
               <button
                 type="button"
                 onClick={nextYear}
-                style={css("width:32px;height:32px;border:1px solid #dde0d9;background:#fff;border-radius:7px;cursor:pointer;font-size:14px;color:#475569;display:flex;align-items:center;justify-content:center")}
+                style={css("width:32px;height:32px;border:1px solid #dde0d9;background:#fff;border-radius:7px;cursor:pointer;font-size:14px;color:#475569;display:flex;align-items:center;justify-content:center;transition:background .12s")}
                 title="Next Year"
+                onMouseEnter={(e) => (e.currentTarget.style.background = '#f8fafc')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = '#fff')}
               >
                 ▶
               </button>
-              <button
-                type="button"
-                onClick={goToCurrentYear}
-                style={css("padding:5px 12px;border:1px solid #dde0d9;background:#fff;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;color:#334155;font-family:'Archivo',sans-serif")}
-              >
-                This Year
-              </button>
-
-              <select
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(Number(e.target.value))}
-                style={css("font-family:'Archivo',sans-serif;font-size:14px;font-weight:700;color:#15191e;border:1px solid #dde0d9;background:#fff;border-radius:7px;padding:5px 10px;cursor:pointer;outline:none")}
-              >
-                {[2024, 2025, 2026, 2027, 2028, 2029, 2030].map((yr) => (
-                  <option key={yr} value={yr}>
-                    {yr}
-                  </option>
-                ))}
-              </select>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={4}
+                value={yearInput}
+                onChange={handleYearInputChange}
+                onBlur={handleYearCommit}
+                onKeyDown={handleYearKeyDown}
+                style={css("width:64px;height:32px;border:1px solid #dde0d9;background:#fff;border-radius:7px;font-family:'Archivo',sans-serif;font-size:14px;font-weight:700;color:#15191e;text-align:center;outline:none;box-sizing:border-box;transition:border-color .15s,box-shadow .15s")}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = '#2563eb';
+                  e.currentTarget.style.boxShadow = '0 0 0 2px rgba(37,99,235,0.15)';
+                  e.currentTarget.select();
+                }}
+                onBlurCapture={(e) => {
+                  e.currentTarget.style.borderColor = '#dde0d9';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+                title="Type a 4-digit year (2000–2100) and press Enter"
+                aria-label="Year"
+              />
             </div>
           </div>
 
