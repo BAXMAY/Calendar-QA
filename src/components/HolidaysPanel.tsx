@@ -695,18 +695,47 @@ export function HolidaysPanel({ vm }: { vm: VM }) {
           </div>
 
           {/* Search Input Bar */}
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <span
+              style={{
+                position: 'absolute',
+                left: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                pointerEvents: 'none',
+                color: '#94a3b8',
+              }}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            </span>
             <input
               type="text"
               value={ruleSearch}
               onChange={(e) => setRuleSearch(e.target.value)}
-              placeholder="🔍 Search rules by name or date..."
-              style={css("width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:7px 10px;font-size:12px;font-family:'Archivo',sans-serif;color:#1e293b;outline:none")}
+              placeholder="Search rules by name or date..."
+              style={css("width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:7px 28px 7px 32px;font-size:12px;font-family:'Archivo',sans-serif;color:#1e293b;outline:none")}
             />
             {ruleSearch && (
               <button
+                type="button"
                 onClick={() => setRuleSearch('')}
-                style={css('position:absolute;right:8px;top:50%;transform:translateY(-50%);border:none;background:transparent;color:#94a3b8;cursor:pointer;font-size:12px')}
+                style={css('position:absolute;right:8px;top:50%;transform:translateY(-50%);border:none;background:transparent;color:#94a3b8;cursor:pointer;font-size:12px;padding:2px')}
+                title="Clear search"
               >
                 ✕
               </button>
