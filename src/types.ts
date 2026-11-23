@@ -160,11 +160,20 @@ export function normalizeAuditResults(results?: Record<string, SiteAuditResult>)
 export function normalizeAssignment(a: Assignment): Assignment {
   if (!a) return a;
   const canonicalSite = a.site ? normalizeSites(a.site) : (a.site1 ? normalizeSites(a.site1) : (a.site2 ? normalizeSites(a.site2) : ''));
+  const canonicalAuditor = (a.auditor || (Array.isArray(a.qmsHost) ? a.qmsHost.join(', ') : a.qmsHost) || a.auditor1 || a.auditor2 || '').trim();
+  const canonicalStandard = (typeof a.standard === 'string' ? a.standard : (Array.isArray(a.standard) ? a.standard.join('/') : (a.department1 || a.department2 || ''))).trim();
   return {
     ...a,
     site: canonicalSite || undefined,
     site1: a.site1 ? normalizeSites(a.site1) : (canonicalSite || undefined),
     site2: a.site2 ? normalizeSites(a.site2) : (canonicalSite || undefined),
+    auditor: canonicalAuditor,
+    auditor1: a.auditor1 ?? canonicalAuditor,
+    auditor2: a.auditor2 ?? canonicalAuditor,
+    qmsHost: a.qmsHost ?? canonicalAuditor,
+    standard: canonicalStandard,
+    department1: a.department1 ?? canonicalStandard,
+    department2: a.department2 ?? canonicalStandard,
     results: a.results ? normalizeAuditResults(a.results) : a.results,
   };
 }
@@ -1127,6 +1136,7 @@ export interface CreateDraft {
   dateTo: string;
   sectionType: 'customer' | 'internal';
   purpose: string;
+  standard?: string;
   department1: string;
   site?: string;
   site1: string;
@@ -1135,11 +1145,13 @@ export interface CreateDraft {
   targetPackage: string;
   customerNames: string;
   auditCategory: string;
+  auditor?: string;
   auditor1: string;
   department2: string;
   site2: string;
   area: string;
   auditor2: string;
+  qmsHost?: string;
   department?: Department | '';
   warn?: boolean;
   warnText?: string;
@@ -1158,12 +1170,15 @@ export interface EditDraft {
   targetPackage: string;
   customerNames: string;
   auditCategory: string;
+  auditor?: string;
   auditor1: string;
+  standard?: string;
   department1: string;
   site2: string;
   area: string;
   auditor2: string;
   department2: string;
+  qmsHost?: string;
   department?: Department | '';
   warn?: boolean;
   warnText?: string;

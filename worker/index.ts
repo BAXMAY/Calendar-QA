@@ -185,14 +185,24 @@ function assignmentOut(r: any) {
     parsedResults = legacyRes;
   }
   const site = normalizeSites(r.site || r.site1 || r.site2 || '');
+  const auditor = (r.auditor || r.auditor1 || r.auditor2 || '').trim();
+  const standard = (r.standard || r.department1 || r.department2 || '').trim();
   return {
     id: r.id, eng: r.eng, order: r.order_id, day: r.day, week: r.week,
     site,
     site1: site,
     site2: site,
-    customer: r.customer, endCustomer: r.end_customer, auditor1: r.auditor1, purpose: r.purpose,
+    customer: r.customer, endCustomer: r.end_customer,
+    auditor,
+    auditor1: auditor,
+    auditor2: auditor,
+    qmsHost: auditor,
+    purpose: r.purpose,
     targetPackage: r.target_package || '', customerNames: r.customer_names || '', auditCategory: r.audit_category || '',
-    area: r.area, auditor2: r.auditor2, department1: r.department1, department2: r.department2,
+    area: r.area,
+    standard,
+    department1: standard,
+    department2: standard,
     department: (r.department === 'Non-QA' ? 'Non-QA' : r.department === 'QA' ? 'QA' : undefined) as any,
     major: r.major, minor: r.minor, ofi: r.ofi, request: r.request,
     results: normalizeAuditResults(parsedResults),
@@ -206,6 +216,12 @@ async function ensureAssignmentColumns(DB: D1Database) {
   if (migrationChecked) return;
   try {
     await DB.prepare('ALTER TABLE assignments ADD COLUMN site TEXT NOT NULL DEFAULT ""').run();
+  } catch {}
+  try {
+    await DB.prepare('ALTER TABLE assignments ADD COLUMN auditor TEXT NOT NULL DEFAULT ""').run();
+  } catch {}
+  try {
+    await DB.prepare('ALTER TABLE assignments ADD COLUMN standard TEXT NOT NULL DEFAULT ""').run();
   } catch {}
   try {
     await DB.prepare('ALTER TABLE assignments ADD COLUMN target_package TEXT NOT NULL DEFAULT ""').run();
@@ -638,15 +654,31 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
       const d = body || {};
       const dept = d.department === 'Non-QA' ? 'Non-QA' : d.department === 'QA' ? 'QA' : '';
       const resolvedSite = normalizeSites(d.site || (d.sectionType === 'internal' ? d.site2 : d.site1) || '');
+      const resolvedAuditor = (
+        d.auditor ||
+        (Array.isArray(d.qmsHost) ? d.qmsHost.join(', ') : d.qmsHost) ||
+        (d.sectionType === 'internal' ? d.auditor2 : d.auditor1) ||
+        d.auditor1 ||
+        d.auditor2 ||
+        ''
+      ).trim();
+      const resolvedStandard = (
+        (Array.isArray(d.standard) ? d.standard.join('/') : d.standard) ||
+        (d.sectionType === 'internal' ? d.department2 : d.department1) ||
+        d.department1 ||
+        d.department2 ||
+        ''
+      ).trim();
+
       await DB.prepare(
-        `INSERT INTO assignments (id, eng, order_id, day, week, site, customer, end_customer, auditor1, purpose, target_package, customer_names, audit_category, area, auditor2, department1, department2, department, results, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO assignments (id, eng, order_id, day, week, site, customer, end_customer, auditor, purpose, target_package, customer_names, audit_category, area, standard, department, results, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         d.id, d.eng || '', d.order || '', d.day ?? 0, d.week ?? 0,
         resolvedSite,
-        d.customer || '', d.endCustomer || '', d.auditor1 || '', d.purpose || '',
+        d.customer || '', d.endCustomer || '', resolvedAuditor, d.purpose || '',
         d.targetPackage || '', d.customerNames || '', d.auditCategory || '',
-        d.area || '', d.auditor2 || '', d.department1 || '', d.department2 || '',
+        d.area || '', resolvedStandard,
         dept,
         typeof d.results === 'string' ? d.results : JSON.stringify(d.results || {}),
         d.createdAt ? String(d.createdAt) : '',
@@ -664,16 +696,33 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
       if (!existing) return json({ error: 'not found' }, 404);
       await ensureAssignmentColumns(DB);
       const resolvedSite = d.site !== undefined ? normalizeSites(d.site) : (d.site1 !== undefined || d.site2 !== undefined ? normalizeSites(d.site1 || d.site2 || '') : undefined);
+      const resolvedAuditor = d.auditor !== undefined
+        ? String(d.auditor).trim()
+        : (d.qmsHost !== undefined
+            ? (Array.isArray(d.qmsHost) ? d.qmsHost.join(', ') : String(d.qmsHost)).trim()
+            : (d.auditor1 !== undefined || d.auditor2 !== undefined
+                ? (d.auditor1 || d.auditor2 || '').trim()
+                : undefined));
+
+      const resolvedStandard = d.standard !== undefined
+        ? (Array.isArray(d.standard) ? d.standard.join('/') : String(d.standard)).trim()
+        : (d.department1 !== undefined || d.department2 !== undefined
+            ? (d.department1 || d.department2 || '').trim()
+            : undefined);
+
       await DB.prepare(
-        `UPDATE assignments SET eng = ?, order_id = ?, day = ?, week = ?, site = ?, customer = ?, end_customer = ?, auditor1 = ?, purpose = ?,
-           target_package = ?, customer_names = ?, audit_category = ?, area = ?, auditor2 = ?, department1 = ?, department2 = ?, department = ?, results = ?,
+        `UPDATE assignments SET eng = ?, order_id = ?, day = ?, week = ?, site = ?, customer = ?, end_customer = ?, auditor = ?, purpose = ?,
+           target_package = ?, customer_names = ?, audit_category = ?, area = ?, standard = ?, department = ?, results = ?,
            created_at = ?, updated_at = ? WHERE id = ?`,
       ).bind(
         d.eng ?? existing.eng, d.order ?? existing.order_id, d.day ?? existing.day, d.week ?? existing.week,
         resolvedSite ?? existing.site ?? '',
-        d.customer ?? existing.customer, d.endCustomer ?? existing.end_customer, d.auditor1 ?? existing.auditor1, d.purpose ?? existing.purpose,
+        d.customer ?? existing.customer, d.endCustomer ?? existing.end_customer,
+        resolvedAuditor ?? existing.auditor ?? existing.auditor1 ?? existing.auditor2 ?? '',
+        d.purpose ?? existing.purpose,
         d.targetPackage ?? existing.target_package ?? '', d.customerNames ?? existing.customer_names ?? '', d.auditCategory ?? existing.audit_category ?? '',
-        d.area ?? existing.area, d.auditor2 ?? existing.auditor2, d.department1 ?? existing.department1, d.department2 ?? existing.department2,
+        d.area ?? existing.area,
+        resolvedStandard ?? existing.standard ?? existing.department1 ?? existing.department2 ?? '',
         d.department !== undefined ? (d.department || '') : (existing.department ?? ''),
         d.results !== undefined ? (typeof d.results === 'string' ? d.results : JSON.stringify(d.results)) : (existing.results ?? '{}'),
         d.createdAt !== undefined ? String(d.createdAt) : (existing.created_at ?? ''),

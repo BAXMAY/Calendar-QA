@@ -1068,7 +1068,7 @@
                 <td><code>id</code> (UUID / Code)</td>
                 <td><code>eng &rarr; engineers(id)</code><br><code>order_id &rarr; orders(id)</code></td>
                 <td>
-                  Denormalized schedule slot: <code>week</code>, <code>day</code>, <code>site1</code>, <code>site2</code>, <code>customer</code>, <code>end_customer</code>, <code>auditor1</code>, <code>auditor2</code>, <code>department</code>, <code>purpose</code>, <code>target_package</code>, <code>audit_category</code>, <code>results</code> (JSON stringified per-site findings), <code>created_at</code>, <code>updated_at</code>.
+                  Denormalized schedule slot: <code>week</code>, <code>day</code>, <code>site</code> (unified from <code>site1</code>/<code>site2</code>), <code>customer</code>, <code>end_customer</code>, <code>auditor</code> (unified from <code>auditor1</code>/<code>auditor2</code>), <code>standard</code> (unified from <code>department1</code>/<code>department2</code>), <code>department</code>, <code>purpose</code>, <code>target_package</code>, <code>audit_category</code>, <code>results</code> (JSON stringified per-site findings), <code>created_at</code>, <code>updated_at</code>.
                 </td>
               </tr>
               <tr>
@@ -1803,7 +1803,7 @@
               <td><strong>Separate Lead Auditor Field</strong></td>
               <td><code>src/types.ts</code> (<code>Assignment.leadAuditor</code>)</td>
               <td><span class="pill pill-purple">Omitted from UI Form</span></td>
-              <td>Supported in the data schema and completeness validator, but omitted from the appointment form in favor of the consolidated <code>MultiAuditorSelect</code> (auditor1 / auditor2 / hostAuditors).</td>
+              <td>Supported in the data schema and completeness validator, but omitted from the appointment form in favor of the consolidated <code>MultiAuditorSelect</code> (auditor / hostAuditors).</td>
             </tr>
             <tr>
               <td><strong>Legacy Site Codes (<code>U1..U3T</code>)</strong></td>

@@ -1464,7 +1464,7 @@ export function useScheduler() {
       createOpen: true,
       userMenuOpen: false,
       sidebarOpen: false,
-      createDraft: { order: '', eng: '', day: 0, dateFrom: '', dateTo: '', sectionType: 'customer', purpose: '', department1: '', site1: '', customer: '', endCustomer: '', targetPackage: '', customerNames: '', auditCategory: '', auditor1: '', department2: '', site2: '', area: '', auditor2: '', department: undefined },
+      createDraft: { order: '', eng: '', day: 0, dateFrom: '', dateTo: '', sectionType: 'customer', purpose: '', standard: '', department1: '', site: '', site1: '', customer: '', endCustomer: '', targetPackage: '', customerNames: '', auditCategory: '', auditor: '', auditor1: '', department2: '', site2: '', area: '', auditor2: '', qmsHost: '', department: undefined },
     });
   };
   const openCreateAt = (engId: string, day: number) => {
@@ -1486,18 +1486,22 @@ export function useScheduler() {
         dateTo: targetISO,
         sectionType: isInternalOnly ? 'internal' : 'customer',
         purpose: '',
+        standard: '',
         department1: '',
+        site: '',
         site1: '',
         customer: '',
         endCustomer: '',
         targetPackage: '',
         customerNames: '',
         auditCategory: '',
+        auditor: '',
         auditor1: '',
         department2: '',
         site2: '',
         area: '',
         auditor2: '',
+        qmsHost: '',
         department: undefined,
       },
     });
@@ -1519,7 +1523,7 @@ export function useScheduler() {
         order: '', eng: '', day: 0,
         dateFrom: d, dateTo: d,
         sectionType: isInternalOnly ? 'internal' : 'customer',
-        purpose: '', department1: '', site1: '', customer: '', endCustomer: '', targetPackage: '', customerNames: '', auditCategory: '', auditor1: '', department2: '', site2: '', area: '', auditor2: '', department: undefined
+        purpose: '', standard: '', department1: '', site: '', site1: '', customer: '', endCustomer: '', targetPackage: '', customerNames: '', auditCategory: '', auditor: '', auditor1: '', department2: '', site2: '', area: '', auditor2: '', qmsHost: '', department: undefined
       },
     });
   };
@@ -1617,6 +1621,8 @@ export function useScheduler() {
       const slot = dateSlot(cur);
       const hol = getHolidayForDate(cur, S.customHolidays);
       if (slot.wd < 5 && !isDateCompletelyBlocked(hol)) {
+        const stdVal = cleanStr(d.standard || (d.sectionType === 'customer' ? d.department1 : d.department2));
+        const audVal = cleanStr(d.auditor || (d.sectionType === 'customer' ? d.auditor1 : d.auditor2));
         newAssignments.push({
           id: 'a' + ids.current.id++,
           eng: engId, order: orderId,
@@ -1632,13 +1638,16 @@ export function useScheduler() {
           targetPackage: d.sectionType === 'customer' ? cleanStr(d.targetPackage) : '',
           customerNames: d.sectionType === 'customer' ? cleanStr(d.customerNames) : '',
           auditCategory: d.sectionType === 'internal' ? cleanStr(d.auditCategory) : '',
-          auditor1: d.sectionType === 'customer' ? cleanStr(d.auditor1) : '',
+          auditor: audVal,
+          auditor1: d.sectionType === 'customer' ? audVal : '',
+          qmsHost: audVal,
           purpose: cleanStr(d.purpose),
           site2: normalizeSites(cleanStr(d.site || d.site2)),
           area: d.sectionType === 'internal' ? formatAreaString(d.area) : '',
-          auditor2: d.sectionType === 'internal' ? cleanStr(d.auditor2) : '',
-          department1: d.sectionType === 'customer' ? cleanStr(d.department1) : '',
-          department2: d.sectionType === 'internal' ? cleanStr(d.department2) : '',
+          auditor2: d.sectionType === 'internal' ? audVal : '',
+          standard: stdVal,
+          department1: d.sectionType === 'customer' ? stdVal : '',
+          department2: d.sectionType === 'internal' ? stdVal : '',
           department: hostDept,
           createdBy: profile.name || 'Jordan Lee',
           createdAt: new Date().toISOString(),
@@ -1876,6 +1885,9 @@ export function useScheduler() {
     }
 
     const scope = forceScope || 'all';
+    const canonicalAuditor = (a.auditor || (isInternal ? a.auditor2 : a.auditor1) || '').trim();
+    const canonicalStd = (typeof a.standard === 'string' ? a.standard : (isInternal ? a.department2 : a.department1) || '').trim();
+    const canonicalSite = normalizeSites(a.site || (isInternal ? a.site2 : a.site1) || '');
     setState({
       editScopePrompt: null,
       editOpen: true,
@@ -1884,16 +1896,20 @@ export function useScheduler() {
         sectionType: isInternal ? 'internal' : 'customer',
         dateFrom: scope === 'day' ? singleDateISO : fmtISO(fromDate),
         dateTo: scope === 'day' ? singleDateISO : fmtISO(toDate),
-        site1: normalizeSites(a.site1 || ''),
+        site: canonicalSite,
+        site1: canonicalSite,
         customer: a.customer || '',
         endCustomer: a.endCustomer || '',
         purpose: a.purpose || '',
-        auditor1: a.auditor1 || '',
-        department1: a.department1 || '',
-        site2: normalizeSites(a.site2 || ''),
+        auditor: canonicalAuditor,
+        auditor1: canonicalAuditor,
+        standard: canonicalStd,
+        department1: canonicalStd,
+        site2: canonicalSite,
         area: a.area || '',
-        auditor2: a.auditor2 || '',
-        department2: a.department2 || '',
+        auditor2: canonicalAuditor,
+        department2: canonicalStd,
+        qmsHost: canonicalAuditor,
         targetPackage: a.targetPackage || '',
         customerNames: a.customerNames || '',
         auditCategory: a.auditCategory || '',
@@ -2169,6 +2185,8 @@ export function useScheduler() {
     }
 
     const cleanStr = (s?: string) => (s || '').replace(/^\$+/, '').trim();
+    const stdVal = cleanStr(d.standard || (d.sectionType === 'customer' ? d.department1 : d.department2));
+    const audVal = cleanStr(d.auditor || (d.sectionType === 'customer' ? d.auditor1 : d.auditor2));
     const fields = {
       type: d.sectionType,
       auditType: d.sectionType === 'internal' ? 'Internal Audit' : 'Customer Audit',
@@ -2180,13 +2198,16 @@ export function useScheduler() {
       targetPackage: d.sectionType === 'customer' ? cleanStr(d.targetPackage) : '',
       customerNames: d.sectionType === 'customer' ? cleanStr(d.customerNames) : '',
       auditCategory: d.sectionType === 'internal' ? cleanStr(d.auditCategory) : '',
-      auditor1: d.sectionType === 'customer' ? cleanStr(d.auditor1) : '',
+      auditor: audVal,
+      auditor1: d.sectionType === 'customer' ? audVal : '',
+      qmsHost: audVal,
       purpose: cleanStr(d.purpose),
       site2: normalizeSites(cleanStr(d.site || d.site2)),
       area: d.sectionType === 'internal' ? formatAreaString(d.area) : '',
-      auditor2: d.sectionType === 'internal' ? cleanStr(d.auditor2) : '',
-      department1: d.sectionType === 'customer' ? cleanStr(d.department1) : '',
-      department2: d.sectionType === 'internal' ? cleanStr(d.department2) : '',
+      auditor2: d.sectionType === 'internal' ? audVal : '',
+      standard: stdVal,
+      department1: d.sectionType === 'customer' ? stdVal : '',
+      department2: d.sectionType === 'internal' ? stdVal : '',
       department: hostDept,
       results: reconciledResults,
     };
@@ -4413,6 +4434,10 @@ export function useScheduler() {
   const createMissing = getMissingFields(cd);
   const create = {
     sectionType: cd.sectionType,
+    site: cd.site,
+    standard: cd.standard,
+    auditor: cd.auditor,
+    qmsHost: cd.qmsHost,
     purpose: cd.purpose, department1: cd.department1, site1: cd.site1, customer: cd.customer, endCustomer: cd.endCustomer, auditor1: cd.auditor1,
     department2: cd.department2, site2: cd.site2, area: cd.area, auditor2: cd.auditor2,
     targetPackage: cd.targetPackage, customerNames: cd.customerNames, auditCategory: cd.auditCategory,

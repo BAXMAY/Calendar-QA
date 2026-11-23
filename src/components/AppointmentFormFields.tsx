@@ -290,12 +290,15 @@ export interface AppointmentFormValues {
   targetPackage?: string;
   customerNames?: string;
   auditCategory?: string;
+  auditor?: string;
   auditor1: string;
+  standard?: string;
   department1: string;
   site2: string;
   area: string;
   auditor2: string;
   department2: string;
+  qmsHost?: string;
   dateFrom: string;
   dateTo: string;
   warn?: boolean;
@@ -2524,14 +2527,14 @@ export function AppointmentFormFields({
     }));
   };
 
-  const isCustomerEHS = v.department1.split(',').map((s) => s.trim()).includes('EHS');
+  const isCustomerEHS = (v.standard || v.department1 || '').split(',').map((s) => s.trim()).includes('EHS');
   // Fixed master plant sites (UTL1, UTL2, UTL2A, UTL2B, UTL3, UTL3A, UTL3T) are always preserved
   void isCustomerEHS;
   const customerSiteOptions = siteOptions && siteOptions.length > 0
     ? Array.from(new Set([...MASTER_PLANT_SITES, ...siteOptions.map(normalizeSite)]))
     : Array.from(MASTER_PLANT_SITES);
 
-  const isInternalEHS = v.department2.split(',').map((s) => s.trim()).includes('EHS');
+  const isInternalEHS = (v.standard || v.department2 || '').split(',').map((s) => s.trim()).includes('EHS');
   const baseInternalSites = siteOptions && siteOptions.length > 0
     ? Array.from(new Set([...MASTER_PLANT_SITES, ...siteOptions.map(normalizeSite)]))
     : Array.from(MASTER_PLANT_SITES);
@@ -2601,23 +2604,27 @@ export function AppointmentFormFields({
   const isInternal = v.sectionType === 'internal';
 
   // Internal Audit field error states
-  const errIntDept = isWarn && isInternal && !v.department2?.trim();
+  const intStd = (v.standard || v.department2 || '').trim();
+  const intHost = (v.auditor || v.auditor2 || '').trim();
+  const errIntDept = isWarn && isInternal && !intStd;
   const errIntSite = isWarn && isInternal && !(v.site || v.site2)?.trim();
   const errIntCategory = isWarn && isInternal && !v.auditCategory?.trim();
   const errIntArea = isWarn && isInternal && !v.area?.replace(/^[\s/]+|[\s/]+$/g, '').trim();
-  const errIntHost = isWarn && isInternal && (!v.auditor2?.trim() || v.auditor2.trim().toLowerCase() === 'unassigned');
+  const errIntHost = isWarn && isInternal && (!intHost || intHost.toLowerCase() === 'unassigned');
   const errIntFrom = isWarn && isInternal && !v.dateFrom?.trim();
   const errIntTo = isWarn && isInternal && (!v.dateTo?.trim() || (Boolean(v.dateFrom && v.dateTo) && v.dateFrom > v.dateTo));
 
   // Customer Audit field error states
-  const errCustDept = isWarn && !isInternal && !v.department1?.trim();
+  const custStd = (v.standard || v.department1 || '').trim();
+  const custHost = (v.auditor || v.auditor1 || '').trim();
+  const errCustDept = isWarn && !isInternal && !custStd;
   const errCustSite = isWarn && !isInternal && !(v.site || v.site1)?.trim();
   const errCust = isWarn && !isInternal && !v.customer?.trim();
   const errEndCust = isWarn && !isInternal && !v.endCustomer?.trim();
   const errPurpose = isWarn && !isInternal && !v.purpose?.trim();
   const errTargetPkg = isWarn && !isInternal && !v.targetPackage?.trim();
   const errCustNames = isWarn && !isInternal && !v.customerNames?.trim();
-  const errCustHost = isWarn && !isInternal && (!v.auditor1?.trim() || v.auditor1.trim().toLowerCase() === 'unassigned');
+  const errCustHost = isWarn && !isInternal && (!custHost || custHost.toLowerCase() === 'unassigned');
   const errCustFrom = isWarn && !isInternal && !v.dateFrom?.trim();
   const errCustTo = isWarn && !isInternal && (!v.dateTo?.trim() || (Boolean(v.dateFrom && v.dateTo) && v.dateFrom > v.dateTo));
 
@@ -2778,13 +2785,13 @@ export function AppointmentFormFields({
                 id={id('department1')}
                 tabIndex={1}
                 inputRef={standardInputRef}
-                value={v.department1}
+                value={v.standard || v.department1}
                 onChange={(newDept) => {
                   const currentCustSite = v.site || v.site1 || '';
                   const currentSites = currentCustSite.split('/').map((s) => s.trim()).filter(Boolean);
                   // Re-validate against the fixed customer site list
                   const validSites = currentSites.filter((s) => customerSiteOptions.includes(s));
-                  onChange({ department1: newDept, site: validSites.join('/'), site1: validSites.join('/') });
+                  onChange({ standard: newDept, department1: newDept, site: validSites.join('/'), site1: validSites.join('/') });
                 }}
                 suggestions={customerDepartmentSuggestions}
                 onAddNew={(dept) => {
@@ -2916,8 +2923,8 @@ export function AppointmentFormFields({
               <MultiAuditorSelect
                 id={id('auditor1')}
                 tabIndex={8}
-                value={v.auditor1}
-                onChange={(auditor1) => onChange({ auditor1 })}
+                value={v.auditor || v.auditor1}
+                onChange={(auditor1) => onChange({ auditor: auditor1, auditor1, qmsHost: auditor1 })}
                 suggestions={auditorSuggestions}
                 onAddNew={(name) => {
                   const clean = name.replace(/^\$+/, '').trim();
@@ -2974,13 +2981,13 @@ export function AppointmentFormFields({
                 id={id('department2')}
                 tabIndex={1}
                 inputRef={standardInputRef}
-                value={v.department2}
+                value={v.standard || v.department2}
                 onChange={(newDept) => {
                   const currentIntSite = v.site || v.site2 || '';
                   const currentSites = currentIntSite.split('/').map((s) => normalizeSite(s.trim())).filter(Boolean);
                   const isEHS = newDept.split(',').map((s) => s.trim()).includes('EHS');
                   const validSites = currentSites.filter((s) => !isEHS || ['UTL1', 'UTL2', 'UTL3', 'U1', 'U2', 'U3'].includes(s));
-                  onChange({ department2: newDept, site: validSites.join('/'), site2: validSites.join('/') });
+                  onChange({ standard: newDept, department2: newDept, site: validSites.join('/'), site2: validSites.join('/') });
                 }}
                 suggestions={internalDepartmentSuggestions}
                 onAddNew={(dept) => {
@@ -3055,8 +3062,8 @@ export function AppointmentFormFields({
               <MultiAuditorSelect
                 id={id('auditor2')}
                 tabIndex={5}
-                value={v.auditor2}
-                onChange={(auditor2) => onChange({ auditor2 })}
+                value={v.auditor || v.auditor2}
+                onChange={(auditor2) => onChange({ auditor: auditor2, auditor2, qmsHost: auditor2 })}
                 suggestions={auditorSuggestions}
                 onAddNew={(name) => {
                   const clean = name.replace(/^\$+/, '').trim();
