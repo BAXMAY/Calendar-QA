@@ -176,13 +176,25 @@ function assignmentOut(r: any) {
       parsedResults = typeof r.results === 'string' ? JSON.parse(r.results) : r.results;
     } catch {}
   }
+  // Migrate legacy utl1, utl2, utl3 if results JSON is empty
+  if (Object.keys(parsedResults).length === 0 && (r.utl1 || r.utl2 || r.utl3)) {
+    const legacyRes: any = {};
+    if (r.utl1) legacyRes.UTL1 = { findings: r.utl1, major: 0, minor: 0, ofi: 0, obs: 0 };
+    if (r.utl2) legacyRes.UTL2 = { findings: r.utl2, major: 0, minor: 0, ofi: 0, obs: 0 };
+    if (r.utl3) legacyRes.UTL3 = { findings: r.utl3, major: 0, minor: 0, ofi: 0, obs: 0 };
+    parsedResults = legacyRes;
+  }
+  const site = normalizeSites(r.site || r.site1 || r.site2 || '');
   return {
     id: r.id, eng: r.eng, order: r.order_id, day: r.day, week: r.week,
-    site1: normalizeSites(r.site1 || ''), customer: r.customer, endCustomer: r.end_customer, auditor1: r.auditor1, purpose: r.purpose,
+    site,
+    site1: site,
+    site2: site,
+    customer: r.customer, endCustomer: r.end_customer, auditor1: r.auditor1, purpose: r.purpose,
     targetPackage: r.target_package || '', customerNames: r.customer_names || '', auditCategory: r.audit_category || '',
-    site2: normalizeSites(r.site2 || ''), area: r.area, auditor2: r.auditor2, department1: r.department1, department2: r.department2,
+    area: r.area, auditor2: r.auditor2, department1: r.department1, department2: r.department2,
     department: (r.department === 'Non-QA' ? 'Non-QA' : r.department === 'QA' ? 'QA' : undefined) as any,
-    major: r.major, minor: r.minor, ofi: r.ofi, request: r.request, utl1: r.utl1, utl2: r.utl2, utl3: r.utl3,
+    major: r.major, minor: r.minor, ofi: r.ofi, request: r.request,
     results: normalizeAuditResults(parsedResults),
     createdAt: r.created_at || (r.created_at_num ? String(r.created_at_num) : undefined),
     updatedAt: r.updated_at || undefined,
@@ -192,6 +204,12 @@ function assignmentOut(r: any) {
 let migrationChecked = false;
 async function ensureAssignmentColumns(DB: D1Database) {
   if (migrationChecked) return;
+  try {
+    await DB.prepare('ALTER TABLE assignments ADD COLUMN site TEXT NOT NULL DEFAULT ""').run();
+  } catch {}
+  try {
+    await DB.prepare(`UPDATE assignments SET site = CASE WHEN site1 IS NOT NULL AND TRIM(site1) != '' THEN site1 ELSE COALESCE(site2, '') END WHERE site = '' OR site IS NULL`).run();
+  } catch {}
   try {
     await DB.prepare('ALTER TABLE assignments ADD COLUMN target_package TEXT NOT NULL DEFAULT ""').run();
   } catch {}
@@ -622,14 +640,16 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
       await ensureAssignmentColumns(DB);
       const d = body || {};
       const dept = d.department === 'Non-QA' ? 'Non-QA' : d.department === 'QA' ? 'QA' : '';
+      const resolvedSite = normalizeSites(d.site || (d.sectionType === 'internal' ? d.site2 : d.site1) || '');
       await DB.prepare(
-        `INSERT INTO assignments (id, eng, order_id, day, week, site1, customer, end_customer, auditor1, purpose, target_package, customer_names, audit_category, site2, area, auditor2, department1, department2, department, results, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO assignments (id, eng, order_id, day, week, site, site1, customer, end_customer, auditor1, purpose, target_package, customer_names, audit_category, site2, area, auditor2, department1, department2, department, results, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         d.id, d.eng || '', d.order || '', d.day ?? 0, d.week ?? 0,
-        d.site1 || '', d.customer || '', d.endCustomer || '', d.auditor1 || '', d.purpose || '',
+        resolvedSite,
+        d.site1 || resolvedSite, d.customer || '', d.endCustomer || '', d.auditor1 || '', d.purpose || '',
         d.targetPackage || '', d.customerNames || '', d.auditCategory || '',
-        d.site2 || '', d.area || '', d.auditor2 || '', d.department1 || '', d.department2 || '',
+        d.site2 || resolvedSite, d.area || '', d.auditor2 || '', d.department1 || '', d.department2 || '',
         dept,
         typeof d.results === 'string' ? d.results : JSON.stringify(d.results || {}),
         d.createdAt ? String(d.createdAt) : '',
@@ -646,15 +666,17 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
       const existing = await DB.prepare('SELECT * FROM assignments WHERE id = ?').bind(assignMatch[1]).first<any>();
       if (!existing) return json({ error: 'not found' }, 404);
       await ensureAssignmentColumns(DB);
+      const resolvedSite = d.site !== undefined ? normalizeSites(d.site) : (d.site1 !== undefined || d.site2 !== undefined ? normalizeSites(d.site1 || d.site2 || '') : undefined);
       await DB.prepare(
-        `UPDATE assignments SET eng = ?, order_id = ?, day = ?, week = ?, site1 = ?, customer = ?, end_customer = ?, auditor1 = ?, purpose = ?,
+        `UPDATE assignments SET eng = ?, order_id = ?, day = ?, week = ?, site = ?, site1 = ?, customer = ?, end_customer = ?, auditor1 = ?, purpose = ?,
            target_package = ?, customer_names = ?, audit_category = ?, site2 = ?, area = ?, auditor2 = ?, department1 = ?, department2 = ?, department = ?, results = ?,
            created_at = ?, updated_at = ? WHERE id = ?`,
       ).bind(
         d.eng ?? existing.eng, d.order ?? existing.order_id, d.day ?? existing.day, d.week ?? existing.week,
-        d.site1 ?? existing.site1, d.customer ?? existing.customer, d.endCustomer ?? existing.end_customer, d.auditor1 ?? existing.auditor1, d.purpose ?? existing.purpose,
+        resolvedSite ?? existing.site ?? '',
+        d.site1 ?? resolvedSite ?? existing.site1, d.customer ?? existing.customer, d.endCustomer ?? existing.end_customer, d.auditor1 ?? existing.auditor1, d.purpose ?? existing.purpose,
         d.targetPackage ?? existing.target_package ?? '', d.customerNames ?? existing.customer_names ?? '', d.auditCategory ?? existing.audit_category ?? '',
-        d.site2 ?? existing.site2, d.area ?? existing.area, d.auditor2 ?? existing.auditor2, d.department1 ?? existing.department1, d.department2 ?? existing.department2,
+        d.site2 ?? resolvedSite ?? existing.site2, d.area ?? existing.area, d.auditor2 ?? existing.auditor2, d.department1 ?? existing.department1, d.department2 ?? existing.department2,
         d.department !== undefined ? (d.department || '') : (existing.department ?? ''),
         d.results !== undefined ? (typeof d.results === 'string' ? d.results : JSON.stringify(d.results)) : (existing.results ?? '{}'),
         d.createdAt !== undefined ? String(d.createdAt) : (existing.created_at ?? ''),

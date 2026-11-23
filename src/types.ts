@@ -159,10 +159,12 @@ export function normalizeAuditResults(results?: Record<string, SiteAuditResult>)
 /** Standardize an assignment's sites and audit results */
 export function normalizeAssignment(a: Assignment): Assignment {
   if (!a) return a;
+  const canonicalSite = a.site ? normalizeSites(a.site) : (a.site1 ? normalizeSites(a.site1) : (a.site2 ? normalizeSites(a.site2) : ''));
   return {
     ...a,
-    site1: a.site1 ? normalizeSites(a.site1) : a.site1,
-    site2: a.site2 ? normalizeSites(a.site2) : a.site2,
+    site: canonicalSite || undefined,
+    site1: a.site1 ? normalizeSites(a.site1) : (canonicalSite || undefined),
+    site2: a.site2 ? normalizeSites(a.site2) : (canonicalSite || undefined),
     results: a.results ? normalizeAuditResults(a.results) : a.results,
   };
 }
@@ -1126,6 +1128,7 @@ export interface CreateDraft {
   sectionType: 'customer' | 'internal';
   purpose: string;
   department1: string;
+  site?: string;
   site1: string;
   customer: string;
   endCustomer: string;
@@ -1147,6 +1150,7 @@ export interface EditDraft {
   sectionType: 'customer' | 'internal';
   dateFrom: string;
   dateTo: string;
+  site?: string;
   site1: string;
   customer: string;
   endCustomer: string;

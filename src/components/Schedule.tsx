@@ -449,16 +449,13 @@ function ApptCard({ chip }: { chip: any }) {
                 );
               }
             }
-            if (chip.major || chip.minor || chip.ofi || chip.request || chip.utl1 || chip.utl2 || chip.utl3) {
+            if (chip.major || chip.minor || chip.ofi || chip.request) {
               return (
                 <div style={css('display:flex;gap:8px;flex-wrap:wrap;margin-top:2px')}>
                   {!!chip.major && <span style={css('font-size:10px;color:#b32f2f;font-weight:600')}>Major: {chip.major}</span>}
                   {!!chip.minor && <span style={css('font-size:10px;color:#c2620c;font-weight:600')}>Minor: {chip.minor}</span>}
                   {!!chip.ofi && <span style={css('font-size:10px;color:#5b7fd6;font-weight:600')}>OFI: {chip.ofi}</span>}
                   {!!chip.request && <span style={css('font-size:10px;color:#1f8a5b;font-weight:600')}>Request: {chip.request}</span>}
-                  {!!chip.utl1 && <span style={css('font-size:10px;color:#8a5bbf;font-weight:600')}>UTL1: {chip.utl1}</span>}
-                  {!!chip.utl2 && <span style={css('font-size:10px;color:#8a5bbf;font-weight:600')}>UTL2: {chip.utl2}</span>}
-                  {!!chip.utl3 && <span style={css('font-size:10px;color:#8a5bbf;font-weight:600')}>UTL3: {chip.utl3}</span>}
                 </div>
               );
             }
@@ -1031,16 +1028,13 @@ function SearchRowItem({ dateLabel, chip, isLast }: { dateLabel: string; chip: a
                 );
               }
             }
-            if (chip.major || chip.minor || chip.ofi || chip.request || chip.utl1 || chip.utl2 || chip.utl3) {
+            if (chip.major || chip.minor || chip.ofi || chip.request) {
               return (
                 <div style={css('display:flex;gap:8px;flex-wrap:wrap;margin-top:2px')}>
                   {!!chip.major && <span style={css('font-size:10px;color:#b32f2f;font-weight:600')}>Major: {chip.major}</span>}
                   {!!chip.minor && <span style={css('font-size:10px;color:#c2620c;font-weight:600')}>Minor: {chip.minor}</span>}
                   {!!chip.ofi && <span style={css('font-size:10px;color:#5b7fd6;font-weight:600')}>OFI: {chip.ofi}</span>}
                   {!!chip.request && <span style={css('font-size:10px;color:#1f8a5b;font-weight:600')}>Request: {chip.request}</span>}
-                  {!!chip.utl1 && <span style={css('font-size:10px;color:#8a5bbf;font-weight:600')}>UTL1: {chip.utl1}</span>}
-                  {!!chip.utl2 && <span style={css('font-size:10px;color:#8a5bbf;font-weight:600')}>UTL2: {chip.utl2}</span>}
-                  {!!chip.utl3 && <span style={css('font-size:10px;color:#8a5bbf;font-weight:600')}>UTL3: {chip.utl3}</span>}
                 </div>
               );
             }

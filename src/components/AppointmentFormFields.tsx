@@ -282,6 +282,7 @@ function DateInputField({ id, value, onChange, style, disabled, tabIndex, hasErr
 
 export interface AppointmentFormValues {
   sectionType: 'customer' | 'internal';
+  site?: string;
   site1: string;
   customer: string;
   endCustomer: string;
@@ -2601,7 +2602,7 @@ export function AppointmentFormFields({
 
   // Internal Audit field error states
   const errIntDept = isWarn && isInternal && !v.department2?.trim();
-  const errIntSite = isWarn && isInternal && !v.site2?.trim();
+  const errIntSite = isWarn && isInternal && !(v.site || v.site2)?.trim();
   const errIntCategory = isWarn && isInternal && !v.auditCategory?.trim();
   const errIntArea = isWarn && isInternal && !v.area?.replace(/^[\s/]+|[\s/]+$/g, '').trim();
   const errIntHost = isWarn && isInternal && (!v.auditor2?.trim() || v.auditor2.trim().toLowerCase() === 'unassigned');
@@ -2610,7 +2611,7 @@ export function AppointmentFormFields({
 
   // Customer Audit field error states
   const errCustDept = isWarn && !isInternal && !v.department1?.trim();
-  const errCustSite = isWarn && !isInternal && !v.site1?.trim();
+  const errCustSite = isWarn && !isInternal && !(v.site || v.site1)?.trim();
   const errCust = isWarn && !isInternal && !v.customer?.trim();
   const errEndCust = isWarn && !isInternal && !v.endCustomer?.trim();
   const errPurpose = isWarn && !isInternal && !v.purpose?.trim();
@@ -2653,14 +2654,15 @@ export function AppointmentFormFields({
   const shutdownSites = shutdownInfo.sites;
 
   useEffect(() => {
-    if (v.sectionType === 'internal' && shutdownSites.length > 0 && v.site2) {
-      const selected = v.site2.split(/[/,]/).map((s) => normalizeSite(s.trim())).filter(Boolean);
+    const currentIntSite = v.site || v.site2 || '';
+    if (v.sectionType === 'internal' && shutdownSites.length > 0 && currentIntSite) {
+      const selected = currentIntSite.split(/[/,]/).map((s) => normalizeSite(s.trim())).filter(Boolean);
       const filtered = selected.filter((s) => !shutdownSites.includes(s));
       if (filtered.length !== selected.length) {
-        onChange({ site2: filtered.join('/') });
+        onChange({ site: filtered.join('/'), site2: filtered.join('/') });
       }
     }
-  }, [shutdownSites, v.sectionType, v.site2, onChange]);
+  }, [shutdownSites, v.sectionType, v.site, v.site2, onChange]);
 
   useEffect(() => {
     if (isDateInternalOnly && v.sectionType !== 'internal') {
@@ -2778,10 +2780,11 @@ export function AppointmentFormFields({
                 inputRef={standardInputRef}
                 value={v.department1}
                 onChange={(newDept) => {
-                  const currentSites = v.site1.split('/').map((s) => s.trim()).filter(Boolean);
+                  const currentCustSite = v.site || v.site1 || '';
+                  const currentSites = currentCustSite.split('/').map((s) => s.trim()).filter(Boolean);
                   // Re-validate against the fixed customer site list
                   const validSites = currentSites.filter((s) => customerSiteOptions.includes(s));
-                  onChange({ department1: newDept, site1: validSites.join('/') });
+                  onChange({ department1: newDept, site: validSites.join('/'), site1: validSites.join('/') });
                 }}
                 suggestions={customerDepartmentSuggestions}
                 onAddNew={(dept) => {
@@ -2799,8 +2802,8 @@ export function AppointmentFormFields({
               <MultiSiteSelect
                 id={id('site1')}
                 tabIndex={2}
-                value={v.site1}
-                onChange={(site1) => onChange({ site1 })}
+                value={v.site || v.site1}
+                onChange={(site1) => onChange({ site: site1, site1 })}
                 siteOptions={customerSiteOptions}
                 hasError={errCustSite}
               />
@@ -2946,7 +2949,7 @@ export function AppointmentFormFields({
               ) : (
                 <AvailabilityDatePicker
                   sectionType="customer"
-                  site={v.site1}
+                  site={v.site || v.site1}
                   auditor={v.auditor1}
                   dateFrom={v.dateFrom}
                   dateTo={v.dateTo}
@@ -2973,10 +2976,11 @@ export function AppointmentFormFields({
                 inputRef={standardInputRef}
                 value={v.department2}
                 onChange={(newDept) => {
-                  const currentSites = v.site2.split('/').map((s) => normalizeSite(s.trim())).filter(Boolean);
+                  const currentIntSite = v.site || v.site2 || '';
+                  const currentSites = currentIntSite.split('/').map((s) => normalizeSite(s.trim())).filter(Boolean);
                   const isEHS = newDept.split(',').map((s) => s.trim()).includes('EHS');
                   const validSites = currentSites.filter((s) => !isEHS || ['UTL1', 'UTL2', 'UTL3', 'U1', 'U2', 'U3'].includes(s));
-                  onChange({ department2: newDept, site2: validSites.join('/') });
+                  onChange({ department2: newDept, site: validSites.join('/'), site2: validSites.join('/') });
                 }}
                 suggestions={internalDepartmentSuggestions}
                 onAddNew={(dept) => {
@@ -2995,8 +2999,8 @@ export function AppointmentFormFields({
               <MultiSiteSelect
                 id={id('site2')}
                 tabIndex={2}
-                value={v.site2}
-                onChange={(site2) => onChange({ site2 })}
+                value={v.site || v.site2}
+                onChange={(site2) => onChange({ site: site2, site2 })}
                 siteOptions={internalSiteOptions}
                 disabledSites={shutdownSites}
                 hasError={errIntSite}
@@ -3086,7 +3090,7 @@ export function AppointmentFormFields({
               ) : (
                 <AvailabilityDatePicker
                   sectionType="internal"
-                  site={v.site2}
+                  site={v.site || v.site2}
                   auditor={v.auditor2}
                   dateFrom={v.dateFrom}
                   dateTo={v.dateTo}

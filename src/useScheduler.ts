@@ -1625,7 +1625,8 @@ export function useScheduler() {
           type: d.sectionType,
           auditType: d.sectionType === 'internal' ? 'Internal Audit' : 'Customer Audit',
           sectionType: d.sectionType,
-          site1: d.sectionType === 'customer' ? normalizeSites(cleanStr(d.site1)) : '',
+          site: normalizeSites(cleanStr(d.site || (d.sectionType === 'internal' ? d.site2 : d.site1))),
+          site1: normalizeSites(cleanStr(d.site || d.site1)),
           customer: d.sectionType === 'customer' ? cleanStr(d.customer) : '',
           endCustomer: d.sectionType === 'customer' ? cleanStr(d.endCustomer) : '',
           targetPackage: d.sectionType === 'customer' ? cleanStr(d.targetPackage) : '',
@@ -1633,7 +1634,7 @@ export function useScheduler() {
           auditCategory: d.sectionType === 'internal' ? cleanStr(d.auditCategory) : '',
           auditor1: d.sectionType === 'customer' ? cleanStr(d.auditor1) : '',
           purpose: cleanStr(d.purpose),
-          site2: d.sectionType === 'internal' ? normalizeSites(cleanStr(d.site2)) : '',
+          site2: normalizeSites(cleanStr(d.site || d.site2)),
           area: d.sectionType === 'internal' ? formatAreaString(d.area) : '',
           auditor2: d.sectionType === 'internal' ? cleanStr(d.auditor2) : '',
           department1: d.sectionType === 'customer' ? cleanStr(d.department1) : '',
@@ -2172,7 +2173,8 @@ export function useScheduler() {
       type: d.sectionType,
       auditType: d.sectionType === 'internal' ? 'Internal Audit' : 'Customer Audit',
       sectionType: d.sectionType,
-      site1: d.sectionType === 'customer' ? normalizeSites(cleanStr(d.site1)) : '',
+      site: normalizeSites(cleanStr(d.site || (d.sectionType === 'internal' ? d.site2 : d.site1))),
+      site1: normalizeSites(cleanStr(d.site || d.site1)),
       customer: d.sectionType === 'customer' ? cleanStr(d.customer) : '',
       endCustomer: d.sectionType === 'customer' ? cleanStr(d.endCustomer) : '',
       targetPackage: d.sectionType === 'customer' ? cleanStr(d.targetPackage) : '',
@@ -2180,7 +2182,7 @@ export function useScheduler() {
       auditCategory: d.sectionType === 'internal' ? cleanStr(d.auditCategory) : '',
       auditor1: d.sectionType === 'customer' ? cleanStr(d.auditor1) : '',
       purpose: cleanStr(d.purpose),
-      site2: d.sectionType === 'internal' ? normalizeSites(cleanStr(d.site2)) : '',
+      site2: normalizeSites(cleanStr(d.site || d.site2)),
       area: d.sectionType === 'internal' ? formatAreaString(d.area) : '',
       auditor2: d.sectionType === 'internal' ? cleanStr(d.auditor2) : '',
       department1: d.sectionType === 'customer' ? cleanStr(d.department1) : '',
@@ -4395,7 +4397,7 @@ export function useScheduler() {
       auditCategory: selA.auditCategory || '',
       dateRangeLabel, durationDays,
       major: selA.major ?? 0, minor: selA.minor ?? 0, ofi: selA.ofi ?? 0, request: selA.request ?? 0,
-      utl1: selA.utl1 ?? 0, utl2: selA.utl2 ?? 0, utl3: selA.utl3 ?? 0,
+      results: selA.results,
     };
   }
   const selA = S.assignments.find((a) => a.id === S.selected);
@@ -4518,10 +4520,17 @@ export function useScheduler() {
     monthlySums[d.getMonth()].minor += a.minor || 0;
     monthlySums[d.getMonth()].ofi += a.ofi || 0;
     monthlySums[d.getMonth()].total += (a.major || 0) + (a.minor || 0) + (a.ofi || 0) + (a.request || 0);
-    monthlySums[d.getMonth()].utl1 += a.utl1 || 0;
-    monthlySums[d.getMonth()].utl2 += a.utl2 || 0;
-    monthlySums[d.getMonth()].utl3 += a.utl3 || 0;
-    monthlySums[d.getMonth()].utlTotal += (a.utl1 || 0) + (a.utl2 || 0) + (a.utl3 || 0);
+    if (a.results) {
+      for (const [siteKey, r] of Object.entries(a.results)) {
+        if (!r) continue;
+        const norm = normalizeSite(siteKey);
+        const fCount = Number(r.findings) || (Number(r.major || 0) + Number(r.minor || 0) + Number(r.ofi || 0) + Number(r.obs || 0));
+        if (norm === 'UTL1') monthlySums[d.getMonth()].utl1 += fCount;
+        else if (norm === 'UTL2') monthlySums[d.getMonth()].utl2 += fCount;
+        else if (norm === 'UTL3') monthlySums[d.getMonth()].utl3 += fCount;
+        monthlySums[d.getMonth()].utlTotal += fCount;
+      }
+    }
   }
   const sumMonths = (indices: number[]) => indices.reduce((s, i) => ({ major: s.major + monthlySums[i].major, minor: s.minor + monthlySums[i].minor, ofi: s.ofi + monthlySums[i].ofi, total: s.total + monthlySums[i].total }), { major: 0, minor: 0, ofi: 0, total: 0 });
   const sumUtlMonths = (indices: number[]) => indices.reduce((s, i) => ({ utl1: s.utl1 + monthlySums[i].utl1, utl2: s.utl2 + monthlySums[i].utl2, utl3: s.utl3 + monthlySums[i].utl3, total: s.total + monthlySums[i].utlTotal }), { utl1: 0, utl2: 0, utl3: 0, total: 0 });
