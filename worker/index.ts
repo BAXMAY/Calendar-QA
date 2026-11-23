@@ -208,9 +208,6 @@ async function ensureAssignmentColumns(DB: D1Database) {
     await DB.prepare('ALTER TABLE assignments ADD COLUMN site TEXT NOT NULL DEFAULT ""').run();
   } catch {}
   try {
-    await DB.prepare(`UPDATE assignments SET site = CASE WHEN site1 IS NOT NULL AND TRIM(site1) != '' THEN site1 ELSE COALESCE(site2, '') END WHERE site = '' OR site IS NULL`).run();
-  } catch {}
-  try {
     await DB.prepare('ALTER TABLE assignments ADD COLUMN target_package TEXT NOT NULL DEFAULT ""').run();
   } catch {}
   try {
@@ -642,14 +639,14 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
       const dept = d.department === 'Non-QA' ? 'Non-QA' : d.department === 'QA' ? 'QA' : '';
       const resolvedSite = normalizeSites(d.site || (d.sectionType === 'internal' ? d.site2 : d.site1) || '');
       await DB.prepare(
-        `INSERT INTO assignments (id, eng, order_id, day, week, site, site1, customer, end_customer, auditor1, purpose, target_package, customer_names, audit_category, site2, area, auditor2, department1, department2, department, results, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO assignments (id, eng, order_id, day, week, site, customer, end_customer, auditor1, purpose, target_package, customer_names, audit_category, area, auditor2, department1, department2, department, results, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         d.id, d.eng || '', d.order || '', d.day ?? 0, d.week ?? 0,
         resolvedSite,
-        d.site1 || resolvedSite, d.customer || '', d.endCustomer || '', d.auditor1 || '', d.purpose || '',
+        d.customer || '', d.endCustomer || '', d.auditor1 || '', d.purpose || '',
         d.targetPackage || '', d.customerNames || '', d.auditCategory || '',
-        d.site2 || resolvedSite, d.area || '', d.auditor2 || '', d.department1 || '', d.department2 || '',
+        d.area || '', d.auditor2 || '', d.department1 || '', d.department2 || '',
         dept,
         typeof d.results === 'string' ? d.results : JSON.stringify(d.results || {}),
         d.createdAt ? String(d.createdAt) : '',
@@ -668,15 +665,15 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
       await ensureAssignmentColumns(DB);
       const resolvedSite = d.site !== undefined ? normalizeSites(d.site) : (d.site1 !== undefined || d.site2 !== undefined ? normalizeSites(d.site1 || d.site2 || '') : undefined);
       await DB.prepare(
-        `UPDATE assignments SET eng = ?, order_id = ?, day = ?, week = ?, site = ?, site1 = ?, customer = ?, end_customer = ?, auditor1 = ?, purpose = ?,
-           target_package = ?, customer_names = ?, audit_category = ?, site2 = ?, area = ?, auditor2 = ?, department1 = ?, department2 = ?, department = ?, results = ?,
+        `UPDATE assignments SET eng = ?, order_id = ?, day = ?, week = ?, site = ?, customer = ?, end_customer = ?, auditor1 = ?, purpose = ?,
+           target_package = ?, customer_names = ?, audit_category = ?, area = ?, auditor2 = ?, department1 = ?, department2 = ?, department = ?, results = ?,
            created_at = ?, updated_at = ? WHERE id = ?`,
       ).bind(
         d.eng ?? existing.eng, d.order ?? existing.order_id, d.day ?? existing.day, d.week ?? existing.week,
         resolvedSite ?? existing.site ?? '',
-        d.site1 ?? resolvedSite ?? existing.site1, d.customer ?? existing.customer, d.endCustomer ?? existing.end_customer, d.auditor1 ?? existing.auditor1, d.purpose ?? existing.purpose,
+        d.customer ?? existing.customer, d.endCustomer ?? existing.end_customer, d.auditor1 ?? existing.auditor1, d.purpose ?? existing.purpose,
         d.targetPackage ?? existing.target_package ?? '', d.customerNames ?? existing.customer_names ?? '', d.auditCategory ?? existing.audit_category ?? '',
-        d.site2 ?? resolvedSite ?? existing.site2, d.area ?? existing.area, d.auditor2 ?? existing.auditor2, d.department1 ?? existing.department1, d.department2 ?? existing.department2,
+        d.area ?? existing.area, d.auditor2 ?? existing.auditor2, d.department1 ?? existing.department1, d.department2 ?? existing.department2,
         d.department !== undefined ? (d.department || '') : (existing.department ?? ''),
         d.results !== undefined ? (typeof d.results === 'string' ? d.results : JSON.stringify(d.results)) : (existing.results ?? '{}'),
         d.createdAt !== undefined ? String(d.createdAt) : (existing.created_at ?? ''),
