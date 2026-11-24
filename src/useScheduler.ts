@@ -763,6 +763,9 @@ export function useScheduler() {
     setState({
       authed: true,
       currentUser: sessionUser,
+      page: 'schedule',
+      timeScale: 'month',
+      summaryYear: new Date().getFullYear(),
       weekOffset: todayWeekOffset,
       monthOffset: todayMonthOffset,
     });

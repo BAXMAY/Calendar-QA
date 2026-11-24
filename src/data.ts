@@ -49,6 +49,9 @@ export function initialState(): State {
     if (raw) snapshot = JSON.parse(raw);
   } catch {}
   const savedSession = authClient.getPersistedSession();
+  const now = new Date();
+  const calendarAnchor = new Date(2026, 5, 29);
+  const currentWeekOffset = Math.floor((new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() - calendarAnchor.getTime()) / (7 * 86400000));
   return {
     authed: Boolean(savedSession),
     page: 'schedule',
@@ -57,8 +60,8 @@ export function initialState(): State {
     vw: typeof window !== 'undefined' ? window.innerWidth : 1440,
     selectedDay: 0,
     sidebarOpen: false,
-    timeScale: 'week',
-    monthOffset: 0,
+    timeScale: 'month',
+    monthOffset: (now.getFullYear() - 2026) * 12 + now.getMonth() - 5,
     filterEmp: [],
     filterSite: [],
     filterCompany: [],
@@ -87,13 +90,13 @@ export function initialState(): State {
     engFormOpen: false,
     engEditingId: null,
     engForm: { name: '', role: '', site: 'UTL1', department: 'QA', subDepartments: [] },
-    weekOffset: 0,
+    weekOffset: currentWeekOffset,
     activePlants: snapshot.activePlants || { QMS: true, EHS: true, ESD: true },
     selected: null,
     drag: null,
     overCell: null,
     draft: '',
-    summaryYear: 2026,
+    summaryYear: now.getFullYear(),
     searchQuery: '',
     searchSort: 'oldest',
     searchDateFrom: '',
