@@ -768,16 +768,24 @@ export function useScheduler() {
   };
 
   // ---- auth / nav ----
-  const onAuthSuccess = (user?: { id: string; username: string; name?: string; role?: string }) => {
+  const onAuthSuccess = (user?: { id: string; username: string; name?: string; role?: string }, rememberMe = false) => {
+    const sessionUser = user || { id: 'usr_jordan', username: 'jordan.lee', name: 'Jordan Lee', role: 'admin' };
+    try {
+      if (rememberMe) localStorage.setItem('calendar_qa_remembered_user', JSON.stringify(sessionUser));
+      else localStorage.removeItem('calendar_qa_remembered_user');
+    } catch {}
     setState({
       authed: true,
-      currentUser: user || { id: 'usr_jordan', username: 'jordan.lee', name: 'Jordan Lee', role: 'admin' },
+      currentUser: sessionUser,
       weekOffset: todayWeekOffset,
       monthOffset: todayMonthOffset,
     });
   };
   const signIn = (user?: { id: string; username: string; name?: string; role?: string }) => onAuthSuccess(user);
-  const signOut = () => setState({ authed: false, userMenuOpen: false, selected: null });
+  const signOut = () => {
+    try { localStorage.removeItem('calendar_qa_remembered_user'); } catch {}
+    setState({ authed: false, userMenuOpen: false, selected: null });
+  };
   const goSchedule = () => setState({ page: 'schedule', userMenuOpen: false });
   const goTable = () => setState({ page: 'table', userMenuOpen: false, selected: null, sidebarOpen: false });
   const goAdmin = () => setState({ page: 'admin', userMenuOpen: false, selected: null });

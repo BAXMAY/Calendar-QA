@@ -879,8 +879,8 @@ export function isAppointmentDatePastOrToday(apt: any, now: Date = new Date()): 
 /**
  * Strict Status Priority Order:
  * 1. Red (Incomplete Data): Required fields are missing or unassigned.
- * 2. Green (New Data): Data is complete AND (now - createdAt) <= 7 days (future OR backdated past).
- * 3. Blue (Updated Data): Data is complete AND updatedAt exists AND (now - updatedAt) <= 7 days (and updatedAt !== createdAt).
+ * 2. Blue (Updated Data): Data is complete AND updatedAt exists AND (now - updatedAt) <= 7 days (and updatedAt > createdAt).
+ * 3. Green (New Data): Data is complete AND (now - createdAt) <= 7 days (future OR backdated past), unless a more recent edit qualifies as blue.
  * 4. Yellow (Pending Result): Data is complete, older than 7 days since creation/update, AND appointmentDate is in the past without a recorded audit result.
  * 5. Gray (Complete Data): Default fallback when data is complete and older than 7 days.
  */
@@ -896,12 +896,8 @@ export const resolveAuditStatus = (apt: any, nowMs: number = Date.now()): AuditS
   const createdTime = parseTimestamp(apt.createdAt);
   const updatedTime = parseTimestamp(apt.updatedAt);
 
-  // 2. Newly created within 7 days -> ALWAYS Green (even if appointmentDate in the past)
-  if (createdTime > 0 && (now - createdTime) <= SEVEN_DAYS_MS && createdTime <= now + 60000) {
-    return 'NEW_DATA';
-  }
-
-  // 3. Updated within 7 days -> Blue (only if updated after created)
+  // 2. A recent edit takes precedence over the new-data window, so editing
+  //    a newly created assignment (for example, changing its site) turns it blue.
   if (
     updatedTime > 0 &&
     (!createdTime || updatedTime > createdTime + 1000) &&
@@ -909,6 +905,11 @@ export const resolveAuditStatus = (apt: any, nowMs: number = Date.now()): AuditS
     now >= updatedTime
   ) {
     return 'UPDATED_DATA';
+  }
+
+  // 3. Newly created within 7 days -> Green (even if appointmentDate in the past)
+  if (createdTime > 0 && (now - createdTime) <= SEVEN_DAYS_MS && createdTime <= now + 60000) {
+    return 'NEW_DATA';
   }
 
   // 4. Pending result -> Yellow (appointmentDate in past without recorded result, older than 7 days)

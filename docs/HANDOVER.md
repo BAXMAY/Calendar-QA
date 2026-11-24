@@ -129,18 +129,18 @@ The schedule cards and sidebar legend adhere strictly to the prioritized status 
 flowchart TD
     Start["Evaluate Appointment"] --> CheckIncomplete{"Are required fields missing or empty?"}
     CheckIncomplete -- Yes --> Red["1. INCOMPLETE_DATA (#dc2626)<br/>Solid Red Strip + Warning Badge"]
-    CheckIncomplete -- No --> CheckNew{"createdAt <= 7 days ago?"}
-    CheckNew -- Yes --> Green["2. NEW_DATA (#059669)<br/>Solid Green Strip (Future or Backdated)"]
-    CheckNew -- No --> CheckUpdated{"updatedAt <= 7 days ago & > createdAt?"}
-    CheckUpdated -- Yes --> Blue["3. UPDATED_DATA (#0284c7)<br/>Solid Blue Strip"]
-    CheckUpdated -- No --> CheckPending{"Appointment Date in past & no findings?"}
+    CheckIncomplete -- No --> CheckUpdated{"updatedAt <= 7 days ago & > createdAt?"}
+    CheckUpdated -- Yes --> Blue["2. UPDATED_DATA (#0284c7)<br/>Solid Blue Strip"]
+    CheckUpdated -- No --> CheckNew{"createdAt <= 7 days ago?"}
+    CheckNew -- Yes --> Green["3. NEW_DATA (#059669)<br/>Solid Green Strip (Future or Backdated)"]
+    CheckNew -- No --> CheckPending{"Appointment Date in past & no findings?"}
     CheckPending -- Yes --> Yellow["4. PENDING_RESULT (#d97706)<br/>Solid Yellow Strip"]
     CheckPending -- No --> Gray["5. COMPLETE_DATA (#9aa097)<br/>Solid Gray Strip (Default Compliant)"]
 ```
 
 > [!IMPORTANT]
-> **Priority Rule for Newly Created Appointments**:
-> Condition 2 (`NEW_DATA` - Green) is evaluated **before** checking if the appointment date has elapsed. Any appointment created within the last 7 days displays **Green**, regardless of whether its scheduled date is upcoming or backdated in the past.
+> **Priority Rule for Recent Edits**:
+> A complete appointment edited within the last 7 days displays **Blue** when `updatedAt` is later than `createdAt`, even if it was created within the last 7 days. Otherwise, a newly created appointment displays **Green**, including future or backdated appointments.
 
 ---
 

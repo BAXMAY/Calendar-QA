@@ -43,13 +43,19 @@ export const initialSiteColors: Record<string, string> = {
 
 export function initialState(): State {
   let snapshot: any = {};
+  let rememberedUser: State['currentUser'];
   try {
     const raw = typeof window !== 'undefined' ? localStorage.getItem('calendar_qa_snapshot') : null;
     if (raw) snapshot = JSON.parse(raw);
   } catch {}
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('calendar_qa_remembered_user') : null;
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (parsed && typeof parsed.id === 'string' && typeof parsed.username === 'string') rememberedUser = parsed;
+  } catch {}
 
   return {
-    authed: false,
+    authed: Boolean(rememberedUser),
     page: 'schedule',
     view: 'person',
     adminTab: 'engineers',
@@ -72,7 +78,7 @@ export function initialState(): State {
     dayDialog: null,
     monthSelectedDate: null,
     timetableOpenEng: null,
-    currentUser: {
+    currentUser: rememberedUser || {
       id: 'usr_jordan',
       username: 'jordan.lee',
       name: 'Jordan Lee',

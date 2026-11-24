@@ -13,6 +13,7 @@ export function Login({ vm }: { vm: VM }) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   useEffect(() => {
     setUserId('');
@@ -65,7 +66,7 @@ export function Login({ vm }: { vm: VM }) {
     try {
       const res = await authClient.login(cleanId, password);
       if (res.ok && res.user) {
-        vm.onAuthSuccess(res.user);
+        vm.onAuthSuccess(res.user, rememberMe);
       }
     } catch (err: any) {
       setError(err.message || 'Authentication failed. Please check your credentials.');
@@ -476,6 +477,18 @@ export function Login({ vm }: { vm: VM }) {
                 style={css("width:100%;border:1px solid #dde0d9;border-radius:9px;padding:11px 13px;font-size:13.5px;font-family:'Archivo',sans-serif;color:#23282a;outline:none;margin-bottom:20px;background:#fff")}
                 focus={{ borderColor: '#9bb0e8' }}
               />
+
+              <label htmlFor="remember-me" style={css('display:flex;align-items:center;gap:8px;font-size:12px;color:#5c625c;margin:-8px 0 16px;cursor:pointer')}>
+                <input
+                  id="remember-me"
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  disabled={loading}
+                  style={{ width: '14px', height: '14px', accentColor: '#15191e', cursor: 'pointer' }}
+                />
+                Remember me on this device
+              </label>
 
               <HButton
                 type="submit"
