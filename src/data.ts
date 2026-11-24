@@ -42,6 +42,21 @@ export const initialSiteColors: Record<string, string> = {
   U3T: '#123f73',
 };
 
+// Assignment week values are stored relative to this fixed epoch. Keep the
+// epoch stable, while deriving the default calendar selection from real time.
+const ASSIGNMENT_WEEK_EPOCH = new Date(2026, 5, 29);
+
+export function getCurrentCalendarDefaults(now = new Date()) {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const daysSinceEpoch = Math.round((today.getTime() - ASSIGNMENT_WEEK_EPOCH.getTime()) / 86400000);
+  return {
+    weekOffset: Math.floor(daysSinceEpoch / 7),
+    monthOffset: (now.getFullYear() - ASSIGNMENT_WEEK_EPOCH.getFullYear()) * 12
+      + now.getMonth() - ASSIGNMENT_WEEK_EPOCH.getMonth(),
+    year: now.getFullYear(),
+  };
+}
+
 export function initialState(): State {
   let snapshot: any = {};
   try {
@@ -50,8 +65,7 @@ export function initialState(): State {
   } catch {}
   const savedSession = authClient.getPersistedSession();
   const now = new Date();
-  const calendarAnchor = new Date(2026, 5, 29);
-  const currentWeekOffset = Math.floor((new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() - calendarAnchor.getTime()) / (7 * 86400000));
+  const currentCalendar = getCurrentCalendarDefaults(now);
   return {
     authed: Boolean(savedSession),
     page: 'schedule',
@@ -61,7 +75,7 @@ export function initialState(): State {
     selectedDay: 0,
     sidebarOpen: false,
     timeScale: 'month',
-    monthOffset: (now.getFullYear() - 2026) * 12 + now.getMonth() - 5,
+    monthOffset: currentCalendar.monthOffset,
     filterEmp: [],
     filterSite: [],
     filterCompany: [],
@@ -90,13 +104,13 @@ export function initialState(): State {
     engFormOpen: false,
     engEditingId: null,
     engForm: { name: '', role: '', site: 'UTL1', department: 'QA', subDepartments: [] },
-    weekOffset: currentWeekOffset,
+    weekOffset: currentCalendar.weekOffset,
     activePlants: snapshot.activePlants || { QMS: true, EHS: true, ESD: true },
     selected: null,
     drag: null,
     overCell: null,
     draft: '',
-    summaryYear: now.getFullYear(),
+    summaryYear: currentCalendar.year,
     searchQuery: '',
     searchSort: 'oldest',
     searchDateFrom: '',

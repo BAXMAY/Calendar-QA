@@ -65,6 +65,7 @@ import {
   initialSiteCodeOptions,
   initialSiteColors,
   initialState,
+  getCurrentCalendarDefaults,
 } from './data';
 import { api } from './api';
 import { authClient } from './utils/authClient';
@@ -759,15 +760,16 @@ export function useScheduler() {
   // ---- auth / nav ----
   const onAuthSuccess = (user?: { id: string; username: string; name?: string; role?: string }, _rememberMe = false) => {
     const sessionUser = user || { id: 'usr_jordan', username: 'jordan.lee', name: 'Jordan Lee', role: 'admin' };
+    const currentCalendar = getCurrentCalendarDefaults(new Date());
     authClient.persistSession(sessionUser);
     setState({
       authed: true,
       currentUser: sessionUser,
       page: 'schedule',
       timeScale: 'month',
-      summaryYear: new Date().getFullYear(),
-      weekOffset: todayWeekOffset,
-      monthOffset: todayMonthOffset,
+      summaryYear: currentCalendar.year,
+      weekOffset: currentCalendar.weekOffset,
+      monthOffset: currentCalendar.monthOffset,
     });
   };
   const signIn = (user?: { id: string; username: string; name?: string; role?: string }) => onAuthSuccess(user);
