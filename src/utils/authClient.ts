@@ -14,6 +14,7 @@ export interface AuthResult {
 }
 
 const LOCAL_STORAGE_KEY = 'calendar_qa_users';
+const SESSION_USER_KEY = 'calendar_qa_session_user';
 const DEV_SESSION_KEY = 'calendar_qa_dev_session';
 const DEV_REMEMBERED_USER_KEY = 'calendar_qa_remembered_user';
 
@@ -120,8 +121,31 @@ export function validateUserId(userId: string): { valid: boolean; error?: string
 }
 
 export const authClient = {
-  persistDevelopmentSession: setDevSession,
-  clearDevelopmentSession: clearDevSession,
+  persistSession(user: UserRecord): void {
+    if (typeof window === 'undefined') return;
+    try {
+      const safeUser = { id: user.id, username: user.username, name: user.name, role: user.role };
+      localStorage.setItem(SESSION_USER_KEY, JSON.stringify(safeUser));
+      // Retain local-only sign-in fallback for development; production uses the HttpOnly server cookie.
+      setDevSession(safeUser, true);
+    } catch {}
+  },
+  getPersistedSession(): UserRecord | null {
+    if (typeof window === 'undefined') return null;
+    try {
+      const raw = localStorage.getItem(SESSION_USER_KEY);
+      const user = raw ? JSON.parse(raw) : null;
+      return user && typeof user.id === 'string' && typeof user.username === 'string' ? user : null;
+    } catch {
+      return null;
+    }
+  },
+  clearSession(): void {
+    if (typeof window !== 'undefined') {
+      try { localStorage.removeItem(SESSION_USER_KEY); } catch {}
+    }
+    clearDevSession();
+  },
   getDevelopmentSession: getDevSession,
   /**
    * Register a new account with User ID
@@ -275,13 +299,13 @@ export const authClient = {
   },
 
   async logout(): Promise<void> {
-    clearDevSession();
     try {
       const res = await fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
       if (!res.ok && !isDevelopment()) throw new Error('Unable to end your server session.');
     } catch (err) {
       if (!isDevelopment()) throw err;
     }
+    this.clearSession();
   },
 
   /**

@@ -1,5 +1,6 @@
 import type { Plant, State } from './types';
 import { normalizeSite, normalizeAssignment } from './types';
+import { authClient } from './utils/authClient';
 
 export const initialPlants: Plant[] = [
   { id: 'QMS', name: 'QMS', loc: '', code: 'QMS', color: '#2f6df0', active: true },
@@ -47,8 +48,9 @@ export function initialState(): State {
     const raw = typeof window !== 'undefined' ? localStorage.getItem('calendar_qa_snapshot') : null;
     if (raw) snapshot = JSON.parse(raw);
   } catch {}
+  const savedSession = authClient.getPersistedSession();
   return {
-    authed: false,
+    authed: Boolean(savedSession),
     page: 'schedule',
     view: 'person',
     adminTab: 'engineers',
@@ -71,12 +73,7 @@ export function initialState(): State {
     dayDialog: null,
     monthSelectedDate: null,
     timetableOpenEng: null,
-    currentUser: {
-      id: 'usr_jordan',
-      username: 'jordan.lee',
-      name: 'Jordan Lee',
-      role: 'admin',
-    },
+    currentUser: savedSession || { id: '', username: '', name: '', role: 'user' },
     loginEmail: '',
     loginPass: '',
     userMenuOpen: false,

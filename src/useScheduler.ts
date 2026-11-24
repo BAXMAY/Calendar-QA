@@ -396,7 +396,10 @@ export function useScheduler() {
   useEffect(() => {
     authClient.getSession()
       .then((session) => {
-        if (!session?.user) return null;
+        if (!session?.user) {
+          // Keep the locally restored identity until the user explicitly signs out.
+          return null;
+        }
         setRaw((s) => ({ ...s, authed: true, currentUser: session.user }));
         return api.fetchState();
       })
@@ -754,9 +757,9 @@ export function useScheduler() {
   };
 
   // ---- auth / nav ----
-  const onAuthSuccess = (user?: { id: string; username: string; name?: string; role?: string }, rememberMe = false) => {
+  const onAuthSuccess = (user?: { id: string; username: string; name?: string; role?: string }, _rememberMe = false) => {
     const sessionUser = user || { id: 'usr_jordan', username: 'jordan.lee', name: 'Jordan Lee', role: 'admin' };
-    authClient.persistDevelopmentSession(sessionUser, rememberMe);
+    authClient.persistSession(sessionUser);
     setState({
       authed: true,
       currentUser: sessionUser,
