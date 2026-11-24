@@ -67,6 +67,7 @@ import {
   initialState,
 } from './data';
 import { api } from './api';
+import { authClient } from './utils/authClient';
 import { getActiveDropdownOptions } from './utils/auditOptionsHelper';
 
 /** Identity tag that supplies a contextual CSSProperties type to a style literal. */
@@ -293,6 +294,10 @@ const idNumber = (id: string): number => {
 
 export function useScheduler() {
   const [state, setRaw] = useState<State>(initialState);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const reportSaveFailure = (error: unknown) => {
+    setSaveError(`A change could not be saved to the shared calendar. Check your connection and reload before continuing. (${String(error)})`);
+  };
   // Periodic timer (every 15 seconds) to smoothly expire 7-day timers for newly created/updated appointments
   const [nowTick, setNowTick] = useState(() => Date.now());
   useEffect(() => {
@@ -389,74 +394,54 @@ export function useScheduler() {
   }, []);
 
   useEffect(() => {
-    const hasLocalSnapshot = typeof window !== 'undefined' && !!localStorage.getItem('calendar_qa_snapshot');
-
-    api.fetchState()
+    authClient.getSession()
+      .then((session) => {
+        if (!session?.user) return null;
+        setRaw((s) => ({ ...s, authed: true, currentUser: session.user }));
+        return api.fetchState();
+      })
       .then((data) => {
+        if (!data) return;
         setRaw((s) => {
-          const removedSet = new Set(s.removedOptions || []);
-          const customerOptions = (s.customerOptions && s.customerOptions.length ? s.customerOptions : (data.customerOptions || [])).filter((c) => !removedSet.has(c));
-          const endCustomerOptions = (s.endCustomerOptions && s.endCustomerOptions.length ? s.endCustomerOptions : (data.endCustomerOptions || [])).filter((c) => !removedSet.has(c));
+          const customerOptions = data.customerOptions || [];
+          const endCustomerOptions = data.endCustomerOptions || [];
 
           const serverAssignments = data.assignments || [];
           const serverOrders = data.orders || [];
           const serverEngineers = data.engineers || [];
           const serverComments = data.comments || {};
 
-          let mergedAssignments = s.assignments;
-          let mergedOrders = s.orders;
-          let mergedEngineers = s.engineers;
-          let mergedComments = s.comments;
+          // Once the authenticated API responds, D1 is the source of truth.
+          // Do not merge stale optimistic snapshots back over server updates/deletes.
+          const mergedAssignments = serverAssignments;
+          const mergedOrders = serverOrders;
+          const mergedEngineers = serverEngineers;
+          const mergedComments = serverComments;
 
-          if (!hasLocalSnapshot) {
-            mergedAssignments = serverAssignments.length ? serverAssignments : s.assignments;
-            mergedOrders = serverOrders.length ? serverOrders : s.orders;
-            mergedEngineers = serverEngineers.length ? serverEngineers : s.engineers;
-            mergedComments = Object.keys(serverComments).length ? serverComments : s.comments;
-          } else {
-            const localAssignIds = new Set(s.assignments.map((x) => x.id));
-            const newServerAssigns = serverAssignments.filter((x) => !localAssignIds.has(x.id));
-            if (newServerAssigns.length > 0) {
-              mergedAssignments = [...s.assignments, ...newServerAssigns];
-            }
-
-            const localOrderIds = new Set(s.orders.map((x) => x.id));
-            const newServerOrders = serverOrders.filter((x) => !localOrderIds.has(x.id));
-            if (newServerOrders.length > 0) {
-              mergedOrders = [...s.orders, ...newServerOrders];
-            }
-
-            const localEngIds = new Set(s.engineers.map((x) => x.id));
-            const newServerEngs = serverEngineers.filter((x) => !localEngIds.has(x.id));
-            if (newServerEngs.length > 0) {
-              mergedEngineers = [...s.engineers, ...newServerEngs];
-            }
-          }
-
-          const auditorOptions = (s.auditorOptions && s.auditorOptions.length ? s.auditorOptions : (data.auditorOptions || [])).filter((c) => !removedSet.has(c));
-          const purposeOptions = (s.purposeOptions && s.purposeOptions.length ? s.purposeOptions : (data.purposeOptions || [])).filter((c) => !removedSet.has(c));
-          const customerDepartmentOptions = (s.customerDepartmentOptions && s.customerDepartmentOptions.length ? s.customerDepartmentOptions : (data.customerDepartmentOptions || [])).filter((c) => !removedSet.has(c));
-          const internalDepartmentOptions = (s.internalDepartmentOptions && s.internalDepartmentOptions.length ? s.internalDepartmentOptions : (data.internalDepartmentOptions || [])).filter((c) => !removedSet.has(c));
-          const rawSiteCodes = (s.siteCodeOptions && s.siteCodeOptions.length ? s.siteCodeOptions : (data.siteCodeOptions || initialSiteCodeOptions)).filter((c) => !removedSet.has(c));
+          const auditorOptions = data.auditorOptions || [];
+          const purposeOptions = data.purposeOptions || initialPurposeOptions;
+          const customerDepartmentOptions = data.customerDepartmentOptions || initialCustomerDepartmentOptions;
+          const internalDepartmentOptions = data.internalDepartmentOptions || initialInternalDepartmentOptions;
+          const rawSiteCodes = data.siteCodeOptions || initialSiteCodeOptions;
           const siteCodeOptions: string[] = Array.from(new Set(rawSiteCodes.map((s: string) => normalizeSite(s))));
           const siteColors = (() => {
-            const base: Record<string, string> = { ...initialSiteColors, ...(data.siteColors || {}), ...(s.siteColors || {}) };
+            const base: Record<string, string> = { ...initialSiteColors, ...(data.siteColors || {}) };
             for (const [k, v] of Object.entries(base)) {
               const norm = normalizeSite(k);
               if (!base[norm]) base[norm] = v;
             }
             return base;
           })();
-          const targetPackageOptions = (s.targetPackageOptions && s.targetPackageOptions.length ? s.targetPackageOptions : (data.targetPackageOptions || [])).filter((c) => !removedSet.has(c));
-          const customerNameOptions = (s.customerNameOptions && s.customerNameOptions.length ? s.customerNameOptions : (data.customerNameOptions || [])).filter((c) => !removedSet.has(c));
-          const auditCategoryOptions = (s.auditCategoryOptions && s.auditCategoryOptions.length ? s.auditCategoryOptions : ((data as any).auditCategoryOptions || [])).filter((c: string) => !removedSet.has(c));
+          const targetPackageOptions = data.targetPackageOptions || [];
+          const customerNameOptions = data.customerNameOptions || [];
+          const auditCategoryOptions = data.auditCategoryOptions || [];
 
           // Purge orphan customer options (e.g. IFX) that have no active assignments
           const activeCustomerLower = new Set(
             mergedAssignments.map((a) => (a.customer || '').trim().toLowerCase()).filter(Boolean)
           );
           let nextCustomerOptions = customerOptions;
-          let nextRemovedOptions = s.removedOptions || [];
+          let nextRemovedOptions: string[] = [];
           let nextFilterCompany = s.filterCompany || [];
           let nextMasterCreated = { ...(s.masterCreatedOptions || {}) };
 
@@ -470,12 +455,12 @@ export function useScheduler() {
                 }
                 nextFilterCompany = nextFilterCompany.filter((f) => f.trim().toLowerCase() !== cLower);
                 delete nextMasterCreated['customerOptions:' + cLower];
-                api.deleteOption('customer_name', cust).catch(() => {});
+                api.deleteOption('customer_name', cust).catch(reportSaveFailure);
               }
             }
           }
 
-          const customHolidaysMap: Record<string, CustomHoliday> = { ...(s.customHolidays || {}) };
+          const customHolidaysMap: Record<string, CustomHoliday> = {};
           if (data.customHolidays && Array.isArray(data.customHolidays)) {
             for (const ch of data.customHolidays) {
               if (ch && ch.date) customHolidaysMap[ch.date] = ch;
@@ -491,7 +476,7 @@ export function useScheduler() {
             orders: mergedOrders.map((o) => ({ ...o, plant: o.plant ? normalizeSites(o.plant) : o.plant })),
             assignments: mergedAssignments.map(normalizeAssignment),
             comments: mergedComments,
-            activity: s.activity && s.activity.length ? s.activity : (data.activity || []),
+            activity: data.activity || [],
             activityLogs: s.activityLogs && s.activityLogs.length ? s.activityLogs : (data.activityLogs || []),
             purposeOptions,
             auditorOptions,
@@ -554,6 +539,7 @@ export function useScheduler() {
       })
       .catch((err) => {
         console.warn('API load failed, using local data:', err);
+        setSaveError(`Could not load the shared calendar from the server. The displayed data may be stale. (${String(err)})`);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -761,7 +747,7 @@ export function useScheduler() {
   };
 
   const log = (who: string, text: string, color: string) => {
-    api.logActivity({ id: 'act' + ids.current.id++, who, text, ago: 'just now', color }).catch(() => {});
+    api.logActivity({ id: 'act' + ids.current.id++, who, text, ago: 'just now', color }).catch(reportSaveFailure);
     setState((s) => ({
       activity: [{ who, text, ago: 'just now', color }].concat(s.activity).slice(0, 9),
     }));
@@ -770,10 +756,7 @@ export function useScheduler() {
   // ---- auth / nav ----
   const onAuthSuccess = (user?: { id: string; username: string; name?: string; role?: string }, rememberMe = false) => {
     const sessionUser = user || { id: 'usr_jordan', username: 'jordan.lee', name: 'Jordan Lee', role: 'admin' };
-    try {
-      if (rememberMe) localStorage.setItem('calendar_qa_remembered_user', JSON.stringify(sessionUser));
-      else localStorage.removeItem('calendar_qa_remembered_user');
-    } catch {}
+    authClient.persistDevelopmentSession(sessionUser, rememberMe);
     setState({
       authed: true,
       currentUser: sessionUser,
@@ -782,9 +765,13 @@ export function useScheduler() {
     });
   };
   const signIn = (user?: { id: string; username: string; name?: string; role?: string }) => onAuthSuccess(user);
-  const signOut = () => {
-    try { localStorage.removeItem('calendar_qa_remembered_user'); } catch {}
-    setState({ authed: false, userMenuOpen: false, selected: null });
+  const signOut = async () => {
+    try {
+      await authClient.logout();
+      setState({ authed: false, userMenuOpen: false, selected: null });
+    } catch (err) {
+      setSaveError(`Sign out could not reach the server. Your current session is still active. (${String(err)})`);
+    }
   };
   const goSchedule = () => setState({ page: 'schedule', userMenuOpen: false });
   const goTable = () => setState({ page: 'table', userMenuOpen: false, selected: null, sidebarOpen: false });
@@ -814,7 +801,7 @@ export function useScheduler() {
       return patch;
     });
   const togglePlant = (pid: string) => {
-    api.togglePlant(pid).catch(() => {});
+    api.togglePlant(pid).catch(reportSaveFailure);
     setState((s) => ({ activePlants: { ...s.activePlants, [pid]: !s.activePlants[pid] } }));
   };
   const shiftWeek = (n: number) => setState((s) => ({ weekOffset: s.weekOffset + n, selected: null }));
@@ -906,7 +893,7 @@ export function useScheduler() {
     const clones = S.assignments
       .filter((a) => a.week === todayWeekOffset)
       .map((a) => ({ ...a, id: 'a' + ids.current.id++, week: off }));
-    clones.forEach((c) => api.createAssignment(c).catch(() => {}));
+    clones.forEach((c) => api.createAssignment(c).catch(reportSaveFailure));
     setState((s) => ({ assignments: s.assignments.concat(clones) }));
     log('You', 'copied current week\'s plan', '#2756d6');
   };
@@ -920,7 +907,7 @@ export function useScheduler() {
     const week = S.weekOffset;
     const now = Date.now();
     const newA: Assignment = { id, eng: engId, order: orderId, day, week, createdAt: now };
-    api.createAssignment(newA).catch(() => {});
+    api.createAssignment(newA).catch(reportSaveFailure);
     setState((s) => ({
       assignments: s.assignments.concat([{ id, eng: engId, order: orderId, day, week: s.weekOffset, createdAt: now }]),
       selected: id,
@@ -934,7 +921,7 @@ export function useScheduler() {
   const moveAssign = (aid: string, engId: string, day: number) => {
     const a = S.assignments.find((x) => x.id === aid);
     const nowIso = new Date().toISOString();
-    api.updateAssignment(aid, { eng: engId, day, week: S.weekOffset, updatedAt: nowIso }).catch(() => {});
+    api.updateAssignment(aid, { eng: engId, day, week: S.weekOffset, updatedAt: nowIso }).catch(reportSaveFailure);
     setState((s) => ({
       assignments: s.assignments.map((x) => (x.id === aid ? { ...x, eng: engId, day, week: s.weekOffset, updatedAt: nowIso } : x)),
       selected: aid,
@@ -973,7 +960,7 @@ export function useScheduler() {
     if (!a) return;
 
     if (scope === 'day') {
-      api.deleteAssignment(aid).catch(() => {});
+      api.deleteAssignment(aid).catch(reportSaveFailure);
       const targetDate = new Date(2026, 5, 29 + a.week * 7 + a.day);
       const targetDateStr = formatDMY(fmtISO(targetDate));
       const isCust = a.sectionType !== 'internal';
@@ -1010,7 +997,7 @@ export function useScheduler() {
             nextRemovedOptions = [...nextRemovedOptions, targetCust];
           }
           delete nextMasterCreated['customerOptions:' + custLower];
-          api.deleteOption('customer_name', targetCust).catch(() => {});
+          api.deleteOption('customer_name', targetCust).catch(reportSaveFailure);
         }
 
         const nextFilterCompany = (s.filterCompany || []).filter((f) => nextCustomerOptions.some((c) => c.toLowerCase() === f.toLowerCase()));
@@ -1024,7 +1011,7 @@ export function useScheduler() {
         const targetOrder = a.order;
         const isOrderStillUsed = Boolean(targetOrder && remaining.some((x) => x.order === targetOrder));
         if (targetOrder && !isOrderStillUsed) {
-          api.deleteOrder(targetOrder).catch(() => {});
+          api.deleteOrder(targetOrder).catch(reportSaveFailure);
         }
         const remainingOrders = (targetOrder && !isOrderStillUsed) ? s.orders.filter((o) => o.id !== targetOrder) : s.orders;
 
@@ -1100,9 +1087,9 @@ export function useScheduler() {
     const siblingIds = siblings.map((x) => x.id);
 
     // Delete assignments from database via API
-    siblingIds.forEach((id) => api.deleteAssignment(id).catch(() => {}));
+    siblingIds.forEach((id) => api.deleteAssignment(id).catch(reportSaveFailure));
     if (targetOrder) {
-      api.deleteOrder(targetOrder).catch(() => {});
+      api.deleteOrder(targetOrder).catch(reportSaveFailure);
     }
 
     const deletedCustomers = Array.from(new Set(siblings.map((x) => (x.customer || '').trim()).filter(Boolean)));
@@ -1178,7 +1165,7 @@ export function useScheduler() {
         );
         if (!isStillUsed) {
           delete nextMasterCreatedOptions['auditCategoryOptions:' + catLower];
-          api.deleteOption('audit_category', cat).catch(() => {});
+          api.deleteOption('audit_category', cat).catch(reportSaveFailure);
         }
       }
 
@@ -1193,7 +1180,7 @@ export function useScheduler() {
             nextRemovedOptions = [...nextRemovedOptions, cust];
           }
           delete nextMasterCreatedOptions['customerOptions:' + custLower];
-          api.deleteOption('customer_name', cust).catch(() => {});
+          api.deleteOption('customer_name', cust).catch(reportSaveFailure);
         }
       }
 
@@ -1204,7 +1191,7 @@ export function useScheduler() {
         );
         if (!isStillUsed) {
           delete nextMasterCreatedOptions['endCustomerOptions:' + endCustLower];
-          api.deleteOption('end_customer', endCust).catch(() => {});
+          api.deleteOption('end_customer', endCust).catch(reportSaveFailure);
         }
       }
 
@@ -1215,7 +1202,7 @@ export function useScheduler() {
         );
         if (!isPurpStillUsed) {
           delete nextMasterCreatedOptions['purposeOptions:' + purpLower];
-          api.deleteOption('purpose', purp).catch(() => {});
+          api.deleteOption('purpose', purp).catch(reportSaveFailure);
         }
       }
 
@@ -1234,7 +1221,7 @@ export function useScheduler() {
           if (!isMaster) {
             nextSiteCodeOptions = nextSiteCodeOptions.filter((s) => s.trim().toLowerCase() !== siteLower);
             nextFilterSite = nextFilterSite.filter((f) => f.trim().toLowerCase() !== siteLower);
-            api.deleteOption('site_code', site).catch(() => {});
+            api.deleteOption('site_code', site).catch(reportSaveFailure);
           }
         }
       }
@@ -1262,14 +1249,14 @@ export function useScheduler() {
           const isMaster = masterAuditorSet.has(audLower) || !!(s.masterCreatedOptions && s.masterCreatedOptions['auditorOptions:' + audLower]);
           if (!isMaster) {
             nextAuditorOptions = nextAuditorOptions.filter((a) => a.toLowerCase() !== audLower);
-            api.deleteOption('auditor', aud).catch(() => {});
+            api.deleteOption('auditor', aud).catch(reportSaveFailure);
 
             const adhocEng = nextEngineers.find((e) => e.name.toLowerCase() === audLower && e.isMaster === false);
             if (adhocEng) {
               const engUsedInRemaining = remainingAssignments.some((x) => x.eng === adhocEng.id);
               if (!engUsedInRemaining) {
                 nextEngineers = nextEngineers.filter((e) => e.id !== adhocEng.id);
-                api.deleteEngineer(adhocEng.id).catch(() => {});
+                api.deleteEngineer(adhocEng.id).catch(reportSaveFailure);
               }
             }
             nextFilterEmp = nextFilterEmp.filter((f) => f.toLowerCase() !== audLower);
@@ -1285,7 +1272,7 @@ export function useScheduler() {
         });
         if (!isStillUsed) {
           delete nextMasterCreatedOptions['customerDepartmentOptions:' + deptLower];
-          api.deleteOption('customer_department', dept).catch(() => {});
+          api.deleteOption('customer_department', dept).catch(reportSaveFailure);
         }
       }
 
@@ -1297,7 +1284,7 @@ export function useScheduler() {
         });
         if (!isStillUsed) {
           delete nextMasterCreatedOptions['internalDepartmentOptions:' + deptLower];
-          api.deleteOption('internal_department', dept).catch(() => {});
+          api.deleteOption('internal_department', dept).catch(reportSaveFailure);
         }
       }
 
@@ -1309,7 +1296,7 @@ export function useScheduler() {
         });
         if (!isStillUsed) {
           delete nextMasterCreatedOptions['targetPackageOptions:' + pkgLower];
-          api.deleteOption('target_package', pkg).catch(() => {});
+          api.deleteOption('target_package', pkg).catch(reportSaveFailure);
         }
       }
 
@@ -1321,7 +1308,7 @@ export function useScheduler() {
         });
         if (!isStillUsed) {
           delete nextMasterCreatedOptions['customerNameOptions:' + cnLower];
-          api.deleteOption('customer_names', cn).catch(() => {});
+          api.deleteOption('customer_names', cn).catch(reportSaveFailure);
         }
       }
 
@@ -1412,7 +1399,7 @@ export function useScheduler() {
     const nd = a.day < 4 ? a.day + 1 : a.day - 1;
     const id = 'a' + ids.current.id++;
     const clone = { ...a, id, day: nd, createdAt: new Date().toISOString(), updatedAt: undefined };
-    api.createAssignment(clone).catch(() => {});
+    api.createAssignment(clone).catch(reportSaveFailure);
     setState((s) => ({ assignments: s.assignments.concat([clone]), selected: id }));
     log('You', `duplicated ${apptTitle(a)} → ${dayLabels[nd]}`, '#2756d6');
     const isCust = clone.sectionType !== 'internal';
@@ -1438,7 +1425,7 @@ export function useScheduler() {
     const t = S.draft.trim();
     if (!aid || !t) return;
     const comment = { id: 'c' + ids.current.id++, who: 'You', initials: 'YO', text: t, ago: 'just now', color: '#2756d6' };
-    api.createComment(aid, comment).catch(() => {});
+    api.createComment(aid, comment).catch(reportSaveFailure);
     setState((s) => {
       const list = (s.comments[aid] || []).concat([comment]);
       const nextComments = { ...s.comments, [aid]: list };
@@ -1453,7 +1440,7 @@ export function useScheduler() {
     }
   };
   const removeComment = (aid: string, commentId: string) => {
-    api.deleteComment(commentId).catch(() => {});
+    api.deleteComment(commentId).catch(reportSaveFailure);
     setState((s) => {
       const nextComments = {
         ...s.comments,
@@ -1678,8 +1665,8 @@ export function useScheduler() {
       plant: d.sectionType === 'internal' ? (cleanStr(d.department2) || normalizeSites(cleanStr(d.site2)) || '') : (normalizeSites(cleanStr(d.site1)) || ''), purpose: cleanStr(d.purpose),
     };
     const newEngineer = { id: engId, name: auditorPrimary, role: 'QA', site: siteToSiteCode(d.sectionType === 'internal' ? d.site2 : d.site1), department: (d.department || 'QA') as Department, subDepartments: [], isMaster: false };
-    api.createOrder(newOrder).catch(() => {});
-    if (!existingEng) api.createEngineer(newEngineer).catch(() => {});
+    api.createOrder(newOrder).catch(reportSaveFailure);
+    if (!existingEng) api.createEngineer(newEngineer).catch(reportSaveFailure);
     const newCustomer = d.sectionType === 'customer' && d.customer ? cleanStr(d.customer) : '';
     const newAuditCategory = d.sectionType === 'internal' && d.auditCategory ? cleanStr(d.auditCategory) : '';
     const newEndCustomer = d.sectionType === 'customer' && d.endCustomer ? cleanStr(d.endCustomer) : '';
@@ -1704,29 +1691,29 @@ export function useScheduler() {
       .map((n) => n.trim())
       .filter((n) => Boolean(n) && n !== 'Unassigned' && !existingMasterSet.has(n.toLowerCase()));
 
-    if (newCustomer) api.saveOption('customer_name', newCustomer).catch(() => {});
-    if (newEndCustomer) api.saveOption('end_customer', newEndCustomer).catch(() => {});
-    if (newAuditCategory) api.saveOption('audit_category', newAuditCategory).catch(() => {});
-    if (newPurpose) api.saveOption('purpose', newPurpose).catch(() => {});
-    newTargetPackages.forEach((pkg) => api.saveOption('target_package', pkg).catch(() => {}));
-    newCustomerNames.forEach((cn) => api.saveOption('customer_names', cn).catch(() => {}));
+    if (newCustomer) api.saveOption('customer_name', newCustomer).catch(reportSaveFailure);
+    if (newEndCustomer) api.saveOption('end_customer', newEndCustomer).catch(reportSaveFailure);
+    if (newAuditCategory) api.saveOption('audit_category', newAuditCategory).catch(reportSaveFailure);
+    if (newPurpose) api.saveOption('purpose', newPurpose).catch(reportSaveFailure);
+    newTargetPackages.forEach((pkg) => api.saveOption('target_package', pkg).catch(reportSaveFailure));
+    newCustomerNames.forEach((cn) => api.saveOption('customer_names', cn).catch(reportSaveFailure));
     if (newDept1) {
       newDept1.split(',').map((s) => s.trim()).filter(Boolean).forEach((s) => {
-        api.saveOption('customer_department', s).catch(() => {});
+        api.saveOption('customer_department', s).catch(reportSaveFailure);
       });
     }
     if (newDept2) {
       newDept2.split(',').map((s) => s.trim()).filter(Boolean).forEach((s) => {
-        api.saveOption('internal_department', s).catch(() => {});
+        api.saveOption('internal_department', s).catch(reportSaveFailure);
       });
     }
     if (newSite) {
       newSite.split('/').map((s: string) => s.trim()).filter(Boolean).forEach((s: string) => {
-        api.saveOption('site_code', s).catch(() => {});
+        api.saveOption('site_code', s).catch(reportSaveFailure);
       });
     }
-    newAuditorNames.forEach((n) => { api.saveOption('auditor', n).catch(() => {}); });
-    newAssignments.forEach((a) => api.createAssignment(a).catch(() => {}));
+    newAuditorNames.forEach((n) => { api.saveOption('auditor', n).catch(reportSaveFailure); });
+    newAssignments.forEach((a) => api.createAssignment(a).catch(reportSaveFailure));
 
     setState((s) => {
       const cleanCust = newCustomer.trim();
@@ -1995,7 +1982,7 @@ export function useScheduler() {
         minor: totalMinor,
         ofi: totalOfi,
         updatedAt: nowIso,
-      }).catch(() => {});
+      }).catch(reportSaveFailure);
     });
 
     const dateFormatted = getAssignmentDateFormatted(a, S.assignments);
@@ -2113,7 +2100,7 @@ export function useScheduler() {
 
         if (currentEng && currentEng.isMaster === false && currentEng.name !== newAuditorPrimary && otherApptsUsingCurrentEng.length === 0) {
           const updatedEng = { ...currentEng, name: newAuditorPrimary };
-          api.updateEngineer(target.eng, updatedEng).catch(() => {});
+          api.updateEngineer(target.eng, updatedEng).catch(reportSaveFailure);
           updatedEngineers = S.engineers.map((e) => (e.id === target.eng ? updatedEng : e));
         } else {
           const newEngId = 'e' + ids.current.id++;
@@ -2126,7 +2113,7 @@ export function useScheduler() {
             subDepartments: [],
             isMaster: false,
           };
-          api.createEngineer(newEng).catch(() => {});
+          api.createEngineer(newEng).catch(reportSaveFailure);
           finalEngId = newEngId;
           updatedEngineers = S.engineers.concat([newEng]);
         }
@@ -2399,7 +2386,7 @@ export function useScheduler() {
         ...fields,
         department: hostDept || '',
         results: reconciledResults,
-      }).catch(() => {});
+      }).catch(reportSaveFailure);
 
       // Synchronize seriesId, groupId, and reconciledResults to all sibling days across the series
       const otherSiblings = siblings.filter((x) => x.id !== target.id);
@@ -2409,25 +2396,25 @@ export function useScheduler() {
           groupId: seriesId,
           results: reconciledResults,
           updatedAt: nowIso,
-        }).catch(() => {});
+        }).catch(reportSaveFailure);
       });
 
-      if (newCustomer) api.saveOption('customer_name', newCustomer).catch(() => {});
-      if (newEndCustomer) api.saveOption('end_customer', newEndCustomer).catch(() => {});
-      if (newPurpose) api.saveOption('purpose', newPurpose).catch(() => {});
+      if (newCustomer) api.saveOption('customer_name', newCustomer).catch(reportSaveFailure);
+      if (newEndCustomer) api.saveOption('end_customer', newEndCustomer).catch(reportSaveFailure);
+      if (newPurpose) api.saveOption('purpose', newPurpose).catch(reportSaveFailure);
       if (newDept1) {
         newDept1.split(',').map((s) => s.trim()).filter(Boolean).forEach((s) => {
-          api.saveOption('customer_department', s).catch(() => {});
+          api.saveOption('customer_department', s).catch(reportSaveFailure);
         });
       }
       if (newDept2) {
         newDept2.split(',').map((s) => s.trim()).filter(Boolean).forEach((s) => {
-          api.saveOption('internal_department', s).catch(() => {});
+          api.saveOption('internal_department', s).catch(reportSaveFailure);
         });
       }
       if (newSite) {
         newSite.split('/').map((s) => s.trim()).filter(Boolean).forEach((s) => {
-          api.saveOption('site_code', s).catch(() => {});
+          api.saveOption('site_code', s).catch(reportSaveFailure);
         });
       }
 
@@ -2493,28 +2480,28 @@ export function useScheduler() {
     const droppedIds = reuseIds.slice(slots.length);
 
     updated.forEach((a, i) => {
-      if (i < siblings.length) api.updateAssignment(a.id, { eng: a.eng, day: a.day, week: a.week, seriesId: a.seriesId, groupId: a.groupId, createdAt: a.createdAt, updatedAt: a.updatedAt, ...fields, department: hostDept || '' }).catch(() => {});
-      else api.createAssignment(a).catch(() => {});
+      if (i < siblings.length) api.updateAssignment(a.id, { eng: a.eng, day: a.day, week: a.week, seriesId: a.seriesId, groupId: a.groupId, createdAt: a.createdAt, updatedAt: a.updatedAt, ...fields, department: hostDept || '' }).catch(reportSaveFailure);
+      else api.createAssignment(a).catch(reportSaveFailure);
     });
-    droppedIds.forEach((id: string) => api.deleteAssignment(id).catch(() => {}));
+    droppedIds.forEach((id: string) => api.deleteAssignment(id).catch(reportSaveFailure));
 
     
-    if (newCustomer) api.saveOption('customer_name', newCustomer).catch(() => {});
-    if (newEndCustomer) api.saveOption('end_customer', newEndCustomer).catch(() => {});
-    if (newPurpose) api.saveOption('purpose', newPurpose).catch(() => {});
+    if (newCustomer) api.saveOption('customer_name', newCustomer).catch(reportSaveFailure);
+    if (newEndCustomer) api.saveOption('end_customer', newEndCustomer).catch(reportSaveFailure);
+    if (newPurpose) api.saveOption('purpose', newPurpose).catch(reportSaveFailure);
     if (newDept1) {
       newDept1.split(',').map((s) => s.trim()).filter(Boolean).forEach((s) => {
-        api.saveOption('customer_department', s).catch(() => {});
+        api.saveOption('customer_department', s).catch(reportSaveFailure);
       });
     }
     if (newDept2) {
       newDept2.split(',').map((s) => s.trim()).filter(Boolean).forEach((s) => {
-        api.saveOption('internal_department', s).catch(() => {});
+        api.saveOption('internal_department', s).catch(reportSaveFailure);
       });
     }
     if (newSite) {
       newSite.split('/').map((s) => s.trim()).filter(Boolean).forEach((s) => {
-        api.saveOption('site_code', s).catch(() => {});
+        api.saveOption('site_code', s).catch(reportSaveFailure);
       });
     }
 
@@ -2589,7 +2576,7 @@ export function useScheduler() {
             nextRemovedOptions = [...nextRemovedOptions, oldCustomer];
           }
           nextFilterCompany = nextFilterCompany.filter((f) => f.trim().toLowerCase() !== oldCustomer.toLowerCase());
-          api.deleteOption('customer_name', oldCustomer).catch(() => {});
+          api.deleteOption('customer_name', oldCustomer).catch(reportSaveFailure);
         }
       }
 
@@ -2602,7 +2589,7 @@ export function useScheduler() {
           const isMaster = !!(s.masterCreatedOptions && s.masterCreatedOptions['endCustomerOptions:' + oldEndCustomer.toLowerCase()]);
           if (!isMaster) {
             nextEndCustomerOptions = nextEndCustomerOptions.filter((c) => c.trim().toLowerCase() !== oldEndCustomer.toLowerCase());
-            api.deleteOption('end_customer', oldEndCustomer).catch(() => {});
+            api.deleteOption('end_customer', oldEndCustomer).catch(reportSaveFailure);
           }
         }
       }
@@ -2621,7 +2608,7 @@ export function useScheduler() {
             if (!isMaster) {
               nextTargetPackageOptions = nextTargetPackageOptions.filter((pkg) => pkg.trim().toLowerCase() !== opLower);
               nextFilterTargetPackage = nextFilterTargetPackage.filter((f) => f.trim().toLowerCase() !== opLower);
-              api.deleteOption('target_package', op).catch(() => {});
+              api.deleteOption('target_package', op).catch(reportSaveFailure);
             }
           }
         }
@@ -2641,7 +2628,7 @@ export function useScheduler() {
             if (!isMaster) {
               nextCustomerNameOptions = nextCustomerNameOptions.filter((cn) => cn.trim().toLowerCase() !== ocLower);
               nextFilterCustomerName = nextFilterCustomerName.filter((f) => f.trim().toLowerCase() !== ocLower);
-              api.deleteOption('customer_names', oc).catch(() => {});
+              api.deleteOption('customer_names', oc).catch(reportSaveFailure);
             }
           }
         }
@@ -2658,7 +2645,7 @@ export function useScheduler() {
           if (!isMaster) {
             nextPurposeOptions = nextPurposeOptions.filter((p) => p.trim().toLowerCase() !== oldPurpose.toLowerCase());
             nextFilterAuditType = nextFilterAuditType.filter((f) => f.trim().toLowerCase() !== oldPurpose.toLowerCase());
-            api.deleteOption('purpose', oldPurpose).catch(() => {});
+            api.deleteOption('purpose', oldPurpose).catch(reportSaveFailure);
           }
         }
       }
@@ -2679,7 +2666,7 @@ export function useScheduler() {
             if (!isMaster) {
               nextSiteCodeOptions = nextSiteCodeOptions.filter((s) => s.trim().toLowerCase() !== osLower);
               nextFilterSite = nextFilterSite.filter((f) => f.trim().toLowerCase() !== osLower);
-              api.deleteOption('site_code', os).catch(() => {});
+              api.deleteOption('site_code', os).catch(reportSaveFailure);
             }
           }
         }
@@ -2699,7 +2686,7 @@ export function useScheduler() {
               initialCustomerDepartmentOptions.some((init) => init.toLowerCase() === odLower);
             if (!isMaster) {
               nextCustomerDepartmentOptions = nextCustomerDepartmentOptions.filter((d) => d.trim().toLowerCase() !== odLower);
-              api.deleteOption('customer_department', od).catch(() => {});
+              api.deleteOption('customer_department', od).catch(reportSaveFailure);
             }
           }
         }
@@ -2719,7 +2706,7 @@ export function useScheduler() {
               initialInternalDepartmentOptions.some((init) => init.toLowerCase() === odLower);
             if (!isMaster) {
               nextInternalDepartmentOptions = nextInternalDepartmentOptions.filter((d) => d.trim().toLowerCase() !== odLower);
-              api.deleteOption('internal_department', od).catch(() => {});
+              api.deleteOption('internal_department', od).catch(reportSaveFailure);
             }
           }
         }
@@ -2738,7 +2725,7 @@ export function useScheduler() {
       for (const n of addedAuditors) {
         if (!nextAuditorOptions.some((opt) => opt.toLowerCase() === n.toLowerCase())) {
           nextAuditorOptions = [...nextAuditorOptions, n];
-          api.saveOption('auditor', n).catch(() => {});
+          api.saveOption('auditor', n).catch(reportSaveFailure);
         }
       }
 
@@ -2759,14 +2746,14 @@ export function useScheduler() {
           const isMaster = masterAuditorSet.has(audLower) || !!(s.masterCreatedOptions && s.masterCreatedOptions['auditorOptions:' + audLower]);
           if (!isMaster) {
             nextAuditorOptions = nextAuditorOptions.filter((a) => a.toLowerCase() !== audLower);
-            api.deleteOption('auditor', aud).catch(() => {});
+            api.deleteOption('auditor', aud).catch(reportSaveFailure);
 
             const oldEng = updatedEngineers.find((e) => e.name.toLowerCase() === audLower && e.isMaster === false);
             if (oldEng && oldEng.id !== finalEngId) {
               const hasOtherAppts = nextAssignments.some((a) => a.eng === oldEng.id);
               if (!hasOtherAppts) {
                 updatedEngineers = updatedEngineers.filter((e) => e.id !== oldEng.id);
-                api.deleteEngineer(oldEng.id).catch(() => {});
+                api.deleteEngineer(oldEng.id).catch(reportSaveFailure);
               }
             }
             nextFilterEmp = nextFilterEmp.filter((f) => f.toLowerCase() !== audLower);
@@ -3155,11 +3142,11 @@ export function useScheduler() {
         department: dept,
         subDepartments: f.subDepartments.slice(),
       };
-      api.updateEngineer(id, updatedEng).catch(() => {});
+      api.updateEngineer(id, updatedEng).catch(reportSaveFailure);
 
       if (oldName && oldName !== newName) {
-        api.saveOption('auditor', newName).catch(() => {});
-        api.deleteOption('auditor', oldName).catch(() => {});
+        api.saveOption('auditor', newName).catch(reportSaveFailure);
+        api.deleteOption('auditor', oldName).catch(reportSaveFailure);
       }
 
       setState((s) => {
@@ -3179,7 +3166,7 @@ export function useScheduler() {
                   ...(patch.auditor1 !== undefined ? { auditor1: patch.auditor1 } : {}),
                   ...(patch.auditor2 !== undefined ? { auditor2: patch.auditor2 } : {}),
                   ...(isDeptChanged ? { department: dept || '' } : {}),
-                }).catch(() => {});
+                }).catch(reportSaveFailure);
                 return { ...a, ...patch };
               }
               return a;
@@ -3214,8 +3201,8 @@ export function useScheduler() {
         subDepartments: f.subDepartments.slice(),
         isMaster: true,
       };
-      api.createEngineer(newEng).catch(() => {});
-      api.saveOption('auditor', newName).catch(() => {});
+      api.createEngineer(newEng).catch(reportSaveFailure);
+      api.saveOption('auditor', newName).catch(reportSaveFailure);
       setState((s) => ({
         engineers: s.engineers.concat([newEng]),
         auditorOptions: !(s.auditorOptions || []).includes(newName) ? [...(s.auditorOptions || []), newName] : (s.auditorOptions || []),
@@ -3238,8 +3225,8 @@ export function useScheduler() {
       alert(`Cannot remove QMS host "${eng.name}" because they are currently assigned to ${linkedAppts.length} active appointment(s). Please reassign or update those appointments first.`);
       return;
     }
-    api.deleteEngineer(id).catch(() => {});
-    api.deleteOption('auditor', eng.name).catch(() => {});
+    api.deleteEngineer(id).catch(reportSaveFailure);
+    api.deleteOption('auditor', eng.name).catch(reportSaveFailure);
     setState((s) => ({
       engineers: s.engineers.filter((e) => e.id !== id),
       auditorOptions: (s.auditorOptions || []).filter((a) => a.toLowerCase() !== engLower),
@@ -3295,7 +3282,7 @@ export function useScheduler() {
     const v = value.replace(/^\$+/, '').trim();
     if (!v) return;
     const category = fieldToCategory[field];
-    if (category) api.saveOption(category, v, meta).catch(() => {});
+    if (category) api.saveOption(category, v, meta).catch(reportSaveFailure);
     logActivity('CREATE', entityTypeMap[field] || 'OTHER', `Added ${entityNameMap[field] || 'option'} tag "${v}"`);
     setState((s) => {
       const fieldList = s[field] || [];
@@ -3321,7 +3308,7 @@ export function useScheduler() {
     }
     const category = fieldToCategory[field];
     if (category) {
-      api.saveOptionOrder(category, list).catch(() => {});
+      api.saveOptionOrder(category, list).catch(reportSaveFailure);
     }
     setState({ [field]: list });
   };
@@ -3387,7 +3374,7 @@ export function useScheduler() {
     }
 
     const category = fieldToCategory[field];
-    if (category) api.deleteOption(category, v).catch(() => {});
+    if (category) api.deleteOption(category, v).catch(reportSaveFailure);
     logActivity('DELETE', entityTypeMap[field] || 'OTHER', `Deleted ${entityNameMap[field] || 'option'} tag "${v}"`);
     setState((s) => {
       const fieldList = (s[field] || []).filter((x) => x.trim().toLowerCase() !== v.toLowerCase());
@@ -3407,14 +3394,14 @@ export function useScheduler() {
   const removeGenericOption = (value: string) => {
     const v = value.trim();
     if (!v) return;
-    api.deleteOption('customer_name', v).catch(() => {});
-    api.deleteOption('end_customer', v).catch(() => {});
-    api.deleteOption('purpose', v).catch(() => {});
-    api.deleteOption('auditor', v).catch(() => {});
-    api.deleteOption('customer_department', v).catch(() => {});
-    api.deleteOption('internal_department', v).catch(() => {});
-    api.deleteOption('target_package', v).catch(() => {});
-    api.deleteOption('customer_names', v).catch(() => {});
+    api.deleteOption('customer_name', v).catch(reportSaveFailure);
+    api.deleteOption('end_customer', v).catch(reportSaveFailure);
+    api.deleteOption('purpose', v).catch(reportSaveFailure);
+    api.deleteOption('auditor', v).catch(reportSaveFailure);
+    api.deleteOption('customer_department', v).catch(reportSaveFailure);
+    api.deleteOption('internal_department', v).catch(reportSaveFailure);
+    api.deleteOption('target_package', v).catch(reportSaveFailure);
+    api.deleteOption('customer_names', v).catch(reportSaveFailure);
     setState((s) => {
       const removedOptions = (s.removedOptions || []).includes(v) ? (s.removedOptions || []) : [...(s.removedOptions || []), v];
       return {
@@ -3431,7 +3418,7 @@ export function useScheduler() {
   };
   const setSiteColor = (site: string, color: string) => {
     const norm = normalizeSite(site);
-    api.saveOption('site_code', norm, color).catch(() => {});
+    api.saveOption('site_code', norm, color).catch(reportSaveFailure);
     setState((s) => ({ siteColors: { ...s.siteColors, [site]: color, [norm]: color } }));
   };
 
@@ -3875,7 +3862,7 @@ export function useScheduler() {
     const onAddNote = (text: string) => {
       if (!text.trim()) return;
       const comment = { id: 'c' + ids.current.id++, who: 'You', initials: 'YO', text: text.trim(), ago: 'just now', color: '#2756d6' };
-      api.createComment(a.id, comment).catch(() => {});
+      api.createComment(a.id, comment).catch(reportSaveFailure);
       setState((s) => {
         const list = (s.comments[a.id] || []).concat([comment]);
         const nextComments = { ...s.comments, [a.id]: list };
@@ -5099,6 +5086,7 @@ export function useScheduler() {
     : { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', background: '#f4f6f1' };
 
   return {
+    saveError, dismissSaveError: () => setSaveError(null),
     loading,
     currentUser: S.currentUser,
     isMobile, showLogin: !S.authed, showApp: S.authed, showPresence: !isMobile, showStats: !isMobile, showLoginExtras: !isMobile,

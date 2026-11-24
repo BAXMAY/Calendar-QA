@@ -812,13 +812,13 @@
               </tr>
               <tr>
                 <td><strong>Local Cache Layer</strong></td>
-                <td>Dual-Layer LocalStorage Snapshot</td>
-                <td>Immediate UI hydration from <code>localStorage['calendar_qa_snapshot']</code> on first paint, providing instant offline resilience and zero layout shift while edge network sync completes.</td>
+                <td>LocalStorage Snapshot Cache</td>
+                <td>Stores a browser-side cache for development and recovery. Production data is shown only after the Worker validates the session, and authenticated D1 data replaces stale cached records.</td>
               </tr>
               <tr>
                 <td><strong>Edge API Gateway</strong></td>
                 <td>Cloudflare Workers (<code>worker/index.ts</code>)</td>
-                <td>Serverless REST edge functions executing in V8 isolates across 300+ edge data centers. Automatic CORS, dynamic schema checking, and sub-50ms execution.</td>
+                <td>Cloudflare Worker serves same-origin REST routes from V8 isolates. Scheduler APIs require a verified session cookie, reject cross-origin requests, and use parameterized D1 statements.</td>
               </tr>
               <tr>
                 <td><strong>Distributed Database</strong></td>
@@ -943,7 +943,7 @@
               <text x="695" y="210" font-size="12" fill="#fef3c7">• options (Drag-and-Drop Orders)</text>
               <text x="695" y="231" font-size="12" fill="#fef3c7">• comments (Threaded Notes)</text>
               <text x="695" y="252" font-size="12" fill="#fef3c7">• activity (Immutable Audit Trail)</text>
-              <text x="695" y="273" font-size="12" fill="#fef3c7">• users (SHA-256 Credentials Store)</text>
+              <text x="695" y="273" font-size="12" fill="#fef3c7">• users + sessions (password hashes + session token hashes)</text>
               <line x1="695" y1="295" x2="905" y2="295" stroke="rgba(255,255,255,0.3)" stroke-width="1" />
               <text x="695" y="322" font-size="13" font-weight="700" fill="#ffffff">Stand-Alone Reliability</text>
               <text x="695" y="344" font-size="11.5" fill="#fef3c7">• Zero 3rd-Party Cloud Dependency</text>
@@ -970,14 +970,14 @@
         <h2>4. Data Lifecycle &amp; End-to-End System Workflows</h2>
         <div class="feature-card">
           <p>
-            To guarantee <strong>zero perceivable latency</strong>, robust multi-facility audit synchronization, and uninterrupted offline accessibility during factory floor inspections, the application utilizes an enterprise <strong>Dual-Layer Persistence Pattern</strong> paired with an <strong>Optimistic Mutation Pipeline</strong> and a 100% client-side Excel export engine.
+            The application uses a browser snapshot cache, authenticated Cloudflare D1 persistence, an optimistic mutation pipeline with visible save-failure warnings, and a client-side Excel export engine.
           </p>
 
           <div class="callout callout-blue" style="margin-bottom: 24px;">
             <div class="callout-title">Dual-Layer Persistence Architecture</div>
             <p style="margin: 0; font-size: 14px;">
-              <strong>Layer 1 (Local Snapshot):</strong> Immediate read/write from <code>localStorage['calendar_qa_snapshot']</code> (Cold Start: 0ms)<br>
-              <strong>Layer 2 (Edge Cloudflare D1):</strong> Authoritative distributed ACID persistence synchronized via <code>GET /api/state</code> and prepared SQLite statements.
+              <strong>Layer 1 (Local Snapshot):</strong> Browser-side cached copy of schedule data.<br>
+              <strong>Layer 2 (Edge Cloudflare D1):</strong> Authoritative shared data. The Worker requires a valid HttpOnly session cookie for <code>/api/state</code> and all scheduler APIs.
             </p>
           </div>
 
@@ -987,17 +987,16 @@
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
               <h4 style="margin: 0; font-size: 15px; color: #0f766e;">🔄 Workflow A: Data Loading &amp; State Hydration</h4>
-              <span class="pill pill-teal">Initial Load / Zero Cold-Start</span>
+              <span class="pill pill-teal">Session Validation / Authenticated Load</span>
             </div>
             <p style="font-size: 13.5px; color: #475569; margin-bottom: 14px;">
               End-to-end execution flow from application initialization to unified metrics rollup and UI rendering:
             </p>
             <ol style="margin-left: 20px; font-size: 13.5px; color: #334155; line-height: 1.8;">
-              <li><strong>Instant Offline Hydration (<code>src/data.ts</code> &rarr; <code>initialState()</code>):</strong> On browser boot, the app immediately reads <code>localStorage.getItem('calendar_qa_snapshot')</code> to instantiate the reactive state tree. The calendar and option menus render in 0ms without waiting for network responses.</li>
-              <li><strong>Edge API Handshake (<code>src/useScheduler.ts</code> &rarr; <code>api.fetchState()</code>):</strong> An asynchronous <code>GET /api/state</code> request dispatches to Cloudflare Worker to fetch authoritative live data.</li>
-              <li><strong>Concurrent D1 Queries (<code>worker/index.ts</code>):</strong> Cloudflare Worker executes parallel queries via <code>Promise.all</code> across 8 tables:
-                <br><code>SELECT * FROM engineers, plants, active_plants, orders, assignments, comments, activity, options</code></li>
-              <li><strong>State Reconciliation &amp; Snapshot Refresh (<code>src/useScheduler.ts</code>):</strong> Incoming data is normalized via <code>normalizeAssignment()</code>, reconciled into the reactive state tree, and written back to <code>localStorage.setItem('calendar_qa_snapshot', ...)</code>.</li>
+              <li><strong>Session Restoration (<code>src/utils/authClient.ts</code>):</strong> The app checks the HttpOnly-cookie session with <code>GET /api/auth/session</code> before displaying shared schedule data.</li>
+              <li><strong>Authenticated Data Load (<code>src/useScheduler.ts</code>):</strong> After session validation, <code>GET /api/state</code> loads authoritative D1 data. Local snapshots do not grant access and are replaced by the server response.</li>
+              <li><strong>Concurrent D1 Queries (<code>worker/index.ts</code>):</strong> Cloudflare Worker executes parallel queries for engineers, plants, active plants, orders, assignments, comments, activity, options, and custom holidays.</li>
+              <li><strong>State Hydration &amp; Snapshot Refresh (<code>src/useScheduler.ts</code>):</strong> Incoming server data is normalized via <code>normalizeAssignment()</code>, becomes the source of truth, and refreshes the browser cache.</li>
               <li><strong>Unified Metrics Rollup (<code>src/utils/auditMetricsHelper.ts</code> &rarr; <code>calculateAuditStats()</code>):</strong> Reconciles multi-day consecutive dates of identical audits into single unified campaigns, guaranteeing identical audit figures across Schedule, Table, and Summary views.</li>
             </ol>
           </div>
@@ -1013,7 +1012,7 @@
             </p>
             <ol style="margin-left: 20px; font-size: 13.5px; color: #334155; line-height: 1.8;">
               <li><strong>User Form Submission (<code>AppointmentFormFields.tsx</code>):</strong> Form modal validates all mandatory fields (8 for Customer Audits, 6 for Internal Audits).</li>
-              <li><strong>Optimistic ViewModel Update (<code>src/useScheduler.ts</code>):</strong> Handlers (<code>submitCreate()</code>, <code>submitEdit()</code>, <code>removeAssign()</code>) immediately mutate <code>state.assignments</code> in memory with zero user-perceivable latency and update <code>localStorage</code> snapshot.</li>
+              <li><strong>Optimistic ViewModel Update (<code>src/useScheduler.ts</code>):</strong> Mutations update the interface immediately and submit to the Worker. Failed API writes display a warning; reloading restores the last saved D1 state.</li>
               <li><strong>Asynchronous REST API Invocation (<code>src/api.ts</code>):</strong> Dispatches background requests:
                 <br>&bull; Create: <code>POST /api/assignments</code>, <code>POST /api/orders</code>
                 <br>&bull; Update: <code>PUT /api/assignments/:id</code>
@@ -1637,7 +1636,9 @@
       <section id="api-spec">
         <h2>15. REST API Endpoint Specification</h2>
         <div class="feature-card">
-          <p>All endpoints are served by Cloudflare Workers at <code>/api/*</code> and return JSON responses with CORS headers.</p>
+          <p>Endpoints are same-origin JSON routes. All scheduler data and mutation routes require a valid server session in an HttpOnly, SameSite=Lax cookie. Cross-origin requests are rejected.</p>
+          <p><strong>Authentication:</strong> Sign in with <code>POST /api/auth/login</code>. “Remember me” keeps the session for up to 30 days; otherwise it expires after 12 hours. Staff-code registration uses <code>POST /api/auth/register</code>. Password changes use <code>POST /api/auth/reset-password</code> and require the current password. Sign out revokes the session with <code>POST /api/auth/logout</code>. Migration 0019 removes known demo accounts and promotes the earliest remaining account if needed. Vite-only local accounts are browser-specific and do not authenticate to the Worker.</p>
+          <p><strong>Assignment status precedence:</strong> Red for incomplete data; Blue for a complete assignment edited within 7 days; Green for a complete assignment created within 7 days when no newer edit qualifies; Yellow for a past appointment without recorded results; Gray otherwise.</p>
 
           <table class="spec-table">
             <thead>
@@ -1648,6 +1649,31 @@
               </tr>
             </thead>
             <tbody>
+              <tr>
+                <td><code>GET /api/auth/session</code></td>
+                <td>Session cookie</td>
+                <td>Returns the verified user for the current session.</td>
+              </tr>
+              <tr>
+                <td><code>POST /api/auth/login</code></td>
+                <td>User ID, password, optional <code>rememberMe</code></td>
+                <td>Verifies credentials and sets an HttpOnly session cookie.</td>
+              </tr>
+              <tr>
+                <td><code>POST /api/auth/register</code></td>
+                <td>User ID, password, staff registration code</td>
+                <td>Creates an account only when the Worker secret is valid. The first account in a fresh database receives the admin role.</td>
+              </tr>
+              <tr>
+                <td><code>POST /api/auth/reset-password</code></td>
+                <td>User ID, current password, new password</td>
+                <td>Changes the password after verifying the current password and revokes the account’s sessions.</td>
+              </tr>
+              <tr>
+                <td><code>POST /api/auth/logout</code></td>
+                <td>Session cookie</td>
+                <td>Revokes the server session and clears the cookie.</td>
+              </tr>
               <tr>
                 <td><code>GET /api/state</code></td>
                 <td>None</td>

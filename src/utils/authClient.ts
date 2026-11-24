@@ -14,6 +14,53 @@ export interface AuthResult {
 }
 
 const LOCAL_STORAGE_KEY = 'calendar_qa_users';
+const DEV_SESSION_KEY = 'calendar_qa_dev_session';
+const DEV_REMEMBERED_USER_KEY = 'calendar_qa_remembered_user';
+
+function isDevelopment(): boolean {
+  return import.meta.env.DEV;
+}
+
+function getDevSession(): UserRecord | null {
+  if (!isDevelopment() || typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(DEV_REMEMBERED_USER_KEY) || sessionStorage.getItem(DEV_SESSION_KEY);
+    const user = raw ? JSON.parse(raw) : null;
+    return user && typeof user.id === 'string' && typeof user.username === 'string' ? user : null;
+  } catch {
+    return null;
+  }
+}
+
+function setDevSession(user: UserRecord, rememberMe: boolean): void {
+  if (!isDevelopment() || typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(DEV_REMEMBERED_USER_KEY);
+    sessionStorage.removeItem(DEV_SESSION_KEY);
+    (rememberMe ? localStorage : sessionStorage).setItem(
+      rememberMe ? DEV_REMEMBERED_USER_KEY : DEV_SESSION_KEY,
+      JSON.stringify(user),
+    );
+  } catch {}
+}
+
+function clearDevSession(): void {
+  if (!isDevelopment() || typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(DEV_REMEMBERED_USER_KEY);
+    sessionStorage.removeItem(DEV_SESSION_KEY);
+  } catch {}
+}
+
+async function responseError(response: Response, fallback: string): Promise<Error> {
+  try {
+    const data = await response.json();
+    return new Error(data.error || data.message || fallback);
+  } catch {
+    const text = await response.text().catch(() => '');
+    return new Error(text || fallback);
+  }
+}
 
 /**
  * Standard Web Crypto SHA-256 password hashing with salt
@@ -27,47 +74,24 @@ export async function hashPassword(password: string, salt: string): Promise<stri
     .join('');
 }
 
-/**
- * Retrieves local users from localStorage with default demo seed users
- */
+/** Local user accounts are available only for Vite development without a Worker. */
 function getLocalUsers(): UserRecord[] {
   if (typeof window === 'undefined') return [];
   const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
   if (raw) {
     try {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) {
+        const users = parsed.filter((user) => !(
+          (user?.id === 'usr_jordan' && user?.username === 'jordan.lee') ||
+          (user?.id === 'usr_100234' && user?.username === '100234')
+        ));
+        if (users.length !== parsed.length) saveLocalUsers(users);
+        return users;
+      }
     } catch {}
   }
-
-  // Pre-seed Jordan Lee demo accounts
-  // Password is 'directorqa', hash with salt 'seed_salt'
-  const seedUsers: UserRecord[] = [
-    {
-      id: 'usr_jordan',
-      username: 'jordan.lee',
-      name: 'Jordan Lee',
-      role: 'admin',
-      salt: 'seed_salt',
-      passwordHash: '2d058547072ff2557887cbe75c1633a2cc7fe0c9afc2a243817ea7a4d55f91fe',
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'usr_100234',
-      username: '100234',
-      name: 'Jordan Lee',
-      role: 'admin',
-      salt: 'seed_salt',
-      passwordHash: '2d058547072ff2557887cbe75c1633a2cc7fe0c9afc2a243817ea7a4d55f91fe',
-      createdAt: new Date().toISOString(),
-    },
-  ];
-
-  try {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(seedUsers));
-  } catch {}
-
-  return seedUsers;
+  return [];
 }
 
 function saveLocalUsers(users: UserRecord[]): void {
@@ -96,10 +120,13 @@ export function validateUserId(userId: string): { valid: boolean; error?: string
 }
 
 export const authClient = {
+  persistDevelopmentSession: setDevSession,
+  clearDevelopmentSession: clearDevSession,
+  getDevelopmentSession: getDevSession,
   /**
    * Register a new account with User ID
    */
-  async register(userId: string, password: string, name?: string): Promise<AuthResult> {
+  async register(userId: string, password: string, name?: string, registrationCode = ''): Promise<AuthResult> {
     const check = validateUserId(userId);
     if (!check.valid) {
       throw new Error(check.error);
@@ -115,7 +142,7 @@ export const authClient = {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: cleanUser, username: cleanUser, password, name }),
+        body: JSON.stringify({ userId: cleanUser, username: cleanUser, password, name, registrationCode }),
       });
 
       if (res.ok) {
@@ -129,21 +156,11 @@ export const authClient = {
         return { ok: true, user: data.user };
       }
 
-      // If backend returned a specific HTTP error (e.g. 409 already exists)
-      if (res.status === 409 || res.status === 400) {
-        let errMsg = 'Registration failed.';
-        try {
-          const errData = await res.json();
-          errMsg = errData.error || errData.message || errMsg;
-        } catch {
-          const text = await res.text();
-          if (text) errMsg = text;
-        }
-        throw new Error(errMsg);
-      }
+      throw await responseError(res, 'Registration failed.');
     } catch (err: any) {
+      if (!isDevelopment()) throw err;
       // If it's a known business validation error from backend, rethrow it
-      if (err.message && (err.message.includes('already registered') || err.message.includes('User ID'))) {
+      if (err.message && (err.message.includes('already registered') || err.message.includes('User ID') || err.message.includes('registration code'))) {
         throw err;
       }
       // Otherwise, if network failed or 404 (local Vite dev mode without worker), fall back to localStorage
@@ -185,7 +202,7 @@ export const authClient = {
   /**
    * Sign In with User ID and Password
    */
-  async login(userId: string, password: string): Promise<AuthResult> {
+  async login(userId: string, password: string, rememberMe = false): Promise<AuthResult> {
     const cleanUser = userId.trim();
     if (!cleanUser) {
       throw new Error('Please enter your User ID.');
@@ -199,7 +216,7 @@ export const authClient = {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: cleanUser, username: cleanUser, password }),
+        body: JSON.stringify({ userId: cleanUser, username: cleanUser, password, rememberMe }),
       });
 
       if (res.ok) {
@@ -207,19 +224,9 @@ export const authClient = {
         return { ok: true, user: data.user };
       }
 
-      if (res.status === 401 || res.status === 400 || res.status === 404) {
-        let errMsg = 'Authentication failed.';
-        try {
-          const errData = await res.json();
-          errMsg = errData.error || errData.message || errMsg;
-        } catch {
-          const text = await res.text();
-          if (text) errMsg = text;
-        }
-        throw new Error(errMsg);
-      }
+      throw await responseError(res, 'Authentication failed.');
     } catch (err: any) {
-      if (err.message && (err.message.includes('not registered') || err.message.includes('Incorrect password') || err.message.includes('User ID'))) {
+      if (!isDevelopment() || (err.message && (err.message.includes('not registered') || err.message.includes('Incorrect password') || err.message.includes('User ID')))) {
         throw err;
       }
       // If network/404 failed, fallback to local storage
@@ -240,7 +247,7 @@ export const authClient = {
       }
     }
 
-    return {
+    const result = {
       ok: true,
       user: {
         id: user.id,
@@ -249,12 +256,38 @@ export const authClient = {
         role: user.role || 'user',
       },
     };
+    setDevSession(result.user, rememberMe);
+    return result;
+  },
+
+  async getSession(): Promise<AuthResult | null> {
+    try {
+      const res = await fetch('/api/auth/session', { headers: { 'Content-Type': 'application/json' } });
+      if (res.status === 401) return null;
+      if (!res.ok) throw new Error('Unable to restore your sign-in session.');
+      const data = await res.json();
+      return { ok: true, user: data.user };
+    } catch (err) {
+      if (!isDevelopment()) throw err;
+      const user = getDevSession();
+      return user ? { ok: true, user } : null;
+    }
+  },
+
+  async logout(): Promise<void> {
+    clearDevSession();
+    try {
+      const res = await fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+      if (!res.ok && !isDevelopment()) throw new Error('Unable to end your server session.');
+    } catch (err) {
+      if (!isDevelopment()) throw err;
+    }
   },
 
   /**
    * Reset password for an existing User ID
    */
-  async resetPassword(userId: string, newPassword: string): Promise<{ ok: boolean; message: string }> {
+  async resetPassword(userId: string, currentPassword: string, newPassword: string): Promise<{ ok: boolean; message: string }> {
     const cleanUser = userId.trim();
     if (!cleanUser) {
       throw new Error('Please enter your User ID.');
@@ -263,12 +296,14 @@ export const authClient = {
       throw new Error('New password must be at least 4 characters long.');
     }
 
-    // 1. Attempt Cloudflare D1 backend API first
+    if (!currentPassword) throw new Error('Current password is required.');
+
+    // 1. Verify the current password at the Cloudflare D1 backend first.
     try {
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: cleanUser, username: cleanUser, newPassword, password: newPassword }),
+        body: JSON.stringify({ userId: cleanUser, username: cleanUser, currentPassword, newPassword }),
       });
 
       if (res.ok) {
@@ -285,19 +320,9 @@ export const authClient = {
         return { ok: true, message: data.message || 'Password updated successfully.' };
       }
 
-      if (res.status === 404 || res.status === 400) {
-        let errMsg = 'Password reset failed.';
-        try {
-          const errData = await res.json();
-          errMsg = errData.error || errData.message || errMsg;
-        } catch {
-          const text = await res.text();
-          if (text) errMsg = text;
-        }
-        throw new Error(errMsg);
-      }
+      throw await responseError(res, 'Password change failed.');
     } catch (err: any) {
-      if (err.message && (err.message.includes('not registered') || err.message.includes('User ID'))) {
+      if (!isDevelopment() || (err.message && (err.message.includes('not registered') || err.message.includes('User ID') || err.message.includes('Current password')))) {
         throw err;
       }
       // If network/404 failed, fallback to local storage
@@ -309,6 +334,10 @@ export const authClient = {
 
     if (!user) {
       throw new Error('User ID is not registered.');
+    }
+
+    if (user.passwordHash && user.salt && await hashPassword(currentPassword, user.salt) !== user.passwordHash) {
+      throw new Error('Current password is incorrect.');
     }
 
     const salt = user.salt || Math.random().toString(36).slice(2, 10);

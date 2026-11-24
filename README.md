@@ -8,21 +8,21 @@ A collaborative weekly QA-coverage planner for a microchip manufacturer
 
 ```bash
 npm install
-npm run dev      # dev server at http://localhost:5173 (no backend — in-memory only)
+npm run dev      # Vite-only development with browser-local data/auth; sign up locally
 npm run build    # type-check + production build to dist/
 npm run preview  # serve the production build
 ```
 
-⚠️ **The sign-in screen has no real access control.** Any email/password
-(and the "Continue with Okta SSO" button) logs you in — there's no
-credential check at all. That's fine for local/demo use, but if this is
-deployed somewhere reachable by more than you, anyone with the URL can get
-in and read/write all data. Add real auth before treating this as anything
-but an internal prototype.
+The deployed Worker verifies passwords, issues an HttpOnly session cookie,
+and requires that session for scheduler API access. “Remember me” keeps a
+server session for up to 30 days; regular sessions expire after 12 hours.
+Account registration requires the Worker secret `REGISTRATION_CODE`.
+Password changes require the current password. Vite-only authentication is a
+development fallback and does not provide server-backed access control. Vite-only signup creates a browser-local account and does not need the staff code.
 
 ## What's included
 
-- **Login** — split brand / sign-in layout, secure User ID & Password authentication, Enter-to-submit.
+- **Login** — User ID/password sign-in, server-verified sessions, optional Remember me, staff-code-gated registration, and password changes verified against the current password.
 - **Schedule** — a Week / Month scale toggle plus four grouping views
   (By QA / By internal / By customer / By sub-department). The weekly scale is a sticky grid
   with drag-and-drop staffing from the unstaffed-order pool,
@@ -65,9 +65,11 @@ but an internal prototype.
   single-day card list, compact month calendar, full-screen modal/detail,
   and a stacked login.
 
-On `npm run dev`, data lives in memory only and resets on reload. With the
-Cloudflare Worker + D1 backend below, it's persisted and shared across
-everyone hitting the deployed URL.
+API writes are optimistic for a fast interface. If a save fails, the app
+shows a warning; after reloading, authenticated server data replaces the
+browser snapshot so an unsuccessful change is not presented as saved.
+`npm run dev` uses browser-local development accounts and data. The Cloudflare
+Worker + D1 deployment provides shared persistence and protected API access.
 
 ## Structure
 
@@ -75,12 +77,14 @@ everyone hitting the deployed URL.
 | --- | --- |
 | `src/types.ts` | Domain types (Engineer, Order, Assignment, …) |
 | `src/data.ts` | Constants + seeded initial state |
-| `src/useScheduler.ts` | All state, actions, and the view model; hydrates from `/api/state` on mount and fires an API call alongside every local mutation |
+| `src/useScheduler.ts` | Scheduler state and actions; restores the server session, hydrates from `/api/state`, and reports failed mutations |
 | `src/api.ts` | Fetch client for the `/api/*` endpoints |
 | `src/ui.tsx` | `css()` style-string parser + hover/focus helper components |
 | `src/components/*` | Login, Header, Schedule, DetailPanel, CreateModal, EditModal, AppointmentFormFields (shared Customer/Internal Audit fields), OrderModal, EngineerModal, SiteModal, Admin, Profile |
-| `worker/index.ts` | Cloudflare Worker — serves the built SPA as static assets and handles `/api/*` on the same Worker, backed by D1 |
+| `worker/index.ts` | Cloudflare Worker — serves the SPA, verifies sessions, protects `/api/*`, and stores shared data in D1 |
 | `migrations/0001_init.sql` | D1 schema + seed data (base fab sites only) |
+| `migrations/0018_sessions.sql` | Server-side session table for hashed session tokens |
+| `migrations/0019_remove_demo_users.sql` | Removes legacy accounts with published demo credentials |
 | `wrangler.toml` | Cloudflare Worker + static assets + D1 binding config |
 
 Styling mirrors the design prototype's inline styles verbatim (parsed via
@@ -102,9 +106,17 @@ account):
 npx wrangler login
 npx wrangler d1 create calendar-qa-db
 # paste the returned database_id into wrangler.toml
+npx wrangler secret put REGISTRATION_CODE
 npm run migrate:remote
 npm run deploy
 ```
+
+Apply migrations before opening registration. On a fresh database, the first
+account registered with the staff code receives the `admin` role; subsequent
+accounts receive the `user` role. Keep the code private and share it only with
+staff who should have access. Migration `0019_remove_demo_users.sql` deletes
+the published demo accounts and promotes the earliest remaining account if no
+admin account exists.
 
 To develop against a local D1 instance instead of plain Vite:
 
@@ -112,6 +124,9 @@ To develop against a local D1 instance instead of plain Vite:
 npm run migrate:local
 npm run dev:worker
 ```
+
+For local Worker signups, put `REGISTRATION_CODE=your-local-code` in an
+untracked `.dev.vars` file. Do not commit that file or the production secret.
 
 Alternatively, connect the GitHub repo in the Cloudflare dashboard (Workers
 & Pages → your project → Settings → Builds & deployments) for auto-deploy

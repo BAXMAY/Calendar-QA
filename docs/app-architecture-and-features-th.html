@@ -813,13 +813,13 @@
               </tr>
               <tr>
                 <td><strong>หน่วยความจำแคชในเครื่อง (Local Cache)</strong></td>
-                <td>Dual-Layer LocalStorage Snapshot</td>
-                <td>โหลดข้อมูลขึ้นหน้าจอทันทีจาก <code>localStorage['calendar_qa_snapshot']</code> ในระดับเสี้ยววินาที ทำให้ใช้งานแบบออฟไลน์ได้และหน้าจอไม่กระตุกระหว่างรอเชื่อมต่อเซิร์ฟเวอร์</td>
+                <td>LocalStorage Snapshot Cache</td>
+                <td>เก็บสำเนาข้อมูลในเบราว์เซอร์เพื่อใช้ในโหมดพัฒนาและกู้คืนข้อมูล โดยข้อมูลจริงจะแสดงหลัง Worker ตรวจสอบ Session แล้ว และข้อมูล D1 จะเขียนทับแคชที่เก่า</td>
               </tr>
               <tr>
                 <td><strong>เซิร์ฟเวอร์ Edge (API Gateway)</strong></td>
                 <td>Cloudflare Workers (<code>worker/index.ts</code>)</td>
-                <td>ประมวลผลบน V8 Isolates กระจายอยู่กว่า 300 ดาต้าเซ็นเตอร์ทั่วโลก รองรับ CORS อัตโนมัติ, ตรวจสอบโครงสร้างตาราง D1 และตอบสนองเร็วกว่า 40ms</td>
+                <td>Cloudflare Worker ให้บริการ REST แบบ same-origin บน V8 Isolates โดย API ตารางงานตรวจสอบ Session Cookie ปฏิเสธคำขอข้ามโดเมน และใช้คำสั่ง D1 แบบ Parameterized</td>
               </tr>
               <tr>
                 <td><strong>ฐานข้อมูลกระจายตัว (Database)</strong></td>
@@ -944,7 +944,7 @@
               <text x="695" y="210" font-size="12" fill="#fef3c7">• options (ลำดับตัวเลือก Drag-and-Drop)</text>
               <text x="695" y="231" font-size="12" fill="#fef3c7">• comments (ระบบคอมเมนต์ร่วม)</text>
               <text x="695" y="252" font-size="12" fill="#fef3c7">• activity (ประวัติบันทึกการทำงาน)</text>
-              <text x="695" y="273" font-size="12" fill="#fef3c7">• users (ระบบยืนยันตัวตน SHA-256)</text>
+              <text x="695" y="273" font-size="12" fill="#fef3c7">• users + sessions (hash รหัสผ่านและ session token)</text>
               <line x1="695" y1="295" x2="905" y2="295" stroke="rgba(255,255,255,0.3)" stroke-width="1" />
               <text x="695" y="322" font-size="13" font-weight="700" fill="#ffffff">Stand-Alone Reliability</text>
               <text x="695" y="344" font-size="11.5" fill="#fef3c7">• Zero 3rd-Party Cloud Dependency</text>
@@ -971,14 +971,14 @@
         <h2>4. วงจรชีวิตข้อมูลและการทำงานครบวงจร (Data Lifecycle &amp; End-to-End Workflows)</h2>
         <div class="feature-card">
           <p>
-            เพื่อให้มั่นใจว่าระบบจะตอบสนองทันทีโดยไม่มีการรอคอย และสามารถทำงานได้อย่างราบรื่นในพื้นที่โรงงานผลิตที่มีสัญญาณเครือข่ายไม่เสถียร ระบบจึงใช้สถาปัตยกรรม <strong>Dual-Layer Persistence</strong> ร่วมกับกลไกการกลายพันธุ์ข้อมูลแบบ <strong>Optimistic UI Update</strong> และการส่งออกสเปรดชีตผ่านเบราว์เซอร์ 100%
+            ระบบใช้แคชในเบราว์เซอร์ร่วมกับการจัดเก็บข้อมูล Cloudflare D1 ที่ต้องยืนยันตัวตน การอัปเดตหน้าจอแบบ Optimistic จะแจ้งเตือนเมื่อบันทึกไม่สำเร็จ และการส่งออก Excel ทำงานในเบราว์เซอร์
           </p>
 
           <div class="callout callout-blue" style="margin-bottom: 24px;">
             <div class="callout-title">สถาปัตยกรรมความต่อเนื่องของข้อมูล 2 ชั้น (Dual-Layer Persistence)</div>
             <p style="margin: 0; font-size: 14px;">
-              <strong>ชั้นที่ 1 (Local Snapshot):</strong> อ่าน/เขียนแคชทันทีที่คีย์ <code>localStorage['calendar_qa_snapshot']</code> (Cold Start: 0ms)<br>
-              <strong>ชั้นที่ 2 (Edge Cloudflare D1):</strong> ซิงค์ข้อมูลสอดคล้องกันผ่าน REST API <code>GET /api/state</code> และ D1 SQLite Transactions
+              <strong>ชั้นที่ 1 (Local Snapshot):</strong> สำเนาข้อมูลแคชในเบราว์เซอร์<br>
+              <strong>ชั้นที่ 2 (Edge Cloudflare D1):</strong> ข้อมูลกลางที่เชื่อถือได้ โดย Worker ต้องตรวจสอบ HttpOnly Session Cookie ก่อนเข้าถึง <code>/api/state</code> และ API ตารางงาน
             </p>
           </div>
 
@@ -988,17 +988,16 @@
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
               <h4 style="margin: 0; font-size: 15px; color: #0f766e;">🔄 Workflow A: Data Loading &amp; State Hydration (การโหลดข้อมูลและเตรียมสถานะระบบ)</h4>
-              <span class="pill pill-teal">Initial Load / Zero Cold-Start</span>
+              <span class="pill pill-teal">ตรวจสอบ Session / โหลดข้อมูลหลังยืนยันตัวตน</span>
             </div>
             <p style="font-size: 13.5px; color: #475569; margin-bottom: 14px;">
               ผังการโหลดข้อมูลตั้งแต่เปิดเว็บเบราว์เซอร์จนถึงการคำนวณสถิติและแสดงผลปฏิทิน:
             </p>
             <ol style="margin-left: 20px; font-size: 13.5px; color: #334155; line-height: 1.8;">
-              <li><strong>Instant Offline Hydration (<code>src/data.ts</code> &rarr; <code>initialState()</code>):</strong> เมื่อผู้ใช้เปิดหน้าเว็บ ฟังก์ชันจะดึงแคชจาก <code>localStorage.getItem('calendar_qa_snapshot')</code> เพื่อสร้าง State ในหน่วยความจำทันที ทำให้ตารางปฏิทินและตัวเลือกแสดงผลทันทีโดยไม่ต้องรอเครือข่าย</li>
-              <li><strong>Edge API Handshake (<code>src/useScheduler.ts</code> &rarr; <code>api.fetchState()</code>):</strong> ส่งคำขอ HTTP Asynchronous <code>GET /api/state</code> ไปยัง Cloudflare Worker เพื่อดึงข้อมูลสดล่าสุด</li>
-              <li><strong>Concurrent D1 Queries (<code>worker/index.ts</code>):</strong> Cloudflare Worker รันบน V8 Isolate ทำการ Query ตารางในฐานข้อมูล D1 พร้อมกันผ่าน <code>Promise.all</code>:
-                <br><code>SELECT * FROM engineers, plants, active_plants, orders, assignments, comments, activity, options</code></li>
-              <li><strong>State Reconciliation &amp; Snapshot Update (<code>src/useScheduler.ts</code>):</strong> ข้อมูลที่ได้รับจะถูกปรับรูปแบบผ่าน <code>normalizeAssignment()</code> และอัปเดตลง State Tree พร้อมเขียนทับลง <code>localStorage.setItem('calendar_qa_snapshot', ...)</code> เพื่อเป็นแคชล่าสุด</li>
+              <li><strong>Session Restoration (<code>src/utils/authClient.ts</code>):</strong> ตรวจสอบ Session ผ่าน <code>GET /api/auth/session</code> ก่อนแสดงข้อมูลตารางงานส่วนกลาง</li>
+              <li><strong>Authenticated Data Load (<code>src/useScheduler.ts</code>):</strong> หลังตรวจสอบ Session แล้ว <code>GET /api/state</code> จะโหลดข้อมูล D1 ที่เป็นข้อมูลหลัก แคชในเครื่องไม่สามารถใช้แทนการยืนยันตัวตนได้</li>
+              <li><strong>Concurrent D1 Queries (<code>worker/index.ts</code>):</strong> Worker อ่านข้อมูลวิศวกร โรงงาน รายการนัดหมาย ความเห็น ประวัติกิจกรรม ตัวเลือก และวันหยุดจาก D1 พร้อมกัน</li>
+              <li><strong>State Hydration &amp; Snapshot Update (<code>src/useScheduler.ts</code>):</strong> ปรับรูปแบบข้อมูลผ่าน <code>normalizeAssignment()</code> ให้ข้อมูลจากเซิร์ฟเวอร์เป็นหลัก แล้วอัปเดตแคชในเบราว์เซอร์</li>
               <li><strong>Unified Metrics Rollup (<code>src/utils/auditMetricsHelper.ts</code> &rarr; <code>calculateAuditStats()</code>):</strong> ทำการ Reconcile วันตรวจต่อเนื่องหลายวัน (Consecutive Dates) ของงานเดียวกันให้ยุบเป็น 1 แคมเปญ ส่งผลให้ตัวเลขสรุปผล (Customer Audits, Internal Audits, Total Audits) ตรงกันทุกหน้าจอ</li>
             </ol>
           </div>
@@ -1019,7 +1018,7 @@
                 <br>&bull; สร้าง: <code>POST /api/assignments</code>, <code>POST /api/orders</code>
                 <br>&bull; แก้ไข: <code>PUT /api/assignments/:id</code>
                 <br>&bull; ลบ: <code>DELETE /api/assignments/:id</code> (พร้อม Cascade ลบ <code>comments</code>)</li>
-              <li><strong>D1 Transaction Persistence (<code>worker/index.ts</code>):</strong> Cloudflare Worker ดำเนินการ Prepared Statement <code>INSERT</code>, <code>UPDATE</code>, หรือ <code>DELETE</code> บันทึกลง D1 SQLite อย่างปลอดภัย</li>
+              <li><strong>D1 Persistence (<code>worker/index.ts</code>):</strong> Worker บันทึกคำสั่งลง D1 หากบันทึกไม่สำเร็จจะแสดงคำเตือน และเมื่อโหลดใหม่ระบบจะใช้ข้อมูล D1 ที่บันทึกสำเร็จเป็นหลัก</li>
               <li><strong>Dynamic Dropdown Options Refresh (<code>src/utils/auditOptionsHelper.ts</code> &rarr; <code>getActiveDropdownOptions()</code>):</strong> ดรอปดาวน์ <code>STANDARD</code>, <code>CUSTOMER</code>, <code>PURPOSE</code>, <code>QMS HOST</code> ฯลฯ ถูกคำนวณใหม่จากรายการนัดหมายที่ยังคงอยู่ หากนัดหมายถูกลบ ค่ากำพร้าจะหายไปจากตัวเลือกทันทีทุกหน้าจอ (โดยคงรายชื่อโรงงาน <code>SITE</code> ไว้ตามมาตรฐาน <code>MASTER_PLANT_SITES</code>: UTL1..UTL3T)</li>
             </ol>
           </div>
@@ -1631,7 +1630,9 @@
       <section id="api-spec">
         <h2>15. ข้อกำหนด REST API Endpoints ของระบบ</h2>
         <div class="feature-card">
-          <p>Endpoints ทั้งหมดให้บริการผ่าน Cloudflare Workers ภายใต้พาธ <code>/api/*</code> ในรูปแบบ JSON:</p>
+          <p>Endpoints ให้บริการเป็น JSON ผ่าน same-origin เท่านั้น API ตารางงานและการเปลี่ยนแปลงข้อมูลทุกเส้นทางต้องใช้ Session Cookie แบบ HttpOnly, SameSite=Lax และปฏิเสธคำขอข้ามโดเมน</p>
+          <p>เข้าสู่ระบบผ่าน <code>POST /api/auth/login</code>; “Remember me” เก็บ Session ได้นานสูงสุด 30 วัน ส่วน Session ปกติหมดอายุใน 12 ชั่วโมง การสมัครต้องใช้รหัสพนักงานที่ตั้งเป็น Worker Secret การเปลี่ยนรหัสผ่านต้องยืนยันรหัสผ่านปัจจุบัน และออกจากระบบจะเพิกถอน Session Migration 0019 ลบบัญชีตัวอย่างที่ใช้รหัสผ่านเผยแพร่ และกำหนดผู้ดูแลให้บัญชีแรกที่เหลืออยู่หากยังไม่มี บัญชี Vite-only ใช้ได้เฉพาะในเบราว์เซอร์นั้นและไม่สามารถยืนยันตัวตนกับ Worker ได้</p>
+          <p><strong>ลำดับสีสถานะ:</strong> แดง = ข้อมูลไม่ครบ; น้ำเงิน = ข้อมูลครบและแก้ไขภายใน 7 วัน; เขียว = สร้างภายใน 7 วันและไม่มีการแก้ไขใหม่กว่า; เหลือง = วันตรวจผ่านไปแล้วแต่ยังไม่มีผล; เทา = สถานะปกติ</p>
 
           <table class="spec-table">
             <thead>
@@ -1642,6 +1643,31 @@
               </tr>
             </thead>
             <tbody>
+              <tr>
+                <td><code>GET /api/auth/session</code></td>
+                <td>Session Cookie</td>
+                <td>ตรวจสอบผู้ใช้ที่เข้าสู่ระบบอยู่</td>
+              </tr>
+              <tr>
+                <td><code>POST /api/auth/login</code></td>
+                <td>User ID, password, optional <code>rememberMe</code></td>
+                <td>ตรวจสอบรหัสผ่านและออก HttpOnly Session Cookie</td>
+              </tr>
+              <tr>
+                <td><code>POST /api/auth/register</code></td>
+                <td>User ID, password, staff registration code</td>
+                <td>สมัครได้เมื่อรหัสพนักงานถูกต้อง บัญชีแรกในฐานข้อมูลใหม่จะได้ role admin</td>
+              </tr>
+              <tr>
+                <td><code>POST /api/auth/reset-password</code></td>
+                <td>User ID, current password, new password</td>
+                <td>เปลี่ยนรหัสผ่านเมื่อยืนยันรหัสผ่านปัจจุบัน และเพิกถอน Session เดิม</td>
+              </tr>
+              <tr>
+                <td><code>POST /api/auth/logout</code></td>
+                <td>Session Cookie</td>
+                <td>เพิกถอน Session และล้าง Cookie</td>
+              </tr>
               <tr>
                 <td><code>GET /api/state</code></td>
                 <td>ไม่มี</td>

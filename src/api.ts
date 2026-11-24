@@ -110,12 +110,12 @@ export const api = {
       body: JSON.stringify({ year, ...meta }),
     }),
 
-  register: (userId: string, password: string, name?: string): Promise<AuthResult> =>
-    authClient.register(userId, password, name),
-  login: (userId: string, password: string): Promise<AuthResult> =>
-    authClient.login(userId, password),
-  resetPassword: (userId: string, newPassword: string): Promise<{ ok: boolean; message: string }> =>
-    authClient.resetPassword(userId, newPassword),
+  register: (userId: string, password: string, name?: string, registrationCode?: string): Promise<AuthResult> =>
+    authClient.register(userId, password, name, registrationCode),
+  login: (userId: string, password: string, rememberMe?: boolean): Promise<AuthResult> =>
+    authClient.login(userId, password, rememberMe),
+  resetPassword: (userId: string, currentPassword: string, newPassword: string): Promise<{ ok: boolean; message: string }> =>
+    authClient.resetPassword(userId, currentPassword, newPassword),
 };
 
 export type { UserRecord, AuthResult };

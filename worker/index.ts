@@ -1,13 +1,46 @@
 interface Env {
   DB: D1Database;
   ASSETS: Fetcher;
+  REGISTRATION_CODE?: string;
 }
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
   });
+}
+
+const SESSION_COOKIE = 'qa_session';
+const SESSION_LENGTH_MS = 12 * 60 * 60 * 1000;
+const REMEMBERED_SESSION_LENGTH_MS = 30 * 24 * 60 * 60 * 1000;
+
+function cookieValue(request: Request, name: string): string | null {
+  const cookies = request.headers.get('Cookie') || '';
+  const entry = cookies.split(';').map((part) => part.trim()).find((part) => part.startsWith(name + '='));
+  return entry ? entry.slice(name.length + 1) : null;
+}
+
+async function tokenHash(token: string): Promise<string> {
+  const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+  return Array.from(new Uint8Array(bytes)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function sessionCookie(request: Request, token: string, maxAge?: number): string {
+  const secure = new URL(request.url).protocol === 'https:' ? '; Secure' : '';
+  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax${secure}${maxAge ? `; Max-Age=${maxAge}` : ''}`;
+}
+
+async function findSessionUser(DB: D1Database, request: Request): Promise<any | null> {
+  const token = cookieValue(request, SESSION_COOKIE);
+  if (!token) return null;
+  const hash = await tokenHash(token);
+  const row = await DB.prepare(`
+    SELECT users.id, users.username, users.name, users.role
+    FROM sessions JOIN users ON users.id = sessions.user_id
+    WHERE sessions.token_hash = ? AND sessions.expires_at > ?
+  `).bind(hash, new Date().toISOString()).first<any>();
+  return row || null;
 }
 
 
@@ -287,13 +320,29 @@ async function ensureUsersTable(DB: D1Database) {
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `).run();
-    await DB.prepare(`
-      INSERT OR IGNORE INTO users (id, username, password_hash, salt, name, role) VALUES
-      ('usr_jordan', 'jordan.lee', '2d058547072ff2557887cbe75c1633a2cc7fe0c9afc2a243817ea7a4d55f91fe', 'seed_salt', 'Jordan Lee', 'admin'),
-      ('usr_100234', '100234', '2d058547072ff2557887cbe75c1633a2cc7fe0c9afc2a243817ea7a4d55f91fe', 'seed_salt', 'Jordan Lee', 'admin')
-    `).run();
   } catch {}
   usersTableChecked = true;
+}
+
+let sessionsTableChecked = false;
+async function ensureSessionsTable(DB: D1Database) {
+  if (sessionsTableChecked) return;
+  await DB.prepare(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      token_hash TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+  await DB.prepare("DELETE FROM sessions WHERE user_id IN ('usr_jordan', 'usr_100234')").run();
+  await DB.prepare("DELETE FROM users WHERE id IN ('usr_jordan', 'usr_100234')").run();
+  await DB.prepare(`
+    UPDATE users SET role = 'admin'
+    WHERE id = (SELECT id FROM users ORDER BY created_at, id LIMIT 1)
+      AND NOT EXISTS (SELECT 1 FROM users WHERE role = 'admin')
+  `).run();
+  sessionsTableChecked = true;
 }
 
 let customHolidaysTableChecked = false;
@@ -322,13 +371,12 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
   const DB = env.DB;
 
   if (method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
-    });
+    return new Response(null, { status: 204 });
+  }
+
+  const origin = request.headers.get('Origin');
+  if ((origin && origin !== new URL(request.url).origin) || request.headers.get('Sec-Fetch-Site') === 'cross-site') {
+    return json({ error: 'Cross-origin request denied.' }, 403);
   }
 
   const body = method === 'GET' || method === 'HEAD' ? null : await request.json().catch(() => null);
@@ -336,11 +384,37 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
   try {
     await ensureAssignmentColumns(DB);
     await ensureUsersTable(DB);
+    await ensureSessionsTable(DB);
     await ensureCustomHolidaysTable(DB);
+
+    if (method === 'GET' && path === 'auth/session') {
+      const user = await findSessionUser(DB, request);
+      if (!user) return json({ error: 'Not signed in.' }, 401);
+      return json({ ok: true, user });
+    }
+
+    if (method === 'POST' && path === 'auth/logout') {
+      const token = cookieValue(request, SESSION_COOKIE);
+      if (token) await DB.prepare('DELETE FROM sessions WHERE token_hash = ?').bind(await tokenHash(token)).run();
+      const response = json({ ok: true });
+      response.headers.set('Set-Cookie', `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${new URL(request.url).protocol === 'https:' ? '; Secure' : ''}`);
+      return response;
+    }
+
+    const publicAuthRoute = method === 'POST' && (
+      path === 'auth/register' || path === 'auth/signup' || path === 'auth/login' || path === 'auth/signin' || path === 'auth/reset-password' || path === 'auth/reset'
+    );
+    if (!publicAuthRoute) {
+      const user = await findSessionUser(DB, request);
+      if (!user) return json({ error: 'Authentication required.' }, 401);
+    }
 
     // --- auth: register / signup ---
     if (method === 'POST' && (path === 'auth/register' || path === 'auth/signup')) {
-      const { userId, username, password, name } = body || {};
+      const { userId, username, password, name, registrationCode } = body || {};
+      if (!env.REGISTRATION_CODE || String(registrationCode || '') !== env.REGISTRATION_CODE) {
+        return json({ error: 'A valid staff registration code is required.' }, 403);
+      }
       const rawUser = String(userId || username || '').trim();
       const rawPass = String(password || '');
 
@@ -363,10 +437,12 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
       const passwordHash = await hashPassword(rawPass, salt);
       const newUserId = 'usr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
       const displayName = String(name || rawUser).trim();
-
       await DB.prepare(
-        'INSERT INTO users (id, username, password_hash, salt, name, role) VALUES (?, ?, ?, ?, ?, ?)'
-      ).bind(newUserId, rawUser, passwordHash, salt, displayName, 'user').run();
+        `INSERT INTO users (id, username, password_hash, salt, name, role)
+         SELECT ?, ?, ?, ?, ?, CASE WHEN NOT EXISTS (SELECT 1 FROM users LIMIT 1) THEN 'admin' ELSE 'user' END`
+      ).bind(newUserId, rawUser, passwordHash, salt, displayName).run();
+      const createdUser = await DB.prepare('SELECT role FROM users WHERE id = ?').bind(newUserId).first<{ role: string }>();
+      const role = createdUser?.role || 'user';
 
       return json({
         ok: true,
@@ -374,14 +450,14 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
           id: newUserId,
           username: rawUser,
           name: displayName,
-          role: 'user',
+          role,
         },
       }, 201);
     }
 
     // --- auth: login / signin ---
     if (method === 'POST' && (path === 'auth/login' || path === 'auth/signin')) {
-      const { userId, username, password } = body || {};
+      const { userId, username, password, rememberMe } = body || {};
       const rawUser = String(userId || username || '').trim();
       const rawPass = String(password || '');
 
@@ -402,7 +478,12 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
         return json({ error: 'Incorrect password. Please try again.' }, 401);
       }
 
-      return json({
+      const token = crypto.randomUUID() + crypto.randomUUID();
+      const sessionLength = rememberMe ? REMEMBERED_SESSION_LENGTH_MS : SESSION_LENGTH_MS;
+      const expiresAt = new Date(Date.now() + sessionLength).toISOString();
+      await DB.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)')
+        .bind(await tokenHash(token), user.id, expiresAt).run();
+      const response = json({
         ok: true,
         user: {
           id: user.id,
@@ -411,13 +492,17 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
           role: user.role || 'user',
         },
       });
+      if (rememberMe) response.headers.set('Set-Cookie', sessionCookie(request, token, Math.floor(sessionLength / 1000)));
+      else response.headers.set('Set-Cookie', sessionCookie(request, token));
+      return response;
     }
 
     // --- auth: reset password ---
     if (method === 'POST' && (path === 'auth/reset-password' || path === 'auth/reset')) {
-      const { userId, username, newPassword, password } = body || {};
+      const { userId, username, currentPassword, newPassword, password } = body || {};
       const rawUser = String(userId || username || '').trim();
       const rawPass = String(newPassword || password || '');
+      const oldPass = String(currentPassword || '');
 
       if (!rawUser) {
         return json({ error: 'User ID is required.' }, 400);
@@ -425,10 +510,14 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
       if (!rawPass || rawPass.length < 4) {
         return json({ error: 'New password must be at least 4 characters long.' }, 400);
       }
+      if (!oldPass) return json({ error: 'Current password is required.' }, 400);
 
       const user = await DB.prepare('SELECT * FROM users WHERE LOWER(username) = LOWER(?)').bind(rawUser).first<any>();
       if (!user) {
         return json({ error: 'User ID is not registered.' }, 404);
+      }
+      if (await hashPassword(oldPass, user.salt || '') !== user.password_hash) {
+        return json({ error: 'Current password is incorrect.' }, 401);
       }
 
       const salt = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
@@ -437,6 +526,7 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
       await DB.prepare(
         'UPDATE users SET password_hash = ?, salt = ? WHERE id = ?'
       ).bind(passwordHash, salt, user.id).run();
+      await DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(user.id).run();
 
       return json({
         ok: true,

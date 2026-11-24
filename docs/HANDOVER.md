@@ -22,7 +22,7 @@ It replaces legacy spreadsheets with a real-time, multi-user scheduling workspac
 flowchart LR
     A["Client Browser (React 19 SPA)"] -->|"REST JSON (/api/*)"| B["Cloudflare Worker (Edge API)"]
     B -->|"D1 Prepared SQL"| C[("Cloudflare D1 Database")]
-    A <-->|"Optimistic Offline Cache"| E[("LocalStorage Snapshot")]
+    A <-->|"Browser Snapshot Cache"| E[("LocalStorage Snapshot")]
 ```
 
 ---
@@ -61,7 +61,7 @@ Calendar-QA/
 │   │   ├── EngineerModal.tsx                 # Create/Edit auditor & engineer profiles
 │   │   ├── Header.tsx                        # Global header, nav switcher, and live presence
 │   │   ├── HistoryView.tsx                   # Chronological audit trail of all changes
-│   │   ├── Login.tsx                         # User authentication (Sign In, Sign Up, Reset Password)
+│   │   ├── Login.tsx                         # Sign in, staff-code registration, password change
 │   │   ├── MultiAuditorSelect.tsx            # Multi-host tag combobox selector
 │   │   ├── MultiSiteSelect.tsx               # Plant site selector supporting slash unions
 │   │   ├── MultiStandardSelect.tsx           # Audit standard multi-tag selector
@@ -71,8 +71,8 @@ Calendar-QA/
 │   │   └── TableView.tsx                     # High-density searchable table with column filters
 │   ├── utils/                          # Specialized Helper Libraries
 │   │   ├── auditOptionsHelper.ts             # Dynamic option derivation from active appointments
-│   │   └── authClient.ts                     # Web Crypto SHA-256 client auth with D1 fallback
-│   ├── api.ts                          # Frontend API Client with CORS fetch & offline fallback
+│   │   └── authClient.ts                     # Server session client; local fallback is development-only
+│   ├── api.ts                          # Same-origin API client using HttpOnly session cookies
 │   ├── App.tsx                         # Root Application View Router
 │   ├── data.ts                         # Initial state, default plants, and palette constants
 │   ├── holidays.ts                     # UTAC official holidays and month-end lockouts
@@ -82,7 +82,7 @@ Calendar-QA/
 │   ├── ui.tsx                          # Atomic CSS helper & base button primitives
 │   └── useScheduler.ts                 # Master Hook (Reactive state, validation, CRUD, sync)
 ├── worker/                             # Cloudflare Worker Backend
-│   └── index.ts                        # REST API routing, D1 query executor, auth & CORS
+│   └── index.ts                        # REST API routing, session validation, D1 query executor
 ├── package.json                        # Dependencies & NPM build scripts
 ├── tsconfig.json                       # TypeScript compiler configurations
 ├── vite.config.ts                      # Vite build configuration with React plugin
@@ -95,11 +95,12 @@ Calendar-QA/
 ### 2.1 End-to-End System & Data Workflows
 
 #### 🔄 Workflow A: Data Loading & State Hydration
-1. **Instant Offline Hydration (`src/data.ts` &rarr; `initialState()`)**: Reads `localStorage.getItem('calendar_qa_snapshot')` upon boot to initialize in-memory state. The calendar and controls render immediately (0ms Cold Start) without network delay.
-2. **Edge API Handshake (`src/useScheduler.ts` &rarr; `api.fetchState()`)**: Dispatches asynchronous `GET /api/state` to Cloudflare Worker.
-3. **Concurrent D1 Queries (`worker/index.ts`)**: Worker executes parallel queries via `Promise.all` across 8 tables: `engineers`, `plants`, `active_plants`, `orders`, `assignments`, `comments`, `activity`, `options`.
-4. **State Reconciliation & Snapshot Update (`src/useScheduler.ts`)**: Normalizes incoming records via `normalizeAssignment()`, reconciles local state, and writes the latest snapshot to `localStorage`.
-5. **Unified Metrics Rollup (`src/utils/auditMetricsHelper.ts` &rarr; `calculateAuditStats()`)**: Groups consecutive-day appointment slots into unified campaigns, producing identical metrics (`customerAudits`, `internalAudits`, `totalAudits`) across all views.
+1. **Browser Snapshot Load (`src/data.ts` &rarr; `initialState()`)**: Reads the cached snapshot into memory. In production, the app waits for server session validation before showing shared schedule data.
+2. **Session Check (`src/useScheduler.ts` &rarr; `/api/auth/session`)**: Restores a server-verified HttpOnly-cookie session before opening the shared scheduler.
+3. **Edge API Handshake (`src/useScheduler.ts` &rarr; `api.fetchState()`)**: After session validation, dispatches `GET /api/state` to Cloudflare Worker; D1 replaces stale browser snapshots.
+4. **Concurrent D1 Queries (`worker/index.ts`)**: Worker executes parallel queries for engineers, plants, active plants, orders, assignments, comments, activity, options, and holidays.
+5. **State Hydration & Snapshot Update (`src/useScheduler.ts`)**: Normalizes authenticated server records via `normalizeAssignment()` and stores a browser snapshot for faster development startup.
+6. **Unified Metrics Rollup (`src/utils/auditMetricsHelper.ts` &rarr; `calculateAuditStats()`)**: Groups consecutive-day appointment slots into unified campaigns, producing identical metrics (`customerAudits`, `internalAudits`, `totalAudits`) across all views.
 
 #### ⚡ Workflow B: Create / Update / Delete Mutation Flow
 1. **User Form Submission (`AppointmentFormFields.tsx`)**: Validates mandatory fields (8 for Customer Audits, 6 for Internal Audits).
@@ -108,7 +109,7 @@ Calendar-QA/
    - Create: `POST /api/assignments`, `POST /api/orders`
    - Edit: `PUT /api/assignments/:id`
    - Delete: `DELETE /api/assignments/:id` (with cascading comments deletion)
-4. **D1 Transaction Persistence (`worker/index.ts`)**: Worker executes parameterized SQL (`INSERT`, `UPDATE`, `DELETE`) on Cloudflare D1.
+4. **D1 Persistence (`worker/index.ts`)**: Worker executes parameterized SQL (`INSERT`, `UPDATE`, `DELETE`) on Cloudflare D1. Failed writes show a warning; after reload, the authenticated D1 state is authoritative.
 5. **Dynamic Dropdown Options Refresh (`src/utils/auditOptionsHelper.ts` &rarr; `getActiveDropdownOptions()`)**: Autocomplete options for `STANDARD`, `CUSTOMER`, `PURPOSE`, `QMS HOST`, etc., are re-derived reactively from active schedule records. Deleted values disappear immediately across Modal, Table, and Manage views, while `SITE` preserves the fixed `MASTER_PLANT_SITES` list (`UTL1`..`UTL3T`).
 
 #### 📊 Workflow C: Client-Side Excel (.xlsx) Export Flow
@@ -196,14 +197,17 @@ npm install
 
 ## 5. Security & Authentication Architecture
 
-Authentication is managed via [`src/utils/authClient.ts`](file:///c:/Users/Yosita/Desktop/project/Calendar-QA/src/utils/authClient.ts) and [`worker/index.ts`](file:///c:/Users/Yosita/Desktop/project/Calendar-QA/worker/index.ts):
-- **User Identification**: Uses **User ID** (alphanumeric staff identifier, e.g. `100234` or `jordan.lee`).
-- **Password Security**: Uses standard Web Crypto API **SHA-256** hashing with per-user cryptographic salts.
-- **Dual-Layer Fallback**: The client first attempts authentication against `/api/auth/*` on Cloudflare D1. If running in offline Vite dev mode without a worker, it seamlessly falls back to pre-seeded local accounts in `localStorage`.
-- **Pre-Seeded Administrator Account**:
-  - **User ID**: `jordan.lee` (or `100234`)
-  - **Default Password**: `directorqa`
-  - **Role**: `admin`
+Authentication is managed via `src/utils/authClient.ts` and `worker/index.ts`:
+- **User Identification**: User ID (letters, numbers, dots, underscores, and dashes).
+- **Password Verification**: The Worker verifies the password against a salted SHA-256 hash stored in D1.
+- **Server Sessions**: Migration `0018_sessions.sql` adds the session store. Successful sign-in creates a random token stored only as a hash in D1 and sent to the browser in an HttpOnly, SameSite=Lax cookie. All scheduler API routes require a valid session.
+- **Session Duration**: Regular sessions expire server-side after 12 hours. “Remember me” sessions last up to 30 days. Signing out revokes the server session.
+- **Registration Gate**: Sign-up requires the Worker secret `REGISTRATION_CODE`. Migration 0019 removes known demo accounts and promotes the earliest remaining account if none is admin. On an empty database, the first registered account receives `admin`; later accounts receive `user`.
+- **Password Changes**: The current password is required; a successful change revokes all sessions for that account.
+- **Development Fallback**: `npm run dev` without a Worker uses a browser-local account store; create a local account through Sign Up. This fallback is disabled in production builds and is not server access control.
+- **Legacy Demo Users**: Migration `0019_remove_demo_users.sql` removes the previously documented shared-password accounts. Apply migrations before deployment.
+
+To configure production registration, run `npx wrangler secret put REGISTRATION_CODE`. For `npm run dev:worker`, put a local value in the untracked `.dev.vars` file. Never commit registration secrets.
 
 ---
 

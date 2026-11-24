@@ -27,6 +27,12 @@ export default function App() {
 
       {!vm.loading && vm.showApp && (
         <div style={css('flex:1;display:flex;flex-direction:column;min-height:0')}>
+          {vm.saveError && (
+            <div role="alert" style={css('display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 16px;background:#fff1f0;border-bottom:1px solid #f2b8b5;color:#8f211b;font-size:12px')}>
+              <span>{vm.saveError}</span>
+              <button onClick={vm.dismissSaveError} style={css('border:0;background:transparent;color:inherit;font-weight:700;cursor:pointer')}>Dismiss</button>
+            </div>
+          )}
           <Header vm={vm} />
           {vm.isSchedule && <Schedule vm={vm} />}
           {vm.isTable && <TableView vm={vm} />}

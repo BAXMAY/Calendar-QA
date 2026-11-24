@@ -9,6 +9,8 @@ export function Login({ vm }: { vm: VM }) {
   const [authMode, setAuthMode] = useState<AuthMode>('signin');
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [registrationCode, setRegistrationCode] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -44,6 +46,7 @@ export function Login({ vm }: { vm: VM }) {
     setError(null);
     setSuccess(null);
     setPassword('');
+    setCurrentPassword('');
     setConfirmPassword('');
   };
 
@@ -64,9 +67,10 @@ export function Login({ vm }: { vm: VM }) {
     setSuccess(null);
 
     try {
-      const res = await authClient.login(cleanId, password);
+      const res = await authClient.login(cleanId, password, rememberMe);
       if (res.ok && res.user) {
         vm.onAuthSuccess(res.user, rememberMe);
+        window.location.reload();
       }
     } catch (err: any) {
       setError(err.message || 'Authentication failed. Please check your credentials.');
@@ -106,7 +110,7 @@ export function Login({ vm }: { vm: VM }) {
     setSuccess(null);
 
     try {
-      const res = await authClient.register(cleanId, password);
+      const res = await authClient.register(cleanId, password, undefined, registrationCode);
       if (res.ok) {
         setAuthMode('signin');
         setPassword('');
@@ -133,6 +137,10 @@ export function Login({ vm }: { vm: VM }) {
       setError('New password is required.');
       return;
     }
+    if (!currentPassword) {
+      setError('Current password is required.');
+      return;
+    }
     if (password.length < 4) {
       setError('New password must be at least 4 characters long.');
       return;
@@ -151,7 +159,7 @@ export function Login({ vm }: { vm: VM }) {
     setSuccess(null);
 
     try {
-      const res = await authClient.resetPassword(cleanId, password);
+      const res = await authClient.resetPassword(cleanId, currentPassword, password);
       if (res.ok) {
         setAuthMode('signin');
         setPassword('');
@@ -246,6 +254,24 @@ export function Login({ vm }: { vm: VM }) {
                 focus={{ borderColor: '#9bb0e8' }}
               />
 
+              <label htmlFor="signup-registration-code" style={css('font-size:11px;font-weight:600;color:#5c625c;display:block;margin-bottom:6px')}>
+                Staff registration code
+              </label>
+              <HInput
+                id="signup-registration-code"
+                type="password"
+                autoComplete="off"
+                placeholder="Enter the code provided by your administrator"
+                value={registrationCode}
+                onChange={(e) => {
+                  setRegistrationCode(e.target.value);
+                  if (error) setError(null);
+                }}
+                disabled={loading}
+                style={css("width:100%;border:1px solid #dde0d9;border-radius:9px;padding:11px 13px;font-size:13.5px;font-family:'Archivo',sans-serif;color:#23282a;outline:none;margin-bottom:14px;background:#fff")}
+                focus={{ borderColor: '#9bb0e8' }}
+              />
+
               <label htmlFor="signup-pass" style={css('font-size:11px;font-weight:600;color:#5c625c;display:block;margin-bottom:6px')}>
                 Password
               </label>
@@ -308,10 +334,10 @@ export function Login({ vm }: { vm: VM }) {
             /* --- Reset Password View --- */
             <form onSubmit={handleResetPassword} noValidate autoComplete="off">
               <div style={css('font-size:21px;font-weight:700;letter-spacing:-.3px;margin-bottom:5px')}>
-                Reset password
+                Change password
               </div>
               <div style={css('font-size:13px;color:#7a807a;margin-bottom:22px')}>
-                Enter your User ID to reset your password
+                Verify your current password, then choose a new one
               </div>
 
               {error && (
@@ -335,6 +361,24 @@ export function Login({ vm }: { vm: VM }) {
                 onChange={(e) => {
                   setUserId(e.target.value);
                   vm.setLoginEmail(e.target.value);
+                  if (error) setError(null);
+                }}
+                disabled={loading}
+                style={css("width:100%;border:1px solid #dde0d9;border-radius:9px;padding:11px 13px;font-size:13.5px;font-family:'Archivo',sans-serif;color:#23282a;outline:none;margin-bottom:14px;background:#fff")}
+                focus={{ borderColor: '#9bb0e8' }}
+              />
+
+              <label htmlFor="reset-current-pass" style={css('font-size:11px;font-weight:600;color:#5c625c;display:block;margin-bottom:6px')}>
+                Current password
+              </label>
+              <HInput
+                id="reset-current-pass"
+                type="password"
+                autoComplete="current-password"
+                placeholder="Enter current password"
+                value={currentPassword}
+                onChange={(e) => {
+                  setCurrentPassword(e.target.value);
                   if (error) setError(null);
                 }}
                 disabled={loading}
@@ -384,7 +428,7 @@ export function Login({ vm }: { vm: VM }) {
                 style={css(`width:100%;background:#15191e;color:#fff;border:none;border-radius:9px;padding:12px;font-size:14px;font-weight:600;cursor:${loading ? 'not-allowed' : 'pointer'};font-family:'Archivo',sans-serif;margin-bottom:16px;opacity:${loading ? 0.75 : 1}`)}
                 hover={{ background: '#23282e' }}
               >
-                {loading ? 'Resetting password...' : 'Reset password'}
+                {loading ? 'Changing password...' : 'Change password'}
               </HButton>
 
               <div style={css('font-size:13px;color:#6b726c;text-align:center;margin-bottom:26px')}>
@@ -459,7 +503,7 @@ export function Login({ vm }: { vm: VM }) {
                   onMouseEnter={(e) => (e.currentTarget.style.color = '#27272a')}
                   onMouseLeave={(e) => (e.currentTarget.style.color = '#71717a')}
                 >
-                  Forgot password?
+                  Change password
                 </button>
               </div>
               <HInput
