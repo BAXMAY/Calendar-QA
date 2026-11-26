@@ -9,9 +9,9 @@ import { getActiveDropdownOptions, MASTER_PLANT_SITES } from '../utils/auditOpti
 import { css } from '../ui';
 import { AvailabilityDatePicker } from './AvailabilityDatePicker';
 
-const fld = css("display:flex;flex-direction:column;width:100%;min-width:0;box-sizing:border-box");
+const fld = css("display:flex;flex-direction:column;width:100%;min-width:0;box-sizing:border-box;cursor:pointer");
 const lbl = css("font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;color:#8a9088;letter-spacing:.5px;margin-bottom:6px;display:block;line-height:1;text-transform:uppercase");
-const inp = css("border:1px solid #dde0d9;border-radius:8px;padding:8px 14px;min-height:42px;height:42px;font-size:12.5px;font-family:'Archivo',sans-serif;color:#23282a;outline:none;background:#fff;width:100%;min-width:0;box-sizing:border-box");
+const inp = css("border:1px solid #dde0d9;border-radius:8px;padding:8px 14px;min-height:42px;height:42px;font-size:12.5px;font-family:'Archivo',sans-serif;color:#23282a;outline:none;background:#fff;width:100%;min-width:0;box-sizing:border-box;cursor:pointer");
 
 
 interface DateInputFieldProps {
@@ -184,7 +184,7 @@ function DateInputField({ id, value, onChange, style, disabled, tabIndex, hasErr
         width: '100%',
         minWidth: 0,
         boxSizing: 'border-box',
-        cursor: disabled ? 'not-allowed' : 'text',
+        cursor: disabled ? 'not-allowed' : 'pointer',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -219,7 +219,7 @@ function DateInputField({ id, value, onChange, style, disabled, tabIndex, hasErr
           }}
           onKeyDown={(e) => handleKeyDown(e, 'day')}
           style={css(
-            `width:24px;border:none;outline:none;background:transparent;text-align:center;font-size:12.5px;font-family:'Archivo',sans-serif;font-weight:600;color:${disabled ? '#6b7280' : '#23282a'};padding:0;height:24px;line-height:24px;cursor:${disabled ? 'not-allowed' : 'text'}`
+            `width:24px;border:none;outline:none;background:transparent;text-align:center;font-size:12.5px;font-family:'Archivo',sans-serif;font-weight:600;color:${disabled ? '#6b7280' : '#23282a'};padding:0;height:24px;line-height:24px;cursor:${disabled ? 'not-allowed' : 'pointer'}`
           )}
         />
         <span style={css('color:#8a9088;font-weight:600;user-select:none')}>/</span>
@@ -241,7 +241,7 @@ function DateInputField({ id, value, onChange, style, disabled, tabIndex, hasErr
           }}
           onKeyDown={(e) => handleKeyDown(e, 'month')}
           style={css(
-            `width:26px;border:none;outline:none;background:transparent;text-align:center;font-size:12.5px;font-family:'Archivo',sans-serif;font-weight:600;color:${disabled ? '#6b7280' : '#23282a'};padding:0;height:24px;line-height:24px;cursor:${disabled ? 'not-allowed' : 'text'}`
+            `width:26px;border:none;outline:none;background:transparent;text-align:center;font-size:12.5px;font-family:'Archivo',sans-serif;font-weight:600;color:${disabled ? '#6b7280' : '#23282a'};padding:0;height:24px;line-height:24px;cursor:${disabled ? 'not-allowed' : 'pointer'}`
           )}
         />
         <span style={css('color:#8a9088;font-weight:600;user-select:none')}>/</span>
@@ -263,7 +263,7 @@ function DateInputField({ id, value, onChange, style, disabled, tabIndex, hasErr
           }}
           onKeyDown={(e) => handleKeyDown(e, 'year')}
           style={css(
-            `width:40px;border:none;outline:none;background:transparent;text-align:center;font-size:12.5px;font-family:'Archivo',sans-serif;font-weight:600;color:${disabled ? '#6b7280' : '#23282a'};padding:0;height:24px;line-height:24px;cursor:${disabled ? 'not-allowed' : 'text'}`
+            `width:40px;border:none;outline:none;background:transparent;text-align:center;font-size:12.5px;font-family:'Archivo',sans-serif;font-weight:600;color:${disabled ? '#6b7280' : '#23282a'};padding:0;height:24px;line-height:24px;cursor:${disabled ? 'not-allowed' : 'pointer'}`
           )}
         />
       </div>
@@ -597,7 +597,7 @@ function AutocompleteInput({
           height: '42px',
           boxSizing: 'border-box',
           padding: '8px 14px',
-          cursor: 'text',
+          cursor: 'pointer',
           gap: '6px',
         }}
       >
@@ -944,7 +944,7 @@ function MultiSelectCombobox({
           width: '100%',
           minWidth: 0,
           boxSizing: 'border-box',
-          cursor: 'text',
+          cursor: 'pointer',
           display: 'flex',
           flexWrap: 'wrap',
           alignItems: 'center',
@@ -1375,7 +1375,7 @@ function MultiStandardSelect({
           width: '100%',
           minWidth: 0,
           boxSizing: 'border-box',
-          cursor: 'text',
+          cursor: 'pointer',
           display: 'flex',
           flexWrap: 'wrap',
           alignItems: 'center',
@@ -1788,7 +1788,7 @@ function MultiAuditorSelect({
           width: '100%',
           minWidth: 0,
           boxSizing: 'border-box',
-          cursor: 'text',
+          cursor: 'pointer',
           display: 'flex',
           flexWrap: 'wrap',
           alignItems: 'center',
@@ -2164,7 +2164,7 @@ function MultiAreaSelect({
           width: '100%',
           minWidth: 0,
           boxSizing: 'border-box',
-          cursor: 'text',
+          cursor: 'pointer',
           display: 'flex',
           flexWrap: 'wrap',
           alignItems: 'center',
