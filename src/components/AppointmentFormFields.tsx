@@ -2058,6 +2058,9 @@ function MultiAreaSelect({
   onRemoveOption,
   tabIndex,
   hasError,
+  placeholder = 'Type or select area(s)...',
+  addPlaceholder = 'Add area...',
+  emptyText = 'No areas found',
 }: {
   id: string;
   value: string;
@@ -2067,6 +2070,9 @@ function MultiAreaSelect({
   onRemoveOption?: (val: string) => void;
   tabIndex?: number;
   hasError?: boolean;
+  placeholder?: string;
+  addPlaceholder?: string;
+  emptyText?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -2242,7 +2248,7 @@ function MultiAreaSelect({
               removeArea(selectedAreas[selectedAreas.length - 1]);
             }
           }}
-          placeholder={selectedAreas.length === 0 ? "Type or select area(s)..." : "Add area..."}
+          placeholder={selectedAreas.length === 0 ? placeholder : addPlaceholder}
           style={{
             border: 'none',
             outline: 'none',
@@ -2320,7 +2326,7 @@ function MultiAreaSelect({
 
           {filteredSuggestions.length === 0 && !inputVal.trim() && (
             <div style={{ padding: '8px 10px', fontSize: '12px', color: '#8a9088', fontFamily: "'Archivo',sans-serif" }}>
-              No areas found
+              {emptyText}
             </div>
           )}
 
@@ -2586,9 +2592,11 @@ export function AppointmentFormFields({
   }, [assignments, removedSet, localAdded]);
 
   const purposeSuggestions = useMemo(() => {
-    const base = getActiveDropdownOptions(assignments, 'purpose').filter((p) => !removedSet.has(p));
-    return Array.from(new Set([...base, ...(localAdded['purpose'] || [])])).sort((a, b) => a.localeCompare(b));
-  }, [assignments, removedSet, localAdded]);
+    const base = getActiveDropdownOptions(assignments, 'purpose');
+    return Array.from(new Set([...base, ...(_purposeOptions || []), ...(localAdded['purpose'] || [])]))
+      .filter((p) => !removedSet.has(p))
+      .sort((a, b) => a.localeCompare(b));
+  }, [assignments, _purposeOptions, removedSet, localAdded]);
 
   const auditorSuggestions = useMemo(() => {
     const base = getActiveDropdownOptions(assignments, 'qmsHost').filter((a) => !removedSet.has(a));
@@ -2858,12 +2866,14 @@ export function AppointmentFormFields({
             {/* ROW 3: PURPOSE | TARGET PACKAGE */}
             <div style={fld}>
               <label htmlFor={id('purpose')} style={lbl}>PURPOSE <span style={{ color: '#dc2626' }}>*</span></label>
-              <AutocompleteInput
+              <MultiAreaSelect
                 id={id('purpose')}
                 tabIndex={5}
                 value={v.purpose}
                 onChange={(purpose) => onChange({ purpose: purpose.replace(/^\$+/, '') })}
                 placeholder="Type or select purpose..."
+                addPlaceholder="Add purpose..."
+                emptyText="No purposes found"
                 suggestions={purposeSuggestions}
                 onAddNew={(newPurp) => {
                   const clean = newPurp.replace(/^\$+/, '').trim();

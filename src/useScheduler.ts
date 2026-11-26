@@ -74,6 +74,9 @@ import { getActiveDropdownOptions } from './utils/auditOptionsHelper';
 /** Identity tag that supplies a contextual CSSProperties type to a style literal. */
 const sx = (o: CSSProperties): CSSProperties => o;
 
+const splitPurposeValues = (value?: string): string[] =>
+  Array.from(new Set(String(value || '').split(/[,/]/).map((part) => part.trim()).filter(Boolean)));
+
 const parseDateToISO = (str?: string) => {
   if (!str) return '';
   const clean = str.trim();
@@ -682,7 +685,7 @@ export function useScheduler() {
 
     if (S.filterAuditType.length > 0) {
       const purposeStr = a.purpose || o.purpose || '';
-      const purposes = purposeStr.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+      const purposes = splitPurposeValues(purposeStr).map((s) => s.toLowerCase());
       const matchesType = S.filterAuditType.some((filterVal) => {
         const f = filterVal.toLowerCase();
         return purposes.includes(f) || purposeStr.toLowerCase() === f;
@@ -1702,7 +1705,7 @@ export function useScheduler() {
     if (newCustomer) api.saveOption('customer_name', newCustomer).catch(reportSaveFailure);
     if (newEndCustomer) api.saveOption('end_customer', newEndCustomer).catch(reportSaveFailure);
     if (newAuditCategory) api.saveOption('audit_category', newAuditCategory).catch(reportSaveFailure);
-    if (newPurpose) api.saveOption('purpose', newPurpose).catch(reportSaveFailure);
+    splitPurposeValues(newPurpose).forEach((purpose) => api.saveOption('purpose', purpose).catch(reportSaveFailure));
     newTargetPackages.forEach((pkg) => api.saveOption('target_package', pkg).catch(reportSaveFailure));
     newCustomerNames.forEach((cn) => api.saveOption('customer_names', cn).catch(reportSaveFailure));
     if (newDept1) {
@@ -1741,7 +1744,7 @@ export function useScheduler() {
         unblacklist(cleanCust);
       }
       if (newEndCustomer) unblacklist(newEndCustomer);
-      if (newPurpose) unblacklist(newPurpose);
+      splitPurposeValues(newPurpose).forEach(unblacklist);
       if (newAuditCategory) unblacklist(newAuditCategory);
       newTargetPackages.forEach(unblacklist);
       newCustomerNames.forEach(unblacklist);
@@ -1806,7 +1809,7 @@ export function useScheduler() {
         customerOptions: nextCustOpts,
         removedOptions: nextRemovedOpts,
         endCustomerOptions: newEndCustomer && !(s.endCustomerOptions || []).includes(newEndCustomer) ? [...(s.endCustomerOptions || []), newEndCustomer] : (s.endCustomerOptions || []),
-        purposeOptions: newPurpose && !s.purposeOptions.includes(newPurpose) ? [...s.purposeOptions, newPurpose] : s.purposeOptions,
+        purposeOptions: Array.from(new Set([...(s.purposeOptions || []), ...splitPurposeValues(newPurpose)])),
         siteCodeOptions: nextSiteOpts,
         targetPackageOptions: nextTargetPackageOpts,
         customerNameOptions: nextCustomerNameOpts,
@@ -2409,7 +2412,7 @@ export function useScheduler() {
 
       if (newCustomer) api.saveOption('customer_name', newCustomer).catch(reportSaveFailure);
       if (newEndCustomer) api.saveOption('end_customer', newEndCustomer).catch(reportSaveFailure);
-      if (newPurpose) api.saveOption('purpose', newPurpose).catch(reportSaveFailure);
+      splitPurposeValues(newPurpose).forEach((purpose) => api.saveOption('purpose', purpose).catch(reportSaveFailure));
       if (newDept1) {
         newDept1.split(',').map((s) => s.trim()).filter(Boolean).forEach((s) => {
           api.saveOption('customer_department', s).catch(reportSaveFailure);
@@ -2496,7 +2499,7 @@ export function useScheduler() {
     
     if (newCustomer) api.saveOption('customer_name', newCustomer).catch(reportSaveFailure);
     if (newEndCustomer) api.saveOption('end_customer', newEndCustomer).catch(reportSaveFailure);
-    if (newPurpose) api.saveOption('purpose', newPurpose).catch(reportSaveFailure);
+    splitPurposeValues(newPurpose).forEach((purpose) => api.saveOption('purpose', purpose).catch(reportSaveFailure));
     if (newDept1) {
       newDept1.split(',').map((s) => s.trim()).filter(Boolean).forEach((s) => {
         api.saveOption('customer_department', s).catch(reportSaveFailure);
@@ -2551,7 +2554,12 @@ export function useScheduler() {
         unblacklist(newCustomer);
       }
       if (newEndCustomer) unblacklist(newEndCustomer);
-      if (newPurpose) unblacklist(newPurpose);
+      for (const purpose of splitPurposeValues(newPurpose)) {
+        if (!nextPurposeOptions.some((item) => item.toLowerCase() === purpose.toLowerCase())) {
+          nextPurposeOptions = [...nextPurposeOptions, purpose];
+        }
+        unblacklist(purpose);
+      }
       if (newDept1) {
         const parts = newDept1.split(',').map((s) => s.trim()).filter(Boolean);
         for (const p of parts) {
@@ -2643,17 +2651,20 @@ export function useScheduler() {
       }
 
       // Prune old purpose if no longer used and not a master item
-      if (oldPurpose && oldPurpose.toLowerCase() !== newPurpose.toLowerCase()) {
-        const isOldPurposeStillUsed = nextAssignments.some(
-          (a) => (a.purpose || '').trim().toLowerCase() === oldPurpose.toLowerCase()
+      const newPurposeSet = new Set(splitPurposeValues(newPurpose).map((purpose) => purpose.toLowerCase()));
+      for (const oldItem of splitPurposeValues(oldPurpose)) {
+        const oldItemLower = oldItem.toLowerCase();
+        if (newPurposeSet.has(oldItemLower)) continue;
+        const isOldPurposeStillUsed = nextAssignments.some((a) =>
+          splitPurposeValues(a.purpose).some((purpose) => purpose.toLowerCase() === oldItemLower)
         );
         if (!isOldPurposeStillUsed) {
-          const isMaster = (s.masterCreatedOptions && s.masterCreatedOptions['purposeOptions:' + oldPurpose.toLowerCase()]) ||
-            initialPurposeOptions.some((init) => init.toLowerCase() === oldPurpose.toLowerCase());
+          const isMaster = (s.masterCreatedOptions && s.masterCreatedOptions['purposeOptions:' + oldItemLower]) ||
+            initialPurposeOptions.some((init) => init.toLowerCase() === oldItemLower);
           if (!isMaster) {
-            nextPurposeOptions = nextPurposeOptions.filter((p) => p.trim().toLowerCase() !== oldPurpose.toLowerCase());
-            nextFilterAuditType = nextFilterAuditType.filter((f) => f.trim().toLowerCase() !== oldPurpose.toLowerCase());
-            api.deleteOption('purpose', oldPurpose).catch(reportSaveFailure);
+            nextPurposeOptions = nextPurposeOptions.filter((p) => p.trim().toLowerCase() !== oldItemLower);
+            nextFilterAuditType = nextFilterAuditType.filter((f) => f.trim().toLowerCase() !== oldItemLower);
+            api.deleteOption('purpose', oldItem).catch(reportSaveFailure);
           }
         }
       }
@@ -3704,7 +3715,7 @@ export function useScheduler() {
         const depts = ((a.department1 || '') + ',' + (a.department2 || '')).split(',').map((s) => s.trim()).filter(Boolean);
         return depts.some((d) => S.filterAuditTopic.includes(d));
       })) return false;
-      if (S.filterAuditType.length > 0 && !S.filterAuditType.includes(o.purpose)) return false;
+      if (S.filterAuditType.length > 0 && !splitPurposeValues(o.purpose).some((purpose) => S.filterAuditType.includes(purpose))) return false;
       return true;
     })
     .map((o) => {
