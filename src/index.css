@@ -37,6 +37,14 @@ input::placeholder{color:#8a9088;opacity:1}
     user-select: text !important;
   }
 
+  /* Appointment form fields use a pointing hand across the complete control,
+     including text inputs that otherwise inherit the global text cursor. */
+  .appointment-modal-fields input,
+  .appointment-modal-fields select,
+  .appointment-modal-fields textarea {
+    cursor: pointer !important;
+  }
+
   /* Keep interactive pointers for buttons, links, and clickable items */
   button,
   a,

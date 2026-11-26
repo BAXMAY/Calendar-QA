@@ -2777,7 +2777,7 @@ export function AppointmentFormFields({
 
       {v.sectionType === 'customer' && (
         <div style={css('padding:14px;border:1px solid #e8ebe4;border-radius:10px;background:#fafbf9')}>
-          <div style={css('display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px;row-gap:14px;width:100%;box-sizing:border-box')}>
+          <div className="appointment-modal-fields" style={css('display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px;row-gap:14px;width:100%;box-sizing:border-box')}>
             {/* ROW 1: STANDARD | SITE */}
             <div style={fld}>
               <label htmlFor={id('department1')} style={lbl}>STANDARD <span style={{ color: '#dc2626' }}>*</span></label>
@@ -2973,7 +2973,7 @@ export function AppointmentFormFields({
 
       {v.sectionType === 'internal' && (
         <div style={css('padding:14px;border:1px solid #e8ebe4;border-radius:10px;background:#fafbf9')}>
-          <div style={css('display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px;row-gap:14px;width:100%;box-sizing:border-box')}>
+          <div className="appointment-modal-fields" style={css('display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px;row-gap:14px;width:100%;box-sizing:border-box')}>
             {/* 1. STANDARD */}
             <div style={fld}>
               <label htmlFor={id('department2')} style={lbl}>STANDARD <span style={{ color: '#dc2626' }}>*</span></label>
