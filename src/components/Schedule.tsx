@@ -368,7 +368,7 @@ function ApptCard({ chip }: { chip: any }) {
               </span>
             )}
             {cardColors.priority === 'recently_created' && (
-              <span style={css(`font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:4px;color:#065f46;background:${STATUS_COLOR_MAP.new.bg};border:1px solid ${STATUS_COLOR_MAP.new.border};`)}>
+              <span style={css(`font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:4px;color:${STATUS_COLOR_MAP.new.color};background:${STATUS_COLOR_MAP.new.bg};border:1px solid ${STATUS_COLOR_MAP.new.border};`)}>
                 New
               </span>
             )}

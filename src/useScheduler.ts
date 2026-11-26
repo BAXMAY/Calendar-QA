@@ -177,9 +177,6 @@ export function getApptCardColors(
 
   const defaultTitleColor = chip.isInternal ? '#10b981' : '#2756d6';
   const defaultPurposeColor = '#5c625c';
-  const defaultBg = isChipView ? '#f0f2ec' : '#ffffff';
-  const defaultBorder = isChipView ? '1px solid #e2e5de' : '1px solid #e4e7e0';
-
   // Priority 1: INCOMPLETE FORM (Solid Red - bg-red-600 text-white)
   if (status === 'INCOMPLETE_DATA') {
     return {
@@ -193,13 +190,13 @@ export function getApptCardColors(
     };
   }
 
-  // Priority 2: RECENTLY CREATED (Light Green - 7 Days)
+  // Priority 2: RECENTLY CREATED (Light Purple - 7 Days)
   if (status === 'NEW_DATA') {
     return {
       priority: 'recently_created',
-      barBg: isChipView ? '#dcfce7' : '#ecfdf5', // soft light green (bg-emerald-50 / bg-green-100)
-      cardBorder: '1px solid #bbf7d0',
-      accentBg: STATUS_COLOR_MAP.new.color, // '#059669'
+      barBg: isChipView ? '#ede9fe' : STATUS_COLOR_MAP.new.bg,
+      cardBorder: '1px solid ' + STATUS_COLOR_MAP.new.border,
+      accentBg: STATUS_COLOR_MAP.new.color, // '#7c3aed'
       titleColor: defaultTitleColor, // PRESERVE typography colors
       purposeColor: defaultPurposeColor, // PRESERVE subtitle colors
       overrideCodeColor: undefined,
@@ -232,12 +229,12 @@ export function getApptCardColors(
     };
   }
 
-  // Priority 5: Default State: Standard neutral card style (Completed audits or normal scheduled audits)
+  // Priority 5: Complete Data (Green)
   return {
     priority: 'default',
-    barBg: defaultBg,
-    cardBorder: defaultBorder,
-    accentBg: STATUS_COLOR_MAP.complete.color, // '#9aa097'
+    barBg: isChipView ? '#d1fae5' : STATUS_COLOR_MAP.complete.bg,
+    cardBorder: '1px solid ' + STATUS_COLOR_MAP.complete.border,
+    accentBg: STATUS_COLOR_MAP.complete.color, // '#059669'
     titleColor: defaultTitleColor,
     purposeColor: defaultPurposeColor,
     overrideCodeColor: undefined,

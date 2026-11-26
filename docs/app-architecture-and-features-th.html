@@ -1347,9 +1347,9 @@
               <div class="stat-desc">แสดงสีแดงทึบ (<code>#dc2626</code>) พร้อมเครื่องหมายเตือนทันที หากขาดข้อมูลจำเป็นช่องใดช่องหนึ่ง (Standard, Site, Customer, Purpose, QMS Host) และแสดงในรายการคิวเตือนด้านซ้าย</div>
             </div>
 
-            <div class="stat-box" style="border-top: 4px solid #059669;">
-              <div class="stat-label" style="color:#059669">แถบสีเขียว · New Data</div>
-              <div class="stat-value" style="font-size:17px; color:#059669">สร้างใหม่ภายใน 7 วัน</div>
+            <div class="stat-box" style="border-top: 4px solid #7c3aed;">
+              <div class="stat-label" style="color:#7c3aed">แถบสีม่วง · New Data</div>
+              <div class="stat-value" style="font-size:17px; color:#7c3aed">สร้างใหม่ภายใน 7 วัน</div>
               <div class="stat-desc">ข้อมูลสมบูรณ์และถูกสร้างขึ้นใหม่ภายใน 7 วัน (<code>now - createdAt &lt;= 7d</code>) ไม่ว่าวันนัดหมายจะอยู่ในอนาคตหรือลงบันทึกย้อนหลัง</div>
             </div>
 
@@ -1365,9 +1365,9 @@
               <div class="stat-desc">วันตรวจประเมินได้ผ่านพ้นไปแล้ว (เกิน 7 วัน) แต่ยังไม่มีการบันทึกตัวเลขข้อบกพร่อง (Major, Minor, OFI, Obs) เพื่อเตือนให้ปิดผลการตรวจ</div>
             </div>
 
-            <div class="stat-box" style="border-top: 4px solid #9aa097;">
-              <div class="stat-label" style="color:#64748b">แถบสีเทา · Complete Data</div>
-              <div class="stat-value" style="font-size:17px; color:#64748b">ข้อมูลเสร็จสมบูรณ์</div>
+            <div class="stat-box" style="border-top: 4px solid #059669;">
+              <div class="stat-label" style="color:#059669">แถบสีเขียว · Complete Data</div>
+              <div class="stat-value" style="font-size:17px; color:#059669">ข้อมูลเสร็จสมบูรณ์</div>
               <div class="stat-desc">สถานะปกติ กรอกข้อมูลครบถ้วน เกิน 7 วันแล้ว และได้บันทึกผลการตรวจเรียบร้อยแล้ว หรือเป็นงานตรวจล่วงหน้าที่ข้อมูลครบถ้วน</div>
             </div>
           </div>
@@ -1632,7 +1632,7 @@
         <div class="feature-card">
           <p>Endpoints ให้บริการเป็น JSON ผ่าน same-origin เท่านั้น API ตารางงานและการเปลี่ยนแปลงข้อมูลทุกเส้นทางต้องใช้ Session Cookie แบบ HttpOnly, SameSite=Lax และปฏิเสธคำขอข้ามโดเมน</p>
           <p>เข้าสู่ระบบผ่าน <code>POST /api/auth/login</code>; “Remember me” เก็บ Session ได้นานสูงสุด 30 วัน ส่วน Session ปกติหมดอายุใน 12 ชั่วโมง การสมัครต้องใช้รหัสพนักงานที่ตั้งเป็น Worker Secret การเปลี่ยนรหัสผ่านต้องยืนยันรหัสผ่านปัจจุบัน และออกจากระบบจะเพิกถอน Session Migration 0019 ลบบัญชีตัวอย่างที่ใช้รหัสผ่านเผยแพร่ และกำหนดผู้ดูแลให้บัญชีแรกที่เหลืออยู่หากยังไม่มี บัญชี Vite-only ใช้ได้เฉพาะในเบราว์เซอร์นั้นและไม่สามารถยืนยันตัวตนกับ Worker ได้</p>
-          <p><strong>ลำดับสีสถานะ:</strong> แดง = ข้อมูลไม่ครบ; น้ำเงิน = ข้อมูลครบและแก้ไขภายใน 7 วัน; เขียว = สร้างภายใน 7 วันและไม่มีการแก้ไขใหม่กว่า; เหลือง = วันตรวจผ่านไปแล้วแต่ยังไม่มีผล; เทา = สถานะปกติ</p>
+          <p><strong>ลำดับสีสถานะ:</strong> แดง = ข้อมูลไม่ครบ; น้ำเงิน = ข้อมูลครบและแก้ไขภายใน 7 วัน; ม่วง = สร้างภายใน 7 วันและไม่มีการแก้ไขใหม่กว่า; เหลือง = วันตรวจผ่านไปแล้วแต่ยังไม่มีผล; เขียว = สถานะปกติ</p>
 
           <table class="spec-table">
             <thead>

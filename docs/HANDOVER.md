@@ -12,7 +12,7 @@ The **UTAC Calendar Auditor** platform is an enterprise-grade semiconductor oper
 
 It replaces legacy spreadsheets with a real-time, multi-user scheduling workspace supporting:
 - **Customer Audits (CS)** and **Internal Audits (IA)** scheduling with strict conflict and double-booking guardrails.
-- **5-Tier Status Color System** synchronized across all views (Red, Green, Blue, Yellow, Gray).
+- **5-Tier Status Color System** synchronized across all views (Red, Purple, Blue, Yellow, Green).
 - **Executive Summary Dashboard** with monthly matrix totals, canonical plant site sequences, and custom Excel exports.
 - **High-Performance Multi-Filter Table View** with Excel export.
 - **Auditor & Engineer Resource Management** with drag-and-drop sort orders and QA / Non-QA department segregation.
@@ -133,15 +133,15 @@ flowchart TD
     CheckIncomplete -- No --> CheckUpdated{"updatedAt <= 7 days ago & > createdAt?"}
     CheckUpdated -- Yes --> Blue["2. UPDATED_DATA (#0284c7)<br/>Solid Blue Strip"]
     CheckUpdated -- No --> CheckNew{"createdAt <= 7 days ago?"}
-    CheckNew -- Yes --> Green["3. NEW_DATA (#059669)<br/>Solid Green Strip (Future or Backdated)"]
+    CheckNew -- Yes --> Green["3. NEW_DATA (#7c3aed)<br/>Solid Purple Strip (Future or Backdated)"]
     CheckNew -- No --> CheckPending{"Appointment Date in past & no findings?"}
     CheckPending -- Yes --> Yellow["4. PENDING_RESULT (#d97706)<br/>Solid Yellow Strip"]
-    CheckPending -- No --> Gray["5. COMPLETE_DATA (#9aa097)<br/>Solid Gray Strip (Default Compliant)"]
+    CheckPending -- No --> Gray["5. COMPLETE_DATA (#059669)<br/>Solid Green Strip (Default Compliant)"]
 ```
 
 > [!IMPORTANT]
 > **Priority Rule for Recent Edits**:
-> A complete appointment edited within the last 7 days displays **Blue** when `updatedAt` is later than `createdAt`, even if it was created within the last 7 days. Otherwise, a newly created appointment displays **Green**, including future or backdated appointments.
+> A complete appointment edited within the last 7 days displays **Blue** when `updatedAt` is later than `createdAt`, even if it was created within the last 7 days. Otherwise, a newly created appointment displays **Purple**, including future or backdated appointments.
 
 ---
 

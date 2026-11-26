@@ -688,6 +688,7 @@
       </div>
       <a href="#system-architecture" class="btn-header btn-outline">Architecture</a>
       <a href="#feature-schedule" class="btn-header btn-outline">Features</a>
+      <a href="./user-manual.html" class="btn-header btn-outline">User Manual</a>
       <a href="#api-spec" class="btn-header btn-outline">REST API</a>
       <a href="javascript:window.print()" class="btn-header btn-primary">Print / Export PDF</a>
     </div>
@@ -752,6 +753,28 @@
           <span class="hero-tag">Dual-Layer Local & Remote Persistence</span>
           <span class="hero-tag">Dynamic Master-Order Engine</span>
           <span class="hero-tag">Client-Side Excel (.xlsx) Engine</span>
+        </div>
+      </section>
+
+      <!-- Documentation Library -->
+      <section id="documentation-library">
+        <h2>Documentation Library</h2>
+        <div class="grid-3">
+          <a class="feature-card" href="./user-manual.html" style="color:inherit;text-decoration:none;display:block">
+            <div class="card-title">📘 Bilingual User Manual</div>
+            <p>Open the Thai / English guide for login, Schedule, appointments, exports, Manage, holidays, and History.</p>
+            <span class="pill" style="background:var(--primary-light);color:var(--primary-dark)">Open user-manual.html →</span>
+          </a>
+          <a class="feature-card" href="app-architecture-and-features.html" style="color:inherit;text-decoration:none;display:block">
+            <div class="card-title">🏗️ System Architecture</div>
+            <p>Review the English architecture and feature reference.</p>
+            <span class="pill" style="background:var(--accent-light);color:var(--accent-dark)">Open architecture guide →</span>
+          </a>
+          <a class="feature-card" href="app-architecture-and-features-th.html" style="color:inherit;text-decoration:none;display:block">
+            <div class="card-title">🏗️ สถาปัตยกรรมระบบ</div>
+            <p>ดูเอกสารอ้างอิงสถาปัตยกรรมและคุณสมบัติระบบภาษาไทย</p>
+            <span class="pill" style="background:var(--accent-light);color:var(--accent-dark)">เปิดคู่มือภาษาไทย →</span>
+          </a>
         </div>
       </section>
 
@@ -1353,9 +1376,9 @@
               <div class="stat-desc">Triggered if ANY required field is blank or unassigned (Standard, Site, Customer, Purpose, QMS Host). Renders with a solid red indicator bar, warning badge, and appears in the sidebar incomplete queue.</div>
             </div>
 
-            <div class="stat-box" style="border-top: 4px solid #059669;">
-              <div class="stat-label" style="color:#059669">Green Strip · New Data</div>
-              <div class="stat-value" style="font-size:17px; color:#059669">Created within 7 Days</div>
+            <div class="stat-box" style="border-top: 4px solid #7c3aed;">
+              <div class="stat-label" style="color:#7c3aed">Purple Strip · New Data</div>
+              <div class="stat-value" style="font-size:17px; color:#7c3aed">Created within 7 Days</div>
               <div class="stat-desc">Data is complete and newly created within 7 days (<code>now - createdAt &lt;= 7d</code>). Highlights fresh entries on the schedule regardless of whether the audit date is upcoming or backdated.</div>
             </div>
 
@@ -1371,9 +1394,9 @@
               <div class="stat-desc">The scheduled audit date has elapsed in the past (&gt; 7 days) and findings (Major, Minor, OFI, Obs) have not yet been recorded, prompting immediate QA closure.</div>
             </div>
 
-            <div class="stat-box" style="border-top: 4px solid #9aa097;">
-              <div class="stat-label" style="color:#64748b">Gray Strip · Complete Data</div>
-              <div class="stat-value" style="font-size:17px; color:#64748b">Fully Compliant &amp; Closed</div>
+            <div class="stat-box" style="border-top: 4px solid #059669;">
+              <div class="stat-label" style="color:#059669">Green Strip · Complete Data</div>
+              <div class="stat-value" style="font-size:17px; color:#059669">Fully Compliant &amp; Closed</div>
               <div class="stat-desc">Standard steady-state. All required fields are complete, older than 7 days, and quantitative findings are either submitted or the appointment is planned for future dates.</div>
             </div>
           </div>
@@ -1638,7 +1661,7 @@
         <div class="feature-card">
           <p>Endpoints are same-origin JSON routes. All scheduler data and mutation routes require a valid server session in an HttpOnly, SameSite=Lax cookie. Cross-origin requests are rejected.</p>
           <p><strong>Authentication:</strong> Sign in with <code>POST /api/auth/login</code>. “Remember me” keeps the session for up to 30 days; otherwise it expires after 12 hours. Staff-code registration uses <code>POST /api/auth/register</code>. Password changes use <code>POST /api/auth/reset-password</code> and require the current password. Sign out revokes the session with <code>POST /api/auth/logout</code>. Migration 0019 removes known demo accounts and promotes the earliest remaining account if needed. Vite-only local accounts are browser-specific and do not authenticate to the Worker.</p>
-          <p><strong>Assignment status precedence:</strong> Red for incomplete data; Blue for a complete assignment edited within 7 days; Green for a complete assignment created within 7 days when no newer edit qualifies; Yellow for a past appointment without recorded results; Gray otherwise.</p>
+          <p><strong>Assignment status precedence:</strong> Red for incomplete data; Blue for a complete assignment edited within 7 days; Purple for a complete assignment created within 7 days when no newer edit qualifies; Yellow for a past appointment without recorded results; Green otherwise.</p>
 
           <table class="spec-table">
             <thead>

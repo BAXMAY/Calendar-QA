@@ -286,10 +286,10 @@ export interface StatusColorItem {
 /**
  * Shared Single Source of Truth for Appointment Card Status Colors and Sidebar Legend.
  * 1. Incomplete Data (Red)
- * 2. New Data (Green)
+ * 2. New Data (Purple)
  * 3. Updated Data (Blue)
  * 4. Pending Result (Yellow)
- * 5. Complete Data (Gray)
+ * 5. Complete Data (Green)
  */
 export const STATUS_COLOR_MAP = {
   incomplete: {
@@ -302,9 +302,9 @@ export const STATUS_COLOR_MAP = {
   new: {
     key: 'new',
     label: 'New Data',
-    color: '#059669', // Green (Tailwind emerald-600)
-    bg: '#ecfdf5',
-    border: '#bbf7d0',
+    color: '#7c3aed', // Purple (Tailwind violet-600)
+    bg: '#f5f3ff',
+    border: '#c4b5fd',
   },
   updated: {
     key: 'updated',
@@ -323,9 +323,9 @@ export const STATUS_COLOR_MAP = {
   complete: {
     key: 'complete',
     label: 'Complete Data',
-    color: '#9aa097', // Gray neutral
-    bg: '#ffffff',
-    border: '#e4e7e0',
+    color: '#059669', // Green (Tailwind emerald-600)
+    bg: '#ecfdf5',
+    border: '#a7f3d0',
   },
 } as const;
 
@@ -880,9 +880,9 @@ export function isAppointmentDatePastOrToday(apt: any, now: Date = new Date()): 
  * Strict Status Priority Order:
  * 1. Red (Incomplete Data): Required fields are missing or unassigned.
  * 2. Blue (Updated Data): Data is complete AND updatedAt exists AND (now - updatedAt) <= 7 days (and updatedAt > createdAt).
- * 3. Green (New Data): Data is complete AND (now - createdAt) <= 7 days (future OR backdated past), unless a more recent edit qualifies as blue.
+ * 3. Purple (New Data): Data is complete AND (now - createdAt) <= 7 days (future OR backdated past), unless a more recent edit qualifies as blue.
  * 4. Yellow (Pending Result): Data is complete, older than 7 days since creation/update, AND appointmentDate is in the past without a recorded audit result.
- * 5. Gray (Complete Data): Default fallback when data is complete and older than 7 days.
+ * 5. Green (Complete Data): Default fallback when data is complete and older than 7 days.
  */
 export const resolveAuditStatus = (apt: any, nowMs: number = Date.now()): AuditStatusKey => {
   if (!apt) return 'COMPLETE_DATA';
@@ -907,7 +907,7 @@ export const resolveAuditStatus = (apt: any, nowMs: number = Date.now()): AuditS
     return 'UPDATED_DATA';
   }
 
-  // 3. Newly created within 7 days -> Green (even if appointmentDate in the past)
+  // 3. Newly created within 7 days -> Purple (even if appointmentDate in the past)
   if (createdTime > 0 && (now - createdTime) <= SEVEN_DAYS_MS && createdTime <= now + 60000) {
     return 'NEW_DATA';
   }
@@ -917,7 +917,7 @@ export const resolveAuditStatus = (apt: any, nowMs: number = Date.now()): AuditS
     return 'PENDING_RESULT';
   }
 
-  // 5. Default fallback -> Gray
+  // 5. Default fallback -> Green
   return 'COMPLETE_DATA';
 };
 
