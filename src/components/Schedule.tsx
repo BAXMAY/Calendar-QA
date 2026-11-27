@@ -1680,13 +1680,14 @@ function Toolbar({ vm }: { vm: VM }) {
           </div>
         </div>
       )}
-      <HButton className="tap" onClick={vm.openCreate} style={css("background:#15191e;color:#fff;border:none;border-radius:8px;padding:8px 13px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:'Archivo',sans-serif;display:flex;align-items:center;gap:6px;flex-shrink:0")} hover={{ background: '#23282e' }}>
-        <span style={css('font-size:14px;line-height:1')}>＋</span>New appointment
+      <HButton aria-label="New appointment" className="tap" onClick={vm.openCreate} style={css("background:#15191e;color:#fff;border:none;border-radius:8px;padding:8px 13px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:'Archivo',sans-serif;display:flex;align-items:center;gap:6px;flex-shrink:0")} hover={{ background: '#23282e' }}>
+        <span style={css('font-size:14px;line-height:1')}>＋</span>{vm.isMobile ? 'New' : 'New appointment'}
       </HButton>
+      {vm.isMobile && <PhonePeriodBar vm={vm} />}
       {vm.showDayStrip && (
         <div style={css('width:100%;display:flex;gap:5px')}>
           {vm.daySel.map((d, i) => (
-            <button className="tap" key={i} onClick={d.onClick} style={d.style}>
+            <button className="tap" key={i} onClick={d.onClick} style={d.style} aria-current={d.isToday ? 'date' : undefined}>
               <div style={d.labelStyle}>{d.label}</div>
               <div style={d.dateStyle}>{d.date}</div>
             </button>
@@ -2101,6 +2102,32 @@ const Chevron = ({ dir }: { dir: 'left' | 'right' }) => (
   </svg>
 );
 
+/** Phones: where you are in time (week, month or year), Today, and previous / next. Sits in the toolbar. */
+function PhonePeriodBar({ vm }: { vm: VM }) {
+  const unit = vm.isYear ? 'year' : vm.isMonth ? 'month' : 'week';
+  const navBtn = css('width:38px;height:38px;border:1px solid #dde0d9;background:#fff;border-radius:9px;cursor:pointer;color:#3c423d;display:flex;align-items:center;justify-content:center;flex-shrink:0');
+  return (
+    <div style={css('width:100%;display:flex;align-items:center;gap:8px')}>
+      <div aria-live="polite" style={css('flex:1;min-width:0')}>
+        <div style={css('font-size:16px;font-weight:700;letter-spacing:-.2px;color:#15191e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis')}>{vm.periodLabel}</div>
+        <div style={css("margin-top:2px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.3px;color:#6a706a")}>
+          {vm.periodTag}{vm.periodYear ? ' · ' + vm.periodYear : ''}
+        </div>
+      </div>
+      <HButton
+        className="tap"
+        onClick={vm.goToday}
+        style={css("height:38px;padding:0 13px;border:1px solid #dde0d9;background:#fff;border-radius:9px;cursor:pointer;color:#23282a;font-size:13px;font-weight:600;font-family:'Archivo',sans-serif;flex-shrink:0")}
+        hover={{ background: '#f4f6f1' }}
+      >
+        Today
+      </HButton>
+      <HButton className="tap-square" aria-label={`Previous ${unit}`} onClick={vm.prevWeek} style={navBtn} hover={{ background: '#f4f6f1' }}><Chevron dir="left" /></HButton>
+      <HButton className="tap-square" aria-label={`Next ${unit}`} onClick={vm.nextWeek} style={navBtn} hover={{ background: '#f4f6f1' }}><Chevron dir="right" /></HButton>
+    </div>
+  );
+}
+
 /**
  * Month view on phones: a compact grid where each day shows one dot per appointment in its status
  * color, and the chosen day's appointments listed underneath as full cards (no dialog).
@@ -2108,24 +2135,9 @@ const Chevron = ({ dir }: { dir: 'left' | 'right' }) => (
 function MonthMobile({ vm }: { vm: VM }) {
   const heads = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   const agenda = vm.monthAgenda;
-  const navBtn = css('width:38px;height:38px;border:1px solid #dde0d9;background:#fff;border-radius:9px;cursor:pointer;color:#3c423d;display:flex;align-items:center;justify-content:center;flex-shrink:0');
 
   return (
     <div style={css('position:relative;padding:12px 10px 20px;display:flex;flex-direction:column;gap:12px')}>
-      <div style={css('display:flex;align-items:center;gap:8px')}>
-        <h2 aria-live="polite" style={css('flex:1;min-width:0;margin:0;font-size:18px;font-weight:700;letter-spacing:-.2px;color:#15191e')}>{vm.monthName}</h2>
-        <HButton
-          className="tap"
-          onClick={vm.goTodayMonth}
-          style={css("height:38px;padding:0 13px;border:1px solid #dde0d9;background:#fff;border-radius:9px;cursor:pointer;color:#23282a;font-size:13px;font-weight:600;font-family:'Archivo',sans-serif")}
-          hover={{ background: '#f4f6f1' }}
-        >
-          Today
-        </HButton>
-        <HButton className="tap-square" aria-label="Previous month" onClick={vm.prevWeek} style={navBtn} hover={{ background: '#f4f6f1' }}><Chevron dir="left" /></HButton>
-        <HButton className="tap-square" aria-label="Next month" onClick={vm.nextWeek} style={navBtn} hover={{ background: '#f4f6f1' }}><Chevron dir="right" /></HButton>
-      </div>
-
       <div style={css('background:#fff;border:1px solid #d8dcd4;border-radius:12px;padding:6px 6px 8px;box-shadow:0 1px 3px rgba(0,0,0,0.03)')}>
         <div aria-hidden="true" style={css('display:grid;grid-template-columns:repeat(7,minmax(0,1fr));padding:4px 0 6px')}>
           {heads.map((h, i) => (

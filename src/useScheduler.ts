@@ -841,9 +841,11 @@ export function useScheduler() {
         if (s.monthSelectedDate) {
           // a specific date was clicked in Month view — jump to its week
           patch.weekOffset = s.monthSelectedDate.weekOffset;
+          patch.selectedDay = Math.min(4, s.monthSelectedDate.day);
         } else if ((s.monthOffset || 0) === todayMonthOffset) {
           // no date selected in the current month — open this week (the phone month view shows today's list)
           patch.weekOffset = todayWeekOffset;
+          patch.selectedDay = Math.min(4, dateSlot(today).wd);
         } else {
           // no date selected — jump to the week containing the first day of the month currently being viewed
           const monthFirst = new Date(2026, 5 + (s.monthOffset || 0), 1);
@@ -3892,11 +3894,12 @@ export function useScheduler() {
     : weekTag;
 
   const daySel = days.map((d, i) => {
+    const isTodayChip = d.dateISO === fmtISO(today);
     return {
-      label: d.label, date: d.date,
+      label: d.label, date: isTodayChip ? 'Today' : d.date, isToday: isTodayChip,
       style: sx({ position: 'relative', flex: 1, minWidth: 0, padding: '6px 3px', borderRadius: '8px', border: '1px solid ' + (selDay === i ? '#15191e' : '#e2e5de'), background: selDay === i ? '#15191e' : '#fff', cursor: 'pointer', textAlign: 'center', fontFamily: "'Archivo',sans-serif" }),
-      labelStyle: sx({ fontSize: '11px', fontWeight: 700, color: selDay === i ? '#fff' : '#23282a' }),
-      dateStyle: sx({ fontFamily: "'IBM Plex Mono',monospace", fontSize: '8px', color: selDay === i ? '#aeb6c8' : '#9aa097', marginTop: '1px' }),
+      labelStyle: sx({ fontSize: '13px', fontWeight: 700, color: selDay === i ? '#fff' : '#23282a' }),
+      dateStyle: sx({ fontFamily: "'IBM Plex Mono',monospace", fontSize: '11px', fontWeight: isTodayChip ? 700 : 500, color: selDay === i ? '#c9cfdb' : isTodayChip ? '#15191e' : '#6a706a', marginTop: '2px' }),
       onClick: () => setSelectedDay(i),
     };
   });
@@ -5071,8 +5074,17 @@ export function useScheduler() {
         };
       })()
     : null;
-  const goTodayMonth = () => setState({ monthOffset: todayMonthOffset, monthSelectedDate: todaySlot });
-  const monthIsCurrent = (S.monthOffset || 0) === todayMonthOffset;
+  /** Phone period bar: back to the current week (today's day selected), month (today's list) or year. */
+  const goToday = () =>
+    setState(
+      S.timeScale === 'week'
+        ? { weekOffset: todayWeekOffset, selectedDay: Math.min(4, todaySlot.day), selected: null }
+        : S.timeScale === 'month'
+        ? { monthOffset: todayMonthOffset, monthSelectedDate: todaySlot }
+        : { monthOffset: todayMonthOffset }
+    );
+  // The week label has no year ("Nov 23 – Nov 27"); the phone bar adds it.
+  const periodYear = S.timeScale === 'week' ? String(new Date(2026, 5, 29 + S.weekOffset * 7).getFullYear()) : '';
 
   const dayDialogInfo = dayDialogOpen
     ? { label: S.dayDialog!.day >= 0 && S.dayDialog!.day < 5 ? dayNames[S.dayDialog!.day] : '', date: dayDialogDate }
@@ -5268,7 +5280,7 @@ export function useScheduler() {
     toggleFilterApptType,
     clearFilters,
     dayDialogOpen, dayDialogDate, dayDialogDateISO, dayDialogChips, dayDialogInfo, closeDayDialog,
-    monthAgenda, goTodayMonth, monthIsCurrent,
+    monthAgenda, goToday, periodYear,
     openCreate, openCreateWithDate, closeCreate, createOpen: S.createOpen, create, stop: (e: React.MouseEvent) => e.stopPropagation(),
     editOpen: S.editOpen, editDraft: S.editDraft, setEditDraft, closeEdit, submitEdit, canEdit, editMissing, editSubmitStyle,
     editScopePrompt: S.editScopePrompt, chooseEditScope, closeEditScopePrompt,
