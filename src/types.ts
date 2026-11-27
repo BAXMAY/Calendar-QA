@@ -263,16 +263,18 @@ export function isInternalAssignment(a: Assignment | any): boolean {
   if (typeof a.id === 'string' && a.id.startsWith('IA')) return true;
   if (typeof a.order === 'string' && a.order.startsWith('IA')) return true;
 
-  // 3. If explicitly marked customer, override only if it has internal fields and zero customer fields
+  // 3. Decide from the audit's own content. site2/auditor2/department2 are NOT signals: the Worker
+  //    (assignmentOut) and normalizeAssignment fill them as copies of site/auditor/standard on every row.
+  const hasCustomerData = Boolean(a.customer || a.customerName || a.customerNames || a.endCustomer || a.targetPackage);
+  const hasInternalData = Boolean(a.area || a.auditCategory);
+
+  // 4. Explicitly marked customer stays customer unless it holds only internal-audit data
   if (a.sectionType === 'customer' || a.type === 'customer' || auditTypeStr === 'customer' || auditTypeStr === 'customer audit') {
-    if (!a.customer && !a.customerName && !a.customerNames && !a.targetPackage && (a.area || a.department2 || a.site2 || a.auditor2)) {
-      return true;
-    }
-    return false;
+    return !hasCustomerData && hasInternalData;
   }
 
-  // 4. Fallback internal property detection
-  return !!(a.site2 || a.auditor2 || a.department2 || a.area);
+  // 5. No explicit type (rows saved before audit_type existed): internal only when it carries IA data and no CS data
+  return hasInternalData && !hasCustomerData;
 }
 
 export interface StatusColorItem {

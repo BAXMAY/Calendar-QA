@@ -202,6 +202,14 @@ function engineerOut(r: any) {
   };
 }
 
+/** 'customer' | 'internal' from the client's type/sectionType/auditType fields, or '' when absent. */
+function auditTypeIn(d: any): '' | 'customer' | 'internal' {
+  const t = String(d?.type || d?.sectionType || d?.auditType || '').trim().toLowerCase();
+  if (t === 'internal' || t === 'internal audit' || t === 'ia') return 'internal';
+  if (t === 'customer' || t === 'customer audit' || t === 'cs') return 'customer';
+  return '';
+}
+
 function assignmentOut(r: any) {
   let parsedResults = {};
   if (r.results) {
@@ -241,6 +249,9 @@ function assignmentOut(r: any) {
     results: normalizeAuditResults(parsedResults),
     createdAt: r.created_at || (r.created_at_num ? String(r.created_at_num) : undefined),
     updatedAt: r.updated_at || undefined,
+    ...(r.audit_type === 'customer' || r.audit_type === 'internal'
+      ? { type: r.audit_type, sectionType: r.audit_type, auditType: r.audit_type === 'internal' ? 'Internal Audit' : 'Customer Audit' }
+      : {}),
   };
 }
 
@@ -273,6 +284,9 @@ async function ensureAssignmentColumns(DB: D1Database) {
   } catch {}
   try {
     await DB.prepare('ALTER TABLE assignments ADD COLUMN created_at TEXT NOT NULL DEFAULT ""').run();
+  } catch {}
+  try {
+    await DB.prepare('ALTER TABLE assignments ADD COLUMN audit_type TEXT NOT NULL DEFAULT ""').run();
   } catch {}
   try {
     await DB.prepare('ALTER TABLE assignments ADD COLUMN updated_at TEXT NOT NULL DEFAULT ""').run();
@@ -761,8 +775,8 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
       ).trim();
 
       await DB.prepare(
-        `INSERT INTO assignments (id, eng, order_id, day, week, site, customer, end_customer, auditor, purpose, target_package, customer_names, audit_category, area, standard, department, results, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO assignments (id, eng, order_id, day, week, site, customer, end_customer, auditor, purpose, target_package, customer_names, audit_category, area, standard, department, results, created_at, updated_at, audit_type)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         d.id, d.eng || '', d.order || '', d.day ?? 0, d.week ?? 0,
         resolvedSite,
@@ -773,6 +787,7 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
         typeof d.results === 'string' ? d.results : JSON.stringify(d.results || {}),
         d.createdAt ? String(d.createdAt) : '',
         d.updatedAt ? String(d.updatedAt) : '',
+        auditTypeIn(d),
       ).run();
       return json({ id: d.id }, 201);
     }
@@ -803,7 +818,7 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
       await DB.prepare(
         `UPDATE assignments SET eng = ?, order_id = ?, day = ?, week = ?, site = ?, customer = ?, end_customer = ?, auditor = ?, purpose = ?,
            target_package = ?, customer_names = ?, audit_category = ?, area = ?, standard = ?, department = ?, results = ?,
-           created_at = ?, updated_at = ? WHERE id = ?`,
+           created_at = ?, updated_at = ?, audit_type = ? WHERE id = ?`,
       ).bind(
         d.eng ?? existing.eng, d.order ?? existing.order_id, d.day ?? existing.day, d.week ?? existing.week,
         resolvedSite ?? existing.site ?? '',
@@ -817,6 +832,7 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
         d.results !== undefined ? (typeof d.results === 'string' ? d.results : JSON.stringify(d.results)) : (existing.results ?? '{}'),
         d.createdAt !== undefined ? String(d.createdAt) : (existing.created_at ?? ''),
         d.updatedAt !== undefined ? String(d.updatedAt) : (existing.updated_at ?? ''),
+        auditTypeIn(d) || existing.audit_type || '',
         assignMatch[1],
       ).run();
       return json({ ok: true });

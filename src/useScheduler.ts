@@ -608,7 +608,7 @@ export function useScheduler() {
     name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
   const siteToSiteCode = (site: string): string => (site.startsWith('UTL3') || site.startsWith('U3') ? 'UTL3' : site.startsWith('UTL2') || site.startsWith('U2') ? 'UTL2' : 'UTL1');
   /** "CS" for Customer appointments, "IA" for Internal Audit. */
-  const apptAbbr = (a: Assignment) => (a.site2 || a.auditor2 || a.department2 || a.area ? 'IA' : 'CS');
+  const apptAbbr = (a: Assignment) => (isInternalAssignment(a) ? 'IA' : 'CS');
   /** Returns Customer name with CS prefix for Customer Audit or Area/topic with IA prefix for Internal Audit. */
   const apptTitle = (a: Assignment) => formatApptDisplayTitle(a, orderById(a.order));
   const fmtDate = (d: Date) => {
