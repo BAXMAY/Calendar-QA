@@ -191,7 +191,7 @@
 <li>Find the component that renders it from <code>src/App.tsx</code>.</li>
 <li>Trace its props back to the <code>VM</code> returned by <code>useScheduler()</code>.</li>
 <li>Put markup and interaction in the component, state and actions in the hook, shared rules in the domain helpers.</li>
-<li>Check wide and narrow layouts, loading, empty, and error states, and keyboard focus.</li>
+<li>Check wide and narrow layouts, loading, empty, and error states, and keyboard focus. Below 860px (<code>vm.isMobile</code>) the app uses its phone layout: <code>BottomNav</code> instead of the header tabs, and cards instead of tables in Table and History. On touch screens, give controls the <code>tap</code>, <code>tap-square</code> or <code>tap-hit</code> class from <code>src/index.css</code> so they are at least 44px.</li>
 </ol>
 <h3 id="72-add-a-field-to-appointments"><span class="num">7.2</span><span class="ht">Add a field to appointments</span><a class="anchor" href="#72-add-a-field-to-appointments" aria-label="Link to this section: Add a field to appointments"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
 <p>Change the whole path, top to bottom:</p>

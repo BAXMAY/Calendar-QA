@@ -191,7 +191,7 @@
 <li>หา component ที่ render หน้านั้นจาก <code>src/App.tsx</code></li>
 <li>ตาม props กลับไปที่ <code>VM</code> ที่ <code>useScheduler()</code> คืนค่า</li>
 <li>markup และ interaction อยู่ใน component, state และ action อยู่ใน hook, กฎร่วมอยู่ใน domain helper</li>
-<li>ตรวจหน้าจอกว้างและแคบ สถานะ loading, empty, error และ keyboard focus</li>
+<li>ตรวจหน้าจอกว้างและแคบ สถานะ loading, empty, error และ keyboard focus เมื่อกว้างน้อยกว่า 860px (<code>vm.isMobile</code>) แอปใช้ layout สำหรับโทรศัพท์: <code>BottomNav</code> แทนแท็บใน header และการ์ดแทนตารางใน Table และ History บนหน้าจอสัมผัส ให้ใส่ class <code>tap</code>, <code>tap-square</code> หรือ <code>tap-hit</code> จาก <code>src/index.css</code> กับปุ่มต่าง ๆ เพื่อให้มีขนาดอย่างน้อย 44px</li>
 </ol>
 <h3 id="72-เพิ่มฟิลด์ในนัดหมาย"><span class="num">7.2</span><span class="ht">เพิ่มฟิลด์ในนัดหมาย</span><a class="anchor" href="#72-เพิ่มฟิลด์ในนัดหมาย" aria-label="ลิงก์ไปยังหัวข้อนี้: เพิ่มฟิลด์ในนัดหมาย"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
 <p>แก้ให้ครบทั้งเส้นทาง จากบนลงล่าง:</p>

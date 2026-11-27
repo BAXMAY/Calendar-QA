@@ -168,7 +168,7 @@ session ใช้ cookie `qa_session` แบบ HttpOnly (`SameSite=Lax` แล�
 1. หา component ที่ render หน้านั้นจาก `src/App.tsx`
 2. ตาม props กลับไปที่ `VM` ที่ `useScheduler()` คืนค่า
 3. markup และ interaction อยู่ใน component, state และ action อยู่ใน hook, กฎร่วมอยู่ใน domain helper
-4. ตรวจหน้าจอกว้างและแคบ สถานะ loading, empty, error และ keyboard focus
+4. ตรวจหน้าจอกว้างและแคบ สถานะ loading, empty, error และ keyboard focus เมื่อกว้างน้อยกว่า 860px (`vm.isMobile`) แอปใช้ layout สำหรับโทรศัพท์: `BottomNav` แทนแท็บใน header และการ์ดแทนตารางใน Table และ History บนหน้าจอสัมผัส ให้ใส่ class `tap`, `tap-square` หรือ `tap-hit` จาก `src/index.css` กับปุ่มต่าง ๆ เพื่อให้มีขนาดอย่างน้อย 44px
 
 ### 7.2 เพิ่มฟิลด์ในนัดหมาย
 
