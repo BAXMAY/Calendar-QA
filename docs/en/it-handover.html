@@ -57,7 +57,7 @@
 <tr><td>Session lifetime</td><td>12 hours; 30 days with Remember me</td><td>Constants in <code>worker/index.ts</code></td></tr>
 <tr><td>Source</td><td>GitHub remote <code>origin</code></td><td>Ownership not confirmed</td></tr>
 </tbody></table></div>
-<p><strong>Pending schema change:</strong> migration <code>0020_assignment_audit_type.sql</code> adds and backfills <code>assignments.audit_type</code>. Apply it with the <a href="#52-d1-schema-migration">D1 runbook</a> before or with the release that includes it. Until it is applied, the app still classifies audits correctly from their content.</p>
+<p><strong>Pending schema change:</strong> migration <code>0020_assignment_audit_type.sql</code> adds and backfills <code>assignments.audit_type</code>. The next <code>npm run deploy</code> applies it automatically (see <a href="#52-d1-schema-migration">5.2</a>). Until it is applied, the app still classifies audits correctly from their content.</p>
 <p><strong>Not declared in the repository:</strong> a staging environment, custom domain, Cloudflare account ID, CI/CD workflow, or monitoring alerts. That does not prove they do not exist; check the dashboards. A Git push alone does not deploy anything; deployment is <code>npm run deploy</code>.</p>
 
 <footer class="sheet-foot"><a href="#1-system-at-a-glance" rel="prev"><span class="dir">← Previous</span>System at a glance</a><span class="folio">2 / 8</span><a href="#3-ownership-and-takeover" rel="next"><span class="dir">Next →</span>Ownership and takeover</a></footer>
@@ -114,18 +114,22 @@
 <li>Install exact dependencies: <code>npm ci</code>.</li>
 <li>Run <code>npm run lint</code> and <code>npm run build</code>; fix any failure before continuing.</li>
 <li>In the Cloudflare dashboard, check the current deployed version and Worker logs. Confirm bindings and secrets exist without printing secret values.</li>
-<li>Deploy: <code>npm run deploy</code> (<code>npm run build &amp;&amp; wrangler deploy</code>). This does <strong>not</strong> apply D1 migrations.</li>
+<li>If the release contains a new file in <code>migrations/</code>, complete the checks in <a href="#52-d1-schema-migration">5.2</a> first.</li>
+<li>Deploy: <code>npm run deploy</code>. It builds, applies any pending D1 migrations (Wrangler lists them and asks you to confirm, and takes a backup), then deploys the Worker. If a migration fails, Wrangler rolls that migration back and the code is <strong>not</strong> deployed.</li>
 <li>Smoke-check: sign in, the current month&#39;s Schedule loads, create and edit an appointment, a holiday rule blocks as expected, Table filters and exports, History shows the change. Check Worker errors.</li>
-<li>Record the commit, deploy time, operator, outcome, and change reference.</li>
+<li>Record the commit, deploy time, operator, outcome, migrations applied, and change reference.</li>
 </ol>
 <h3 id="52-d1-schema-migration"><span class="num">5.2</span><span class="ht">D1 schema migration</span><a class="anchor" href="#52-d1-schema-migration" aria-label="Link to this section: D1 schema migration"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<p>Migrations run automatically as part of <code>npm run deploy</code>, just before the new code goes live. Wrangler applies only migrations that have not run yet, so a release without a new migration changes nothing in the database. Before a release that <strong>does</strong> contain one:</p>
 <ol>
-<li>Read the new SQL in <code>migrations/</code> and judge compatibility and rollback impact. Never run an unreviewed destructive migration.</li>
-<li>Confirm the target: <code>npx wrangler d1 migrations list calendar-qa-db --remote</code>.</li>
+<li>Read the new SQL in <code>migrations/</code> and judge rollback impact. Never release an unreviewed destructive migration.</li>
+<li>Check it works with the Worker that is live now, because the database changes a moment before the new code deploys. Adding tables or columns is safe. Dropping or renaming a column the live code still uses must wait for a later release.</li>
+<li>See what will run: <code>npx wrangler d1 migrations list calendar-qa-db --remote</code>.</li>
 <li>Get QA data-owner approval and follow the company backup and change process.</li>
-<li>Apply: <code>npm run migrate:remote</code> (<code>wrangler d1 migrations apply calendar-qa-db --remote</code>).</li>
-<li>Re-check migration status and app behavior before deploying code that depends on the new schema.</li>
+<li>Release with <code>npm run deploy</code> (5.1). Confirm the migration list when Wrangler asks. In a non-interactive shell or CI there is no prompt; the migrations apply directly.</li>
+<li>Afterwards, re-run the list command; it should report nothing pending.</li>
 </ol>
+<p>To apply migrations without deploying code (for example, to run a large backfill on its own), use <code>npm run migrate:remote</code>.</p>
 <h3 id="53-rollback-and-recovery"><span class="num">5.3</span><span class="ht">Rollback and recovery</span><a class="anchor" href="#53-rollback-and-recovery" aria-label="Link to this section: Rollback and recovery"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
 <ul>
 <li>Rolling back Worker code and restoring D1 data are separate actions. A code rollback does not undo a migration or bring back deleted rows. Check code and schema compatibility before rolling back either.</li>

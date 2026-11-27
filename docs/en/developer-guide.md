@@ -75,7 +75,7 @@ Vite on `http://localhost:5173`. Good for layout and component work. It does **n
 | `npm run preview` | Preview the production build |
 | `npm run migrate:local` | Apply migrations to local D1 |
 | `npm run migrate:remote` | Apply migrations to the D1 database in `wrangler.toml` (production) |
-| `npm run deploy` | Build and `wrangler deploy`; does not apply migrations |
+| `npm run deploy` | Build, apply pending D1 migrations to production, then `wrangler deploy`. Stops if a migration fails. |
 | `npm test` | Regression test for Customer vs Internal Audit classification |
 | `npm run docs` | Rebuild the HTML documentation from these Markdown files |
 | `npm run docs:screenshots` | Recapture the doc screenshots from the running dev app |
@@ -227,9 +227,10 @@ In the pull request, list the changed files, affected rules, any migration, how 
 
 1. Number the migration after the latest committed one and name it clearly.
 2. Write it to work with existing rows; note whether it can be undone.
+   It must also work with the Worker that is **currently live**: `npm run deploy` applies migrations a moment before the new code goes out. Adding tables or columns is fine. Removing or renaming a column the live code still reads must wait for a later release, after the code that stopped using it is deployed.
 3. Apply locally with `npm run migrate:local` and check reads and writes before and after.
 4. Get code review and QA data-owner approval.
-5. Production migration and deployment are separate steps run by IT. Follow the [release runbook](it-handover.md#5-release-and-database-runbook).
+5. IT releases with `npm run deploy`, which applies pending migrations and then deploys the code. Follow the [release runbook](it-handover.md#5-release-and-database-runbook).
 
 There is no staging environment in `wrangler.toml`. Local is not staging, and production D1 is never a test database.
 

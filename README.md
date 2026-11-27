@@ -33,7 +33,7 @@ Never connect local development to the production D1 database.
 ```bash
 npm run lint
 npm run build
-npm run deploy       # Worker + static assets; does NOT apply D1 migrations
+npm run deploy       # build, apply pending D1 migrations, then deploy the Worker
 ```
 
 Production migrations, releases, and recovery follow the [IT Handover runbook](docs/en/it-handover.md#5-release-and-database-runbook).

@@ -75,7 +75,7 @@ Vite ที่ `http://localhost:5173` เหมาะกับงาน layout 
 | `npm run preview` | ดูตัวอย่าง production build |
 | `npm run migrate:local` | apply migration กับ local D1 |
 | `npm run migrate:remote` | apply migration กับ D1 ใน `wrangler.toml` (production) |
-| `npm run deploy` | build และ `wrangler deploy` ไม่ apply migration |
+| `npm run deploy` | build, apply migration ที่ยังไม่ได้รันกับ D1 ของ production แล้ว `wrangler deploy` หาก migration ล้มเหลวจะหยุดและไม่ deploy |
 | `npm test` | regression test การแยกประเภท Customer / Internal Audit |
 | `npm run docs` | สร้างเอกสาร HTML ใหม่จากไฟล์ Markdown เหล่านี้ |
 | `npm run docs:screenshots` | ถ่ายภาพหน้าจอสำหรับเอกสารใหม่จากแอปที่รันอยู่ |
@@ -227,9 +227,10 @@ npm run build
 
 1. ตั้งหมายเลข migration ต่อจากไฟล์ล่าสุดที่ commit และตั้งชื่อให้สื่อความหมาย
 2. เขียนให้ใช้กับแถวเดิมได้ และระบุว่าย้อนกลับได้หรือไม่
+   และต้องใช้ได้กับ Worker ที่ **ทำงานอยู่ในปัจจุบัน** ด้วย เพราะ `npm run deploy` จะ apply migration ก่อนโค้ดใหม่ขึ้นไม่กี่วินาที การเพิ่มตารางหรือคอลัมน์ทำได้ทันที แต่การลบหรือเปลี่ยนชื่อคอลัมน์ที่โค้ดปัจจุบันยังใช้ ต้องรอ release ถัดไป หลังจากโค้ดที่เลิกใช้คอลัมน์นั้น deploy แล้ว
 3. apply ในเครื่องด้วย `npm run migrate:local` และตรวจการอ่าน/เขียนก่อนและหลัง
 4. ขอ code review และอนุมัติจากเจ้าของข้อมูล QA
-5. migration และ deploy บน production เป็นคนละขั้นตอนที่ IT เป็นผู้ทำ ดู [release runbook](../en/it-handover.md#5-release-and-database-runbook)
+5. IT ทำ release ด้วย `npm run deploy` ซึ่งจะ apply migration ที่ค้างอยู่แล้วจึง deploy โค้ด ดู [release runbook](../en/it-handover.md#5-release-and-database-runbook)
 
 `wrangler.toml` ไม่มี staging environment ในเครื่องไม่ใช่ staging และห้ามใช้ D1 ของ production ทดสอบ
 

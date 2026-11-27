@@ -80,7 +80,7 @@
 <tr><td><code>npm run preview</code></td><td>ดูตัวอย่าง production build</td></tr>
 <tr><td><code>npm run migrate:local</code></td><td>apply migration กับ local D1</td></tr>
 <tr><td><code>npm run migrate:remote</code></td><td>apply migration กับ D1 ใน <code>wrangler.toml</code> (production)</td></tr>
-<tr><td><code>npm run deploy</code></td><td>build และ <code>wrangler deploy</code> ไม่ apply migration</td></tr>
+<tr><td><code>npm run deploy</code></td><td>build, apply migration ที่ยังไม่ได้รันกับ D1 ของ production แล้ว <code>wrangler deploy</code> หาก migration ล้มเหลวจะหยุดและไม่ deploy</td></tr>
 <tr><td><code>npm test</code></td><td>regression test การแยกประเภท Customer / Internal Audit</td></tr>
 <tr><td><code>npm run docs</code></td><td>สร้างเอกสาร HTML ใหม่จากไฟล์ Markdown เหล่านี้</td></tr>
 <tr><td><code>npm run docs:screenshots</code></td><td>ถ่ายภาพหน้าจอสำหรับเอกสารใหม่จากแอปที่รันอยู่</td></tr>
@@ -237,10 +237,11 @@ npm run build</code></pre><button type="button" class="copy" data-copied="คั
 <h2 id="9-migration-และ-release"><span class="num">9</span><span class="ht">Migration และ release</span><a class="anchor" href="#9-migration-และ-release" aria-label="ลิงก์ไปยังหัวข้อนี้: Migration และ release"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
 <ol>
 <li>ตั้งหมายเลข migration ต่อจากไฟล์ล่าสุดที่ commit และตั้งชื่อให้สื่อความหมาย</li>
-<li>เขียนให้ใช้กับแถวเดิมได้ และระบุว่าย้อนกลับได้หรือไม่</li>
+<li>เขียนให้ใช้กับแถวเดิมได้ และระบุว่าย้อนกลับได้หรือไม่
+และต้องใช้ได้กับ Worker ที่ <strong>ทำงานอยู่ในปัจจุบัน</strong> ด้วย เพราะ <code>npm run deploy</code> จะ apply migration ก่อนโค้ดใหม่ขึ้นไม่กี่วินาที การเพิ่มตารางหรือคอลัมน์ทำได้ทันที แต่การลบหรือเปลี่ยนชื่อคอลัมน์ที่โค้ดปัจจุบันยังใช้ ต้องรอ release ถัดไป หลังจากโค้ดที่เลิกใช้คอลัมน์นั้น deploy แล้ว</li>
 <li>apply ในเครื่องด้วย <code>npm run migrate:local</code> และตรวจการอ่าน/เขียนก่อนและหลัง</li>
 <li>ขอ code review และอนุมัติจากเจ้าของข้อมูล QA</li>
-<li>migration และ deploy บน production เป็นคนละขั้นตอนที่ IT เป็นผู้ทำ ดู <a href="../en/it-handover.html#5-release-and-database-runbook">release runbook</a></li>
+<li>IT ทำ release ด้วย <code>npm run deploy</code> ซึ่งจะ apply migration ที่ค้างอยู่แล้วจึง deploy โค้ด ดู <a href="../en/it-handover.html#5-release-and-database-runbook">release runbook</a></li>
 </ol>
 <p><code>wrangler.toml</code> ไม่มี staging environment ในเครื่องไม่ใช่ staging และห้ามใช้ D1 ของ production ทดสอบ</p>
 

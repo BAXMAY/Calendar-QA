@@ -29,7 +29,7 @@ These values come from the repository. Confirm each one in the company's Cloudfl
 | Session lifetime | 12 hours; 30 days with Remember me | Constants in `worker/index.ts` |
 | Source | GitHub remote `origin` | Ownership not confirmed |
 
-**Pending schema change:** migration `0020_assignment_audit_type.sql` adds and backfills `assignments.audit_type`. Apply it with the [D1 runbook](#52-d1-schema-migration) before or with the release that includes it. Until it is applied, the app still classifies audits correctly from their content.
+**Pending schema change:** migration `0020_assignment_audit_type.sql` adds and backfills `assignments.audit_type`. The next `npm run deploy` applies it automatically (see [5.2](#52-d1-schema-migration)). Until it is applied, the app still classifies audits correctly from their content.
 
 **Not declared in the repository:** a staging environment, custom domain, Cloudflare account ID, CI/CD workflow, or monitoring alerts. That does not prove they do not exist; check the dashboards. A Git push alone does not deploy anything; deployment is `npm run deploy`.
 
@@ -83,17 +83,23 @@ The repository has one Wrangler configuration and no staging environment. Run pr
 2. Install exact dependencies: `npm ci`.
 3. Run `npm run lint` and `npm run build`; fix any failure before continuing.
 4. In the Cloudflare dashboard, check the current deployed version and Worker logs. Confirm bindings and secrets exist without printing secret values.
-5. Deploy: `npm run deploy` (`npm run build && wrangler deploy`). This does **not** apply D1 migrations.
-6. Smoke-check: sign in, the current month's Schedule loads, create and edit an appointment, a holiday rule blocks as expected, Table filters and exports, History shows the change. Check Worker errors.
-7. Record the commit, deploy time, operator, outcome, and change reference.
+5. If the release contains a new file in `migrations/`, complete the checks in [5.2](#52-d1-schema-migration) first.
+6. Deploy: `npm run deploy`. It builds, applies any pending D1 migrations (Wrangler lists them and asks you to confirm, and takes a backup), then deploys the Worker. If a migration fails, Wrangler rolls that migration back and the code is **not** deployed.
+7. Smoke-check: sign in, the current month's Schedule loads, create and edit an appointment, a holiday rule blocks as expected, Table filters and exports, History shows the change. Check Worker errors.
+8. Record the commit, deploy time, operator, outcome, migrations applied, and change reference.
 
 ### 5.2 D1 schema migration
 
-1. Read the new SQL in `migrations/` and judge compatibility and rollback impact. Never run an unreviewed destructive migration.
-2. Confirm the target: `npx wrangler d1 migrations list calendar-qa-db --remote`.
-3. Get QA data-owner approval and follow the company backup and change process.
-4. Apply: `npm run migrate:remote` (`wrangler d1 migrations apply calendar-qa-db --remote`).
-5. Re-check migration status and app behavior before deploying code that depends on the new schema.
+Migrations run automatically as part of `npm run deploy`, just before the new code goes live. Wrangler applies only migrations that have not run yet, so a release without a new migration changes nothing in the database. Before a release that **does** contain one:
+
+1. Read the new SQL in `migrations/` and judge rollback impact. Never release an unreviewed destructive migration.
+2. Check it works with the Worker that is live now, because the database changes a moment before the new code deploys. Adding tables or columns is safe. Dropping or renaming a column the live code still uses must wait for a later release.
+3. See what will run: `npx wrangler d1 migrations list calendar-qa-db --remote`.
+4. Get QA data-owner approval and follow the company backup and change process.
+5. Release with `npm run deploy` (5.1). Confirm the migration list when Wrangler asks. In a non-interactive shell or CI there is no prompt; the migrations apply directly.
+6. Afterwards, re-run the list command; it should report nothing pending.
+
+To apply migrations without deploying code (for example, to run a large backfill on its own), use `npm run migrate:remote`.
 
 ### 5.3 Rollback and recovery
 
