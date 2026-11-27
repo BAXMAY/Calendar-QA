@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import type { VM } from '../useScheduler';
+import { getApptCardColors } from '../useScheduler';
 import type { Assignment } from '../types';
 import { isInternalAssignment, calculateAuditStats, formatAreaString, normalizeSite, normalizeSites, getSiteOrderIndex } from '../types';
 import { getActiveDropdownOptions, MASTER_PLANT_SITES } from '../utils/auditOptionsHelper';
@@ -23,6 +24,18 @@ interface TableRowData {
 }
 
 type SortColumn = 'date' | 'auditType' | 'customer' | 'site' | 'standard' | 'auditCategory' | 'purpose' | 'targetPackage' | 'customerNames' | 'auditor';
+
+function getSiteStripBackground(site: string, siteColors: Record<string, string>): string {
+  const colors = (site || '').split(/[/,]/).map((item) => item.trim()).filter(Boolean)
+    .map((item) => siteColors[item] || siteColors[normalizeSite(item)] || '#9aa097');
+  if (colors.length < 2) return colors[0] || '#9aa097';
+  const stops = colors.map((color, index) => {
+    const start = Math.round((index / colors.length) * 100);
+    const end = Math.round(((index + 1) / colors.length) * 100);
+    return `${color} ${start}%, ${color} ${end}%`;
+  }).join(', ');
+  return `linear-gradient(180deg, ${stops})`;
+}
 
 function TableMultiSelectFilter({
   label,
@@ -1056,7 +1069,8 @@ export function TableView({ vm }: { vm: VM }) {
                 </tr>
               ) : (
                 paginatedRows.map((row) => {
-                  const siteColor = vm.siteColors[row.site] || vm.siteColors[normalizeSite(row.site)] || '#9aa097';
+                  const siteStrip = getSiteStripBackground(row.site, vm.siteColors);
+                  const rowBackground = getApptCardColors(row.assignment, Date.now(), false).barBg;
                   const isCustomer = row.auditType === 'Customer Audit';
                   const isConfirmingDelete = deleteConfirmId === row.id;
 
@@ -1066,20 +1080,23 @@ export function TableView({ vm }: { vm: VM }) {
                       onClick={() => vm.openEdit(row.id)}
                       style={css(
                         'border-bottom:1px solid #f0f2ee;transition:background .12s;cursor:pointer;' +
-                        'background:#fff;'
+                        'background:' + rowBackground + ';'
                       )}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = '#f9faf7'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = rowBackground; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = rowBackground; }}
                     >
                       {/* 1. Date */}
-                      <td style={css('padding:11px 14px;white-space:nowrap')}>
-                        <div style={css('display:flex;align-items:center;gap:6px')}>
-                          <span style={css("font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;color:#15191e")}>
-                            {row.dateStr}
-                          </span>
-                          <span style={css('font-size:10.5px;padding:1px 5px;border-radius:4px;background:#f1f3ee;color:#5c625c;font-weight:600')}>
-                            {row.dayName}
-                          </span>
+                      <td style={css('padding:0;white-space:nowrap')}>
+                        <div style={css('display:flex;align-items:stretch;min-height:46px;height:100%')}>
+                          <div style={{ width: '5px', flexShrink: 0, background: siteStrip }} />
+                          <div style={css('display:flex;align-items:center;gap:6px;padding:11px 14px')}>
+                            <span style={css("font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;color:#15191e")}>
+                              {row.dateStr}
+                            </span>
+                            <span style={css('font-size:10.5px;padding:1px 5px;border-radius:4px;background:#f1f3ee;color:#5c625c;font-weight:600')}>
+                              {row.dayName}
+                            </span>
+                          </div>
                         </div>
                       </td>
 
@@ -1108,7 +1125,7 @@ export function TableView({ vm }: { vm: VM }) {
                       <td style={css('padding:11px 14px;white-space:nowrap')}>
                         {row.site ? (
                           <div style={css('display:flex;align-items:center;gap:6px')}>
-                            <span style={css(`width:8px;height:8px;border-radius:50%;background:${siteColor};flex-shrink:0`)} />
+                            <span style={css(`width:8px;height:8px;border-radius:50%;background:${getSiteStripBackground(row.site, vm.siteColors)};flex-shrink:0`)} />
                             <span style={css("font-family:'IBM Plex Mono',monospace;font-weight:600;color:#23282a")}>
                               {row.site}
                             </span>

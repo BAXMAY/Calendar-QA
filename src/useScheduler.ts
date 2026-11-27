@@ -177,16 +177,16 @@ export function getApptCardColors(
 
   const defaultTitleColor = chip.isInternal ? '#10b981' : '#2756d6';
   const defaultPurposeColor = '#5c625c';
-  // Priority 1: INCOMPLETE FORM (Solid Red - bg-red-600 text-white)
+  // Priority 1: INCOMPLETE FORM (Soft Red)
   if (status === 'INCOMPLETE_DATA') {
     return {
       priority: 'incomplete',
-      barBg: '#dc2626', // solid RED (bg-red-600)
-      cardBorder: '1px solid #b91c1c', // border-red-700
+      barBg: STATUS_COLOR_MAP.incomplete.bg,
+      cardBorder: '1px solid ' + STATUS_COLOR_MAP.incomplete.border,
       accentBg: STATUS_COLOR_MAP.incomplete.color, // '#dc2626'
-      titleColor: '#FFFFFF', // text-white
-      purposeColor: '#FFFFFF', // text-white
-      overrideCodeColor: '#FFFFFF',
+      titleColor: defaultTitleColor,
+      purposeColor: defaultPurposeColor,
+      overrideCodeColor: undefined,
     };
   }
 
@@ -3455,7 +3455,7 @@ export function useScheduler() {
     const dim = chipDimmed(a);
     const sel = S.selected === a.id;
     const colors = siteColorsOfAssignment(a, S.siteColors);
-    const accentStyle = getAccentStyle(colors, 3);
+    const accentStyle = getAccentStyle(colors, 4);
     const isInternal = isInternalAssignment(a);
     const isIncomplete = isIncompleteAssignment(a);
     const auditorName = getAppointmentQmsHost(a);
@@ -3479,13 +3479,13 @@ export function useScheduler() {
       toDate,
     }, nowTick, false);
     const barBg = cardColors.barBg;
-    const borderStyle = cardColors.priority === 'default' ? '1px solid #e3e6e0' : cardColors.cardBorder;
+    const borderStyle = cardColors.cardBorder;
     const base: CSSProperties = {
       display: 'block', padding: '7px 9px', borderRadius: '6px', background: barBg, cursor: 'grab', position: 'relative',
-      border: borderStyle, ...accentStyle, borderLeft: '3px solid ' + cardColors.accentBg,
+      border: borderStyle, ...accentStyle,
       boxShadow: sel ? '0 0 0 2px ' + hexA(colors[0] || '#999', 0.55) : '0 1px 1px rgba(20,25,30,.05)',
       opacity: dim ? 0.32 : 1, filter: dim ? 'grayscale(.5)' : 'none', transition: 'box-shadow .12s',
-      color: isIncomplete ? '#ffffff' : undefined,
+      color: undefined,
     };
     return {
       aid: a.id, code: apptAbbr(a) + (nameWithSite ? ' · ' + nameWithSite : ''), purpose: chipPurpose, style: base,
@@ -3503,7 +3503,7 @@ export function useScheduler() {
     const pl = ord ? plantById(ord.plant) : null;
     const dim = chipDimmed(a);
     const colors = accent ? [accent] : siteColorsOfAssignment(a, S.siteColors);
-    const accentStyle = getAccentStyle(colors, 3);
+    const accentStyle = getAccentStyle(colors, 4);
     const isInternal = isInternalAssignment(a);
     const isIncomplete = isIncompleteAssignment(a);
     const auditorName = getAppointmentQmsHost(a);
@@ -3527,12 +3527,12 @@ export function useScheduler() {
       toDate,
     }, nowTick, false);
     const barBg = cardColors.barBg;
-    const borderStyle = cardColors.priority === 'default' ? '1px solid #e8ebe4' : cardColors.cardBorder;
+    const borderStyle = cardColors.cardBorder;
     return {
       aid: a.id, name: e ? e.name : '?', initials: e ? initials(e.name) : '??', code: apptAbbr(a) + (nameWithSite ? ' · ' + nameWithSite : ''), purpose: chipPurpose, plantCode: pl ? pl.code : '?',
       isIncomplete,
       rawPurpose, qmsHost: auditorName, auditor: auditorName,
-      style: sx({ display: 'flex', alignItems: 'center', gap: '7px', padding: '5px 7px', background: barBg, border: borderStyle, ...accentStyle, borderLeft: '3px solid ' + cardColors.accentBg, borderRadius: '6px', cursor: 'pointer', opacity: dim ? 0.32 : 1, filter: dim ? 'grayscale(.5)' : 'none', color: isIncomplete ? '#ffffff' : undefined }),
+      style: sx({ display: 'flex', alignItems: 'center', gap: '7px', padding: '5px 7px', background: barBg, border: borderStyle, ...accentStyle, borderRadius: '6px', cursor: 'pointer', opacity: dim ? 0.32 : 1, filter: dim ? 'grayscale(.5)' : 'none' }),
       avatarStyle: sx({ width: '22px', height: '22px', borderRadius: '6px', background: isIncomplete ? '#b91c1c' : '#f1f3ee', color: isIncomplete ? '#ffffff' : '#5c625c', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'IBM Plex Mono',monospace", fontSize: '9px', fontWeight: 600, flexShrink: 0 }),
       onClick: () => select(a.id),
     };

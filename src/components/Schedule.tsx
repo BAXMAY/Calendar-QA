@@ -5,6 +5,18 @@ import { isAuditResultCompleted, formatCardSubtitle, STATUS_COLOR_MAP, STATUS_CO
 import { css, HButton, HInput } from '../ui';
 import { getHolidayStyle, isOfficialHoliday } from '../holidays';
 
+function getSiteStripBackground(chip: any): string {
+  const colors = Array.isArray(chip?.colors) ? chip.colors.filter((color: unknown) => typeof color === 'string' && color) : [];
+  if (colors.length === 0 && chip?.color) colors.push(chip.color);
+  if (colors.length < 2) return colors[0] || '#9aa097';
+  const stops = colors.map((color: string, index: number) => {
+    const start = Math.round((index / colors.length) * 100);
+    const end = Math.round(((index + 1) / colors.length) * 100);
+    return `${color} ${start}%, ${color} ${end}%`;
+  }).join(', ');
+  return `linear-gradient(180deg, ${stops})`;
+}
+
 function renderApptCode(code: string, overrideColor?: string) {
   if (typeof code === 'string' && (code.startsWith('CS') || code.startsWith('IA'))) {
     const spaceDotIdx = code.indexOf(' · ');
@@ -294,7 +306,7 @@ function ApptCard({ chip }: { chip: any }) {
   const cardColors = getApptCardColors(chip, Date.now(), false);
   const isInc = cardColors.priority === 'incomplete';
   const barBg = cardColors.barBg;
-  const accentBg = cardColors.accentBg;
+  const siteStrip = getSiteStripBackground(chip);
   const titleColor = cardColors.titleColor;
   const purposeColor = cardColors.purposeColor;
   const cardBorder = cardColors.cardBorder;
@@ -303,16 +315,16 @@ function ApptCard({ chip }: { chip: any }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', background: barBg, border: cardBorder, borderRadius: '8px', overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'stretch' }}>
-        <div style={{ width: '4px', background: accentBg, flexShrink: 0, alignSelf: 'stretch' }} />
+        <div style={{ width: '5px', background: siteStrip, flexShrink: 0, alignSelf: 'stretch' }} />
         <div style={css('min-width:0;flex:1;padding:9px 11px;display:flex;align-items:center;justify-content:space-between;gap:10px')}>
           <div
             onClick={toggleExpand}
             style={{ minWidth: 0, flex: 1, cursor: 'pointer' }}
             title="Click to expand embedded details"
           >
-            <div style={css(`font-size:12.5px;font-weight:600;color:${titleColor}`)}>{renderApptCode(chip.code, isInc ? '#FFFFFF' : undefined)}</div>
+            <div style={css(`font-size:12.5px;font-weight:600;color:${titleColor}`)}>{renderApptCode(chip.code)}</div>
             <div style={css(`font-size:11px;color:${purposeColor};margin-top:2px`)}>
-              {renderApptSubtitle(chip, isInc, purposeColor)}
+              {renderApptSubtitle(chip, false, purposeColor)}
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
@@ -753,27 +765,28 @@ function Sidebar({ vm }: { vm: VM }) {
         </div>
       </div>
 
-      <div style={css('padding:13px 15px 12px;border-bottom:1px solid #e7eae3')}>
-        <div style={css("font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#9aa097;letter-spacing:.6px;margin-bottom:8px")}>STATUS COLOR</div>
-        <div style={css('display:flex;flex-direction:column;gap:7px')}>
-          {STATUS_COLOR_LIST.map((sc) => (
-            <div key={sc.key} style={css('display:flex;align-items:center;gap:8px')}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '3px', flexShrink: 0, background: sc.color }} />
-              <span style={css('font-size:11.5px;color:#3c423d')}>{sc.label}</span>
-            </div>
-          ))}
+      <div style={css('padding:13px 12px 14px;border-bottom:1px solid #e7eae3;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:10px')}>
+        <div>
+          <div style={css("font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;color:#9aa097;letter-spacing:.45px;margin-bottom:8px")}>STATUS COLOR</div>
+          <div style={css('display:flex;flex-direction:column;gap:7px')}>
+            {STATUS_COLOR_LIST.map((sc) => (
+              <div key={sc.key} style={css('display:flex;align-items:center;gap:6px')}>
+                <span style={{ width: '10px', height: '10px', borderRadius: '3px', flexShrink: 0, background: sc.color }} />
+                <span style={css('font-size:10.5px;color:#3c423d;line-height:1.25')}>{sc.label}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-
-      <div style={css('padding:13px 15px 14px')}>
-        <div style={css("font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#9aa097;letter-spacing:.6px;margin-bottom:8px")}>COLOR CODE SITE</div>
-        <div style={css('display:flex;flex-direction:column;gap:7px')}>
-          {vm.siteColorList.map((s) => (
-            <div key={s.site} style={css('display:flex;align-items:center;gap:8px')}>
-              <span style={css('width:10px;height:10px;border-radius:3px;flex-shrink:0;background:' + s.color)} />
-              <span style={css('font-size:11.5px;color:#3c423d')}>{s.site}</span>
-            </div>
-          ))}
+        <div>
+          <div style={css("font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;color:#9aa097;letter-spacing:.35px;margin-bottom:8px")}>SITE COLOR CODE</div>
+          <div style={css('display:flex;flex-direction:column;gap:7px')}>
+            {vm.siteColorList.map((s) => (
+              <div key={s.site} style={css('display:flex;align-items:center;gap:6px')}>
+                <span style={css('width:10px;height:10px;border-radius:3px;flex-shrink:0;background:' + s.color)} />
+                <span style={css('font-size:10.5px;color:#3c423d;line-height:1.25')}>{s.site}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </aside>
@@ -795,15 +808,14 @@ function TimetableGrid({ vm }: { vm: VM }) {
           {r.cells.map((cell, ci) => (
             <div key={ci} style={cell.style}>
               {cell.chips.map((chip) => {
-                const isInc = chip.isIncomplete;
                 return (
                   <div key={chip.aid} onClick={chip.onClick} style={chip.style}>
                     <div style={css('display:flex;align-items:center;gap:6px')}>
-                      <span style={css(`font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:${isInc ? '#ffffff' : '#15191e'}`)}>{renderApptCode(chip.code, isInc ? '#ffffff' : undefined)}</span>
+                      <span style={css(`font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#15191e`)}>{renderApptCode(chip.code)}</span>
                       <span style={css('flex:1')} />
                     </div>
-                    <div style={css(`font-size:10.5px;color:${isInc ? '#ffffff' : '#5c625c'};margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis`)}>
-                      {renderApptSubtitle(chip, isInc, isInc ? '#ffffff' : '#5c625c')}
+                    <div style={css(`font-size:10.5px;color:#5c625c;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis`)}>
+                      {renderApptSubtitle(chip, false, '#5c625c')}
                     </div>
                   </div>
                 );
@@ -826,15 +838,14 @@ function MobileTimetable({ vm }: { vm: VM }) {
             <div style={css('font-size:11px;font-weight:700;color:#9aa097;margin-bottom:5px;padding-left:2px')}>{r.label}</div>
             <div style={css('display:flex;flex-direction:column;gap:6px')}>
               {r.cell.chips.map((chip) => {
-                const isInc = chip.isIncomplete;
                 return (
                   <div key={chip.aid} onClick={chip.onClick} style={chip.style}>
                     <div style={css('display:flex;align-items:center;gap:6px')}>
-                      <span style={css(`font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;color:${isInc ? '#ffffff' : '#15191e'}`)}>{renderApptCode(chip.code, isInc ? '#ffffff' : undefined)}</span>
+                      <span style={css(`font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;color:#15191e`)}>{renderApptCode(chip.code)}</span>
                       <span style={css('flex:1')} />
                     </div>
-                    <div style={css(`font-size:10.5px;color:${isInc ? '#ffffff' : '#5c625c'};margin-top:2px`)}>
-                      {renderApptSubtitle(chip, isInc, isInc ? '#ffffff' : '#5c625c')}
+                    <div style={css(`font-size:10.5px;color:#5c625c;margin-top:2px`)}>
+                      {renderApptSubtitle(chip, false, '#5c625c')}
                     </div>
                   </div>
                 );
@@ -862,8 +873,8 @@ function SearchRowItem({ dateLabel, chip, isLast }: { dateLabel: string; chip: a
 
   const cardColors = getApptCardColors(chip, Date.now(), false);
   const isInc = cardColors.priority === 'incomplete';
-  const barBgColor = cardColors.accentBg;
-  const rowBg = cardColors.priority === 'default' ? '#fff' : cardColors.barBg;
+  const siteStrip = getSiteStripBackground(chip);
+  const rowBg = cardColors.barBg;
   const hasResults = isAuditResultCompleted(chip);
 
   return (
@@ -876,30 +887,30 @@ function SearchRowItem({ dateLabel, chip, isLast }: { dateLabel: string; chip: a
           padding: '10px 14px',
           display: 'flex',
           alignItems: 'center',
-          background: isInc ? '#dc2626' : '#fafbf9',
-          borderRight: isInc ? '1px solid #b91c1c' : '1px solid #e8ebe4',
+          background: rowBg,
+          borderRight: '1px solid #e8ebe4',
           flexShrink: 0,
         }}>
           <span style={{
             fontFamily: "'IBM Plex Mono',monospace",
             fontSize: '12px',
             fontWeight: 700,
-            color: isInc ? '#FFFFFF' : '#15191e',
+            color: '#15191e',
             letterSpacing: '0.2px',
           }}>
             {dateLabel}
           </span>
         </div>
 
-        {/* Color accent bar: Red (#dc2626) for incomplete data, otherwise standard blue / plant accent */}
-        <div style={{ width: '4px', background: barBgColor, flexShrink: 0, alignSelf: 'stretch' }} />
+        {/* Site color accent strip */}
+        <div style={{ width: '5px', background: siteStrip, flexShrink: 0, alignSelf: 'stretch' }} />
 
         {/* Main Appointment Content Strip */}
         <div style={{ flex: 1, minWidth: 0, padding: '9px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
           <div onClick={toggleExpand} style={{ minWidth: 0, flex: 1, cursor: 'pointer' }} title="Click to expand embedded details">
             <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexWrap: 'wrap' }}>
-              <div style={css(`font-size:12.5px;font-weight:600;color:${isInc ? '#FFFFFF' : (chip.isInternal ? '#10b981' : '#2756d6')}`)}>
-                {renderApptCode(chip.code, isInc ? '#FFFFFF' : undefined)}
+              <div style={css(`font-size:12.5px;font-weight:600;color:${chip.isInternal ? '#10b981' : '#2756d6'}`)}>
+                {renderApptCode(chip.code)}
               </div>
               {isInc && (
                 <span style={{ fontSize: '10px', fontWeight: 700, color: '#dc2626', background: '#FFFFFF', border: '1px solid #fee2e2', padding: '1px 5px', borderRadius: '4px', textTransform: 'uppercase', lineHeight: 1 }}>
@@ -907,8 +918,8 @@ function SearchRowItem({ dateLabel, chip, isLast }: { dateLabel: string; chip: a
                 </span>
               )}
             </div>
-            <div style={css(`font-size:11px;color:${isInc ? '#FFFFFF' : '#5c625c'};margin-top:2px`)}>
-              {renderApptSubtitle(chip, isInc, isInc ? '#FFFFFF' : '#5c625c')}
+            <div style={css('font-size:11px;color:#5c625c;margin-top:2px')}>
+              {renderApptSubtitle(chip, false, '#5c625c')}
             </div>
           </div>
 
@@ -1719,8 +1730,8 @@ function WeekCalendar({ vm }: { vm: VM }) {
                 const barBg = cardColors.barBg;
                 const titleColor = cardColors.titleColor;
                 const purposeColor = cardColors.purposeColor;
-                const accentBg = cardColors.accentBg;
-                const border = cardColors.priority === 'default' ? 'none' : cardColors.cardBorder;
+                const siteStrip = getSiteStripBackground(chip);
+                const border = cardColors.cardBorder;
 
                 return (
                   <div key={chip.id} onClick={chip.onClick} title={[chip.customer, formatCardSubtitle(chip.rawPurpose || chip.purpose, chip.qmsHost || chip.auditor || (chip.isInternal ? chip.auditor2 : chip.auditor1) || chip.auditor1)].filter(Boolean).join(' - ')} style={{
@@ -1730,11 +1741,11 @@ function WeekCalendar({ vm }: { vm: VM }) {
                     boxShadow: '0 1px 2px rgba(0,0,0,.06)',
                     cursor: 'pointer', overflow: 'hidden',
                   }}>
-                    <div style={{ width: '3px', background: accentBg, flexShrink: 0, alignSelf: 'stretch' }} />
+                    <div style={{ width: '4px', background: siteStrip, flexShrink: 0, alignSelf: 'stretch' }} />
                     <div style={{ padding: '6px 8px', minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: '11.5px', fontWeight: 600, color: titleColor }}>{renderApptCode(chip.customer, cardColors.priority === 'incomplete' ? '#FFFFFF' : undefined)}</div>
+                      <div style={{ fontSize: '11.5px', fontWeight: 600, color: titleColor }}>{renderApptCode(chip.customer)}</div>
                       <div style={{ fontSize: '10px', color: purposeColor, marginTop: '1px' }}>
-                        {renderApptSubtitle(chip, cardColors.priority === 'incomplete', purposeColor)}
+                        {renderApptSubtitle(chip, false, purposeColor)}
                       </div>
                     </div>
                   </div>
@@ -1760,8 +1771,8 @@ function WeekCalendar({ vm }: { vm: VM }) {
         const barBg = cardColors.barBg;
         const titleColor = cardColors.titleColor;
         const purposeColor = cardColors.purposeColor;
-        const accentBg = cardColors.accentBg;
-        const border = cardColors.priority === 'default' ? 'none' : cardColors.cardBorder;
+        const siteStrip = getSiteStripBackground(sp);
+        const border = cardColors.cardBorder;
 
         return (
           <div key={sp.id} onClick={sp.onClick} title={[sp.customer, formatCardSubtitle(sp.rawPurpose || sp.purpose, sp.qmsHost || sp.auditor || (sp.isInternal ? sp.auditor2 : sp.auditor1) || sp.auditor1)].filter(Boolean).join(' - ')} style={{
@@ -1775,11 +1786,11 @@ function WeekCalendar({ vm }: { vm: VM }) {
             cursor: 'pointer', overflow: 'hidden',
             margin: '2px 0',
           }}>
-            <div style={{ width: '3px', background: accentBg, flexShrink: 0, alignSelf: 'stretch' }} />
+            <div style={{ width: '4px', background: siteStrip, flexShrink: 0, alignSelf: 'stretch' }} />
             <div style={{ padding: '6px 8px', minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: '11.5px', fontWeight: 600, color: titleColor }}>{renderApptCode(sp.customer, cardColors.priority === 'incomplete' ? '#FFFFFF' : undefined)}</div>
+              <div style={{ fontSize: '11.5px', fontWeight: 600, color: titleColor }}>{renderApptCode(sp.customer)}</div>
               <div style={{ fontSize: '10px', color: purposeColor, marginTop: '1px' }}>
-                {renderApptSubtitle(sp, cardColors.priority === 'incomplete', purposeColor)}
+                {renderApptSubtitle(sp, false, purposeColor)}
               </div>
             </div>
           </div>
@@ -1863,14 +1874,13 @@ function MobileSiteDept({ vm }: { vm: VM }) {
           </div>
           <div style={css('display:flex;flex-direction:column;gap:6px')}>
             {r.cell.chips.map((chip) => {
-              const isInc = chip.isIncomplete;
               return (
                 <div key={chip.aid} onClick={chip.onClick} style={chip.style}>
                   <div style={chip.avatarStyle}>{chip.initials}</div>
                   <div style={css('min-width:0;flex:1')}>
-                    <div style={css(`font-size:11.5px;font-weight:600;color:${isInc ? '#ffffff' : '#23282a'}`)}>{chip.name}</div>
-                    <div style={css(`font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:${isInc ? '#ffffff' : '#7a807a'}`)}>{renderApptCode(chip.code, isInc ? '#ffffff' : undefined)}</div>
-                    <div style={css(`font-size:9.5px;color:${isInc ? '#ffffff' : '#a6aca2'}`)}>{renderApptSubtitle(chip, isInc, isInc ? '#ffffff' : '#a6aca2')}</div>
+                    <div style={css(`font-size:11.5px;font-weight:600;color:#23282a`)}>{chip.name}</div>
+                    <div style={css(`font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#7a807a`)}>{renderApptCode(chip.code)}</div>
+                    <div style={css(`font-size:9.5px;color:#a6aca2`)}>{renderApptSubtitle(chip, false, '#a6aca2')}</div>
                   </div>
                 </div>
               );
@@ -1898,14 +1908,13 @@ function MobilePerson({ vm }: { vm: VM }) {
           </div>
           <div style={css('display:flex;flex-direction:column;gap:6px')}>
             {r.cell.chips.map((chip) => {
-              const isInc = chip.isIncomplete;
               return (
                 <div key={chip.aid} onClick={chip.onClick} style={chip.style}>
                   <div style={css('display:flex;align-items:center;gap:6px')}>
-                    <span style={css(`font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;color:${isInc ? '#ffffff' : '#15191e'}`)}>{renderApptCode(chip.code, isInc ? '#ffffff' : undefined)}</span>
+                    <span style={css(`font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;color:#15191e`)}>{renderApptCode(chip.code)}</span>
                     <span style={css('flex:1')} />
                   </div>
-                  <div style={css(`font-size:10.5px;color:${isInc ? '#ffffff' : '#5c625c'};margin-top:2px`)}>{renderApptSubtitle(chip, isInc, isInc ? '#ffffff' : '#5c625c')}</div>
+                  <div style={css(`font-size:10.5px;color:#5c625c;margin-top:2px`)}>{renderApptSubtitle(chip, false, '#5c625c')}</div>
                 </div>
               );
             })}
@@ -1935,14 +1944,13 @@ function MobileSite({ vm }: { vm: VM }) {
           </div>
           <div style={css('display:flex;flex-direction:column;gap:6px')}>
             {r.cell.chips.map((chip) => {
-              const isInc = chip.isIncomplete;
               return (
                 <div key={chip.aid} onClick={chip.onClick} style={chip.style}>
                   <div style={chip.avatarStyle}>{chip.initials}</div>
                   <div style={css('min-width:0;flex:1')}>
-                    <div style={css(`font-size:11.5px;font-weight:600;color:${isInc ? '#ffffff' : '#23282a'}`)}>{chip.name}</div>
-                    <div style={css(`font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:${isInc ? '#ffffff' : '#7a807a'}`)}>{renderApptCode(chip.code, isInc ? '#ffffff' : undefined)}</div>
-                    <div style={css(`font-size:9.5px;color:${isInc ? '#ffffff' : '#a6aca2'}`)}>{renderApptSubtitle(chip, isInc, isInc ? '#ffffff' : '#a6aca2')}</div>
+                    <div style={css(`font-size:11.5px;font-weight:600;color:#23282a`)}>{chip.name}</div>
+                    <div style={css(`font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#7a807a`)}>{renderApptCode(chip.code)}</div>
+                    <div style={css(`font-size:9.5px;color:#a6aca2`)}>{renderApptSubtitle(chip, false, '#a6aca2')}</div>
                   </div>
                 </div>
               );
@@ -2027,8 +2035,8 @@ function MonthGrid({ vm }: { vm: VM }) {
                   const barBg = cardColors.barBg;
                   const titleColor = cardColors.titleColor;
                   const purposeColor = cardColors.purposeColor;
-                  const accentBg = cardColors.accentBg;
-                  const border = cardColors.priority === 'default' ? 'none' : cardColors.cardBorder;
+                  const siteStrip = getSiteStripBackground(ch);
+                  const border = cardColors.cardBorder;
 
                   return (
                     <div
@@ -2045,11 +2053,11 @@ function MonthGrid({ vm }: { vm: VM }) {
                         overflow: 'hidden',
                       }}
                     >
-                      <div style={{ width: '3px', background: accentBg, flexShrink: 0, alignSelf: 'stretch' }} />
+                      <div style={{ width: '4px', background: siteStrip, flexShrink: 0, alignSelf: 'stretch' }} />
                       <div style={{ padding: '3px 5px', minWidth: 0, flex: 1, overflow: 'hidden' }}>
-                        <div style={{ fontSize: '10.5px', fontWeight: 600, color: titleColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{renderApptCode(ch.code, cardColors.priority === 'incomplete' ? '#FFFFFF' : undefined)}</div>
+                        <div style={{ fontSize: '10.5px', fontWeight: 600, color: titleColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{renderApptCode(ch.code)}</div>
                         <div style={{ fontSize: '9.5px', color: purposeColor, marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {renderApptSubtitle(ch, cardColors.priority === 'incomplete', purposeColor)}
+                          {renderApptSubtitle(ch, false, purposeColor)}
                         </div>
                       </div>
                     </div>
@@ -2135,8 +2143,8 @@ function MonthMobile({ vm }: { vm: VM }) {
                   const barBg = cardColors.barBg;
                   const titleColor = cardColors.titleColor;
                   const purposeColor = cardColors.purposeColor;
-                  const accentBg = cardColors.accentBg;
-                  const border = cardColors.priority === 'default' ? 'none' : cardColors.cardBorder;
+                  const siteStrip = getSiteStripBackground(ch);
+                  const border = cardColors.cardBorder;
 
                   return (
                     <div
@@ -2152,11 +2160,11 @@ function MonthMobile({ vm }: { vm: VM }) {
                         overflow: 'hidden',
                       }}
                     >
-                      <div style={{ width: '2px', background: accentBg, flexShrink: 0, alignSelf: 'stretch' }} />
+                      <div style={{ width: '4px', background: siteStrip, flexShrink: 0, alignSelf: 'stretch' }} />
                       <div style={{ padding: '2px 4px', minWidth: 0, flex: 1, overflow: 'hidden' }}>
-                        <div style={{ fontSize: '8px', fontWeight: 600, color: titleColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{renderApptCode(ch.code, cardColors.priority === 'incomplete' ? '#FFFFFF' : undefined)}</div>
+                        <div style={{ fontSize: '8px', fontWeight: 600, color: titleColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{renderApptCode(ch.code)}</div>
                         <div style={{ fontSize: '7.5px', color: purposeColor, marginTop: '0.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {renderApptSubtitle(ch, cardColors.priority === 'incomplete', purposeColor)}
+                          {renderApptSubtitle(ch, false, purposeColor)}
                         </div>
                       </div>
                     </div>
@@ -2342,3 +2350,4 @@ function YearGrid({ vm }: { vm: VM }) {
     </div>
   );
 }
+
