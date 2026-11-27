@@ -183,7 +183,7 @@ function MultiSelect({ label, items, selected, onToggle }: { label: string; item
   const selCount = selected.length;
   return (
     <div ref={ref} style={css('position:relative')}>
-      <button onClick={() => setOpen(!open)} style={css('width:100%;padding:6px 8px;border:1px solid #dde0d9;border-radius:6px;background:#fff;cursor:pointer;font-size:11px;font-family:\'Archivo\',sans-serif;font-weight:600;color:#3c423d;text-align:left;display:flex;align-items:center;justify-content:space-between')}>
+      <button className="tap" onClick={() => setOpen(!open)} style={css('width:100%;padding:6px 8px;border:1px solid #dde0d9;border-radius:6px;background:#fff;cursor:pointer;font-size:11px;font-family:\'Archivo\',sans-serif;font-weight:600;color:#3c423d;text-align:left;display:flex;align-items:center;justify-content:space-between')}>
         <span>{label}{selCount > 0 ? <span style={css('color:#2756d6;margin-left:3px')}>({selCount})</span> : ''}</span>
         <span style={css('font-size:8px;color:#9aa097')}>{open ? '\u25B2' : '\u25BC'}</span>
       </button>
@@ -681,12 +681,12 @@ function Sidebar({ vm }: { vm: VM }) {
     <aside className="scrl" style={vm.sidebarStyle}>
       <div style={css('padding:13px 15px 12px;border-bottom:1px solid #e7eae3')}>
         <div style={css('display:flex;align-items:center;justify-content:space-between')}>
-          <HButton onClick={vm.prevWeek} style={css('width:26px;height:26px;border:1px solid #dde0d9;background:#fff;border-radius:6px;cursor:pointer;color:#4a504a;font-size:13px;display:flex;align-items:center;justify-content:center')} hover={{ background: '#f1f3ee' }}>‹</HButton>
+          <HButton className="tap-square" onClick={vm.prevWeek} style={css('width:26px;height:26px;border:1px solid #dde0d9;background:#fff;border-radius:6px;cursor:pointer;color:#4a504a;font-size:13px;display:flex;align-items:center;justify-content:center')} hover={{ background: '#f1f3ee' }}>‹</HButton>
           <div style={css('text-align:center;line-height:1.15')}>
             <div style={css('font-size:13px;font-weight:700;letter-spacing:-.1px')}>{vm.periodLabel}</div>
             <div style={css("font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8a9088;letter-spacing:.3px;margin-top:1px")}>{vm.periodTag}</div>
           </div>
-          <HButton onClick={vm.nextWeek} style={css('width:26px;height:26px;border:1px solid #dde0d9;background:#fff;border-radius:6px;cursor:pointer;color:#4a504a;font-size:13px;display:flex;align-items:center;justify-content:center')} hover={{ background: '#f1f3ee' }}>›</HButton>
+          <HButton className="tap-square" onClick={vm.nextWeek} style={css('width:26px;height:26px;border:1px solid #dde0d9;background:#fff;border-radius:6px;cursor:pointer;color:#4a504a;font-size:13px;display:flex;align-items:center;justify-content:center')} hover={{ background: '#f1f3ee' }}>›</HButton>
         </div>
       </div>
 
@@ -1639,12 +1639,12 @@ function Toolbar({ vm }: { vm: VM }) {
   return (
     <div style={vm.toolbarStyle}>
       {vm.isMobile && (
-        <button onClick={vm.toggleSidebar} style={css('width:34px;height:34px;border:1px solid #dde0d9;background:#fff;border-radius:8px;cursor:pointer;color:#3c423d;font-size:15px;display:flex;align-items:center;justify-content:center;flex-shrink:0')}>☰</button>
+        <button className="tap-square" onClick={vm.toggleSidebar} style={css('width:34px;height:34px;border:1px solid #dde0d9;background:#fff;border-radius:8px;cursor:pointer;color:#3c423d;font-size:15px;display:flex;align-items:center;justify-content:center;flex-shrink:0')}>☰</button>
       )}
       <div style={css('display:flex;background:#f1f3ee;border:1px solid #e0e3dc;border-radius:8px;padding:2px;gap:2px')}>
-        <button onClick={vm.setWeekScale} style={vm.weekScaleStyle}>Week</button>
-        <button onClick={vm.setMonthScale} style={vm.monthScaleStyle}>Month</button>
-        <button onClick={vm.setYearScale} style={vm.yearScaleStyle}>Year</button>
+        <button className="tap" onClick={vm.setWeekScale} style={vm.weekScaleStyle}>Week</button>
+        <button className="tap" onClick={vm.setMonthScale} style={vm.monthScaleStyle}>Month</button>
+        <button className="tap" onClick={vm.setYearScale} style={vm.yearScaleStyle}>Year</button>
       </div>
       <div style={css('flex:1')} />
       {vm.showStats && (
@@ -1670,13 +1670,13 @@ function Toolbar({ vm }: { vm: VM }) {
           </div>
         </div>
       )}
-      <HButton onClick={vm.openCreate} style={css("background:#15191e;color:#fff;border:none;border-radius:8px;padding:8px 13px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:'Archivo',sans-serif;display:flex;align-items:center;gap:6px;flex-shrink:0")} hover={{ background: '#23282e' }}>
+      <HButton className="tap" onClick={vm.openCreate} style={css("background:#15191e;color:#fff;border:none;border-radius:8px;padding:8px 13px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:'Archivo',sans-serif;display:flex;align-items:center;gap:6px;flex-shrink:0")} hover={{ background: '#23282e' }}>
         <span style={css('font-size:14px;line-height:1')}>＋</span>New appointment
       </HButton>
       {vm.showDayStrip && (
         <div style={css('width:100%;display:flex;gap:5px')}>
           {vm.daySel.map((d, i) => (
-            <button key={i} onClick={d.onClick} style={d.style}>
+            <button className="tap" key={i} onClick={d.onClick} style={d.style}>
               <div style={d.labelStyle}>{d.label}</div>
               <div style={d.dateStyle}>{d.date}</div>
             </button>
@@ -1926,7 +1926,7 @@ function MobilePerson({ vm }: { vm: VM }) {
                   {r.cell.holiday.name}{isOfficialHoliday(r.cell.holiday) ? ' (Holiday)' : ''}
                 </div>
               ) : (
-                <button onClick={r.cell.onHintClick} style={css("width:100%;padding:10px;border:1px dashed #cdd2c9;background:#fbfcfa;border-radius:9px;color:#7a807a;font-size:12px;font-weight:600;font-family:'Archivo',sans-serif;cursor:pointer")}>＋ Assign appointment</button>
+                <button className="tap" onClick={r.cell.onHintClick} style={css("width:100%;padding:10px;border:1px dashed #cdd2c9;background:#fbfcfa;border-radius:9px;color:#7a807a;font-size:12px;font-weight:600;font-family:'Archivo',sans-serif;cursor:pointer")}>＋ Assign appointment</button>
               )
             )}
           </div>

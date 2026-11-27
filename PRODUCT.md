@@ -24,6 +24,7 @@ UTAC QA Calendar (QMS-CASS; the app header reads "Calendar Auditor") replaces sp
 ## Operating Context
 
 - Desktop browsers on company devices: Microsoft Edge (UTAC standard) and Google Chrome, standard windows (not InPrivate/Incognito).
+- Phones too (decided 2026-11-27): below 860px wide the app uses a bottom tab bar, card lists for Table and History, and 44px touch targets. Checked in Chromium phone emulation, not yet on real devices.
 - Seven sites: `UTL1`, `UTL2`, `UTL2A`, `UTL2B`, `UTL3`, `UTL3A`, `UTL3T`.
 - Views: Schedule (Week/Month/Year), Table, Summary, Manage (QMS Host, Options, Holidays), History.
 - Deployed as a Cloudflare Worker serving static assets and a `/api/*` API backed by Cloudflare D1. Live account, URL, and deployed version are not verifiable from the repository.

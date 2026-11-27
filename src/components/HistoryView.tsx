@@ -181,7 +181,7 @@ export function HistoryView({ vm }: { vm: VM }) {
   };
 
   return (
-    <div style={css('flex:1;display:flex;flex-direction:column;min-height:0;background:#e9ebe6;padding:16px 20px;gap:14px;overflow-y:auto')}>
+    <div style={css('flex:1;display:flex;flex-direction:column;min-height:0;background:#e9ebe6;overflow-y:auto;' + (vm.isMobile ? 'padding:12px;gap:12px' : 'padding:16px 20px;gap:14px'))}>
       {/* Top Header Card */}
       <div style={css('background:#fff;border:1px solid #d8dcd4;border-radius:12px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 1px 3px rgba(0,0,0,0.03)')}>
         <div>
@@ -212,12 +212,12 @@ export function HistoryView({ vm }: { vm: VM }) {
         </div>
 
         {/* Action Type Filter */}
-        <div style={css('display:flex;align-items:center;gap:5px')}>
+        <div style={css('display:flex;gap:5px;' + (vm.isMobile ? 'flex:1 1 140px;min-width:0;flex-direction:column;align-items:stretch' : 'align-items:center'))}>
           <label style={css('font-size:11.5px;font-weight:600;color:#5c625c')}>Action:</label>
           <select
             value={actionFilter}
             onChange={(e) => setActionFilter(e.target.value)}
-            style={css("padding:6px 10px;border:1px solid #d8dcd4;border-radius:8px;font-size:12px;color:#15191e;background:#fff;outline:none;font-family:'Archivo',sans-serif;cursor:pointer")}
+            style={css("padding:6px 10px;border:1px solid #d8dcd4;border-radius:8px;font-size:12px;color:#15191e;background:#fff;outline:none;font-family:'Archivo',sans-serif;cursor:pointer" + (vm.isMobile ? ';width:100%;min-width:0' : ''))}
           >
             <option value="ALL">All Actions</option>
             <option value="CREATE">{ACTION_LABELS.CREATE}</option>
@@ -230,12 +230,12 @@ export function HistoryView({ vm }: { vm: VM }) {
         </div>
 
         {/* Entity Type Filter */}
-        <div style={css('display:flex;align-items:center;gap:5px')}>
+        <div style={css('display:flex;gap:5px;' + (vm.isMobile ? 'flex:1 1 140px;min-width:0;flex-direction:column;align-items:stretch' : 'align-items:center'))}>
           <label style={css('font-size:11.5px;font-weight:600;color:#5c625c')}>Entity:</label>
           <select
             value={entityFilter}
             onChange={(e) => setEntityFilter(e.target.value)}
-            style={css("padding:6px 10px;border:1px solid #d8dcd4;border-radius:8px;font-size:12px;color:#15191e;background:#fff;outline:none;font-family:'Archivo',sans-serif;cursor:pointer")}
+            style={css("padding:6px 10px;border:1px solid #d8dcd4;border-radius:8px;font-size:12px;color:#15191e;background:#fff;outline:none;font-family:'Archivo',sans-serif;cursor:pointer" + (vm.isMobile ? ';width:100%;min-width:0' : ''))}
           >
             <option value="ALL">All Entities</option>
             <option value="APPOINTMENT">Appointment</option>
@@ -253,28 +253,29 @@ export function HistoryView({ vm }: { vm: VM }) {
         </div>
 
         {/* Date Range Filters */}
-        <div style={css('display:flex;align-items:center;gap:5px')}>
+        <div style={css('display:flex;gap:5px;' + (vm.isMobile ? 'flex:1 1 140px;min-width:0;flex-direction:column;align-items:stretch' : 'align-items:center'))}>
           <label style={css('font-size:11.5px;font-weight:600;color:#5c625c')}>From:</label>
           <input
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            style={css("padding:5px 8px;border:1px solid #d8dcd4;border-radius:8px;font-size:12px;color:#15191e;background:#fff;outline:none;font-family:'Archivo',sans-serif")}
+            style={css("padding:5px 8px;border:1px solid #d8dcd4;border-radius:8px;font-size:12px;color:#15191e;background:#fff;outline:none;font-family:'Archivo',sans-serif" + (vm.isMobile ? ';width:100%;min-width:0' : ''))}
           />
         </div>
 
-        <div style={css('display:flex;align-items:center;gap:5px')}>
+        <div style={css('display:flex;gap:5px;' + (vm.isMobile ? 'flex:1 1 140px;min-width:0;flex-direction:column;align-items:stretch' : 'align-items:center'))}>
           <label style={css('font-size:11.5px;font-weight:600;color:#5c625c')}>To:</label>
           <input
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            style={css("padding:5px 8px;border:1px solid #d8dcd4;border-radius:8px;font-size:12px;color:#15191e;background:#fff;outline:none;font-family:'Archivo',sans-serif")}
+            style={css("padding:5px 8px;border:1px solid #d8dcd4;border-radius:8px;font-size:12px;color:#15191e;background:#fff;outline:none;font-family:'Archivo',sans-serif" + (vm.isMobile ? ';width:100%;min-width:0' : ''))}
           />
         </div>
 
         {hasFilters && (
           <HButton
+            className="tap"
             onClick={handleResetFilters}
             style={css("background:#f4f6f1;border:1px solid #e0e3dc;color:#5c625c;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Archivo',sans-serif")}
             hover={{ background: '#eaede6' }}
@@ -285,7 +286,48 @@ export function HistoryView({ vm }: { vm: VM }) {
       </div>
 
       {/* Audit Log Table Feed */}
-      <div style={css('background:#fff;border:1px solid #d8dcd4;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.03);display:flex;flex-direction:column;flex:1')}>
+      <div style={css('background:#fff;border:1px solid #d8dcd4;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.03);display:flex;flex-direction:column;' + (vm.isMobile ? 'flex:0 0 auto' : 'flex:1'))}>
+        {vm.isMobile ? (
+          <ul aria-label="History entries" style={css('list-style:none;margin:0;padding:0')}>
+            {filteredLogs.length === 0 ? (
+              <li style={css('padding:36px 16px;text-align:center;color:#6a706a;font-size:14px')}>No activity audit logs found matching your filters.</li>
+            ) : (
+              filteredLogs.map((log: ActivityLog, idx: number) => {
+                const actionStyle = getActionBadgeStyle(log.actionType);
+                const entityStyle = getEntityBadgeStyle(log.entityType);
+                const initials = log.user.avatarInitials || log.user.name.slice(0, 2).toUpperCase();
+                const t = formatLogTime(log.timestamp);
+                return (
+                  <li key={log.id || idx} className="selectable" style={css('padding:12px 14px 13px;border-bottom:1px solid #f0f3ec')}>
+                    <div style={css('display:flex;align-items:center;gap:10px')}>
+                      <div aria-hidden="true" style={css("width:30px;height:30px;border-radius:8px;background:#15191e;color:#fff;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;flex-shrink:0")}>
+                        {initials}
+                      </div>
+                      <div style={css('min-width:0;flex:1')}>
+                        <div style={css('font-size:14px;font-weight:600;color:#15191e;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap')}>{log.user.name}</div>
+                        <time dateTime={log.timestamp} style={css("display:block;margin-top:2px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#6a706a")}>
+                          {t ? `${t.date} · ${t.time}` : log.timestamp}
+                        </time>
+                      </div>
+                    </div>
+                    <div style={css('display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px')}>
+                      <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, backgroundColor: actionStyle.bg, color: actionStyle.color, border: `1px solid ${actionStyle.border}` }}>
+                        {ACTION_LABELS[log.actionType] || humanize(String(log.actionType))}
+                      </span>
+                      <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, backgroundColor: entityStyle.bg, color: entityStyle.color }}>
+                        {ENTITY_LABELS[log.entityType] || humanize(String(log.entityType))}
+                      </span>
+                      {vm.historyOnServer && !log.synced && (
+                        <span title="Stored only in this browser. Other people cannot see it." style={css('font-size:12px;color:#92400e')}>This browser only</span>
+                      )}
+                    </div>
+                    <div style={css('margin-top:7px;font-size:14px;line-height:1.45;color:#2a2f28;overflow-wrap:anywhere')}>{renderDescription(log.description)}</div>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        ) : (
         <div className="scrl" style={css('overflow:auto;flex:1')}>
           <table style={css('width:100%;min-width:760px;border-collapse:collapse;text-align:left;font-size:12.5px')}>
             <thead>
@@ -400,9 +442,11 @@ export function HistoryView({ vm }: { vm: VM }) {
             </tbody>
           </table>
         </div>
+        )}
         {vm.historyHasMore && (
           <div style={css('display:flex;justify-content:center;padding:12px;border-top:1px solid #f0f3ec')}>
             <HButton
+              className="tap"
               onClick={vm.loadOlderHistory}
               disabled={vm.historyLoadingOlder}
               style={css("background:#f4f6f1;border:1px solid #dde0d9;color:#3c423d;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Archivo',sans-serif")}

@@ -16,21 +16,22 @@ export function Header({ vm }: { vm: VM }) {
           alt="UTAC Logo"
           style={{ width: '32px', height: '32px', borderRadius: '6px', objectFit: 'contain', flexShrink: 0 }}
         />
-        {!vm.isMobile && (
-          <div style={css('line-height:1.05')}>
-            <div style={css('font-size:14.5px;font-weight:700;letter-spacing:-.2px')}>Calendar Auditor</div>
-            <div style={css("font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8a9088;letter-spacing:.3px;margin-top:1px")}>UTAC</div>
-          </div>
-        )}
+        <div style={css('line-height:1.05')}>
+          <div style={css('font-size:14.5px;font-weight:700;letter-spacing:-.2px')}>Calendar Auditor</div>
+          <div style={css("font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8a9088;letter-spacing:.3px;margin-top:1px")}>UTAC</div>
+        </div>
       </div>
 
+      {/* On phones the pages move to the bottom tab bar (BottomNav). */}
+      {!vm.isMobile && (
       <nav aria-label="Main" className="nav-scroll" style={css('display:flex;background:#f1f3ee;border:1px solid #e0e3dc;border-radius:8px;padding:2px;gap:2px;margin-left:2px;min-width:0;overflow-x:auto;flex-shrink:1')}>
-        <button onClick={vm.goSchedule} style={vm.navSchedStyle}>Schedule</button>
-        <button onClick={vm.goTable} style={vm.navTableStyle}>Table</button>
-        <button onClick={vm.goSummary} style={vm.navSummaryStyle}>Summary</button>
-        <button onClick={vm.goAdmin} style={vm.navAdminStyle}>Manage</button>
-        <button onClick={vm.goHistory} style={vm.navHistoryStyle}>History</button>
+        <button className="tap" onClick={vm.goSchedule} style={vm.navSchedStyle}>Schedule</button>
+        <button className="tap" onClick={vm.goTable} style={vm.navTableStyle}>Table</button>
+        <button className="tap" onClick={vm.goSummary} style={vm.navSummaryStyle}>Summary</button>
+        <button className="tap" onClick={vm.goAdmin} style={vm.navAdminStyle}>Manage</button>
+        <button className="tap" onClick={vm.goHistory} style={vm.navHistoryStyle}>History</button>
       </nav>
+      )}
 
       <div style={css('flex:1')} />
 
@@ -40,6 +41,7 @@ export function Header({ vm }: { vm: VM }) {
           aria-haspopup="menu"
           aria-expanded={vm.userMenuOpen}
           aria-label={`Account menu for ${userName}`}
+          className="tap"
           style={css("display:flex;align-items:center;gap:9px;cursor:pointer;padding:4px 8px 4px 4px;border-radius:9px;background:none;border:none;font-family:'Archivo',sans-serif;text-align:left;color:inherit")}
           hover={{ background: '#f4f6f1' }}
         >

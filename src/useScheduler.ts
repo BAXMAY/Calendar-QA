@@ -5122,7 +5122,7 @@ export function useScheduler() {
     ? { display: 'flex', flexDirection: 'column' }
     : { flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 };
   const adminMainStyle = sx({ flex: 1, overflow: 'auto', background: '#eef0ea', minHeight: 0 });
-  const adminWrapStyle = sx({ maxWidth: '1080px', margin: '0 auto', padding: isMobile ? '18px 14px 50px' : '26px 28px 60px', minWidth: isMobile ? '700px' : 'auto' });
+  const adminWrapStyle = sx({ maxWidth: '1080px', margin: '0 auto', padding: isMobile ? '16px 12px 28px' : '26px 28px 60px', minWidth: 0 });
   const adminStatGridStyle = sx({ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '12px', marginBottom: '22px' });
   const loginWrapStyle: CSSProperties = isMobile
     ? { flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflowY: 'auto' }
