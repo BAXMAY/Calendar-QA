@@ -4,9 +4,11 @@ UTAC QA Calendar is a web application for planning Customer Audits (CS) and Inte
 
 ## Guides
 
-- [Thai workflows by user type — illustrated HTML](docs/user-workflows-th.html)
-- [Thai workflows by user type — Markdown](docs/USER_WORKFLOWS_TH.md)
-- [Bilingual Thai / English user manual](docs/USER_MANUAL.md)
+- [User workflows by role — Thai / English with annotated screenshots](docs/User-workflows.html)
+- [Thai workflows by user type — Markdown](docs/User-workflows.md)
+- [Thai developer workflow — setup, architecture, feature changes, and release](docs/Developer-workflows.md)
+- [Thai developer workflow — illustrated HTML with screenshots](docs/Developer-workflows.html)
+- [Bilingual Thai / English user manual](docs/User-manual.md)
 - [IT engineering and Cloudflare handover](docs/HANDOVER.md)
 - [Documentation index](docs/index.md)
 

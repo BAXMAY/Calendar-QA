@@ -106,7 +106,7 @@ Calendar-QA/
 6. **Unified Metrics Rollup (`src/utils/auditMetricsHelper.ts` &rarr; `calculateAuditStats()`)**: Groups consecutive-day appointment slots into unified campaigns, producing identical metrics (`customerAudits`, `internalAudits`, `totalAudits`) across all views.
 
 #### ⚡ Workflow B: Create / Update / Delete Mutation Flow
-1. **User Form Submission (`AppointmentFormFields.tsx`)**: Validates mandatory fields (8 for Customer Audits, 6 for Internal Audits).
+1. **User Form Submission (`AppointmentFormFields.tsx`)**: Incomplete-state validation checks 8 Customer Audit fields or 5 Internal Audit core fields, plus the date range.
 2. **Optimistic ViewModel Update (`src/useScheduler.ts`)**: Handlers (`submitCreate()`, `submitEdit()`, `removeAssign()`) mutate `state.assignments` in memory with zero perceptible latency and refresh the `localStorage` snapshot.
 3. **Asynchronous REST API Invocation (`src/api.ts`)**: Dispatches background API calls:
    - Create: `POST /api/assignments`, `POST /api/orders`
