@@ -26,7 +26,7 @@ Use a current **Microsoft Edge** (UTAC standard) or **Google Chrome** in a stand
 
 ### 1.3 Find your way around
 
-The top bar has five pages: **Schedule** (calendar), **Table** (searchable records), **Summary** (yearly totals), **Manage** (QMS Hosts, options, holidays), and **History** (change log). Open the menu under your name for **Your profile** and **Sign out**. On a phone (any window narrower than 860px) the five pages sit in a bar at the bottom of the screen, and **Table** and **History** show each entry as a card; the filters in **Table** open with **Filters**.
+The top bar has five pages: **Schedule** (calendar), **Table** (searchable records), **Summary** (yearly totals), **Manage** (QMS Hosts, options, holidays), and **History** (change log). Open the menu under your name for **Your profile** and **Sign out**. On a phone (any window narrower than 860px) the five pages sit in a bar at the bottom of the screen, and **Table** and **History** show each entry as a card; the filters in **Table** open with **Filters**. In **Month** view on a phone, each day shows one dot per appointment in its status color; tap a day to list its appointments under the calendar, and use **Today** and the arrows to change month.
 
 ![The app header: page tabs on the left, account menu on the right.](../images/app-header.png "App header and account menu (demonstration data)")
 
