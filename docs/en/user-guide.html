@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="scripts/build-docs.mjs">
+<title>User Guide · UTAC QA Calendar</title>
+<link rel="icon" href="../images/utac-logo.jpg">
+<link rel="stylesheet" href="../assets/docs.css">
+<script src="../assets/docs.js" defer></script>
+</head>
+<body class="">
+<!-- Generated file. Edit the Markdown source and run: npm run docs -->
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="brand" href="../index.html"><img src="../images/utac-logo.jpg" alt="" width="28" height="28"><span><b>UTAC QA Calendar</b><small>QMS-CASS · DOCUMENTATION</small></span></a>
+  <div class="bar-tools"><details class="toc-menu"><summary>Contents</summary><ol><li><a href="#1-before-you-start"><span class="n">1</span>Before you start</a></li><li><a href="#2-how-the-calendar-works"><span class="n">2</span>How the calendar works</a></li><li><a href="#3-qa-planner-plan-audits"><span class="n">3</span>QA Planner: plan audits</a></li><li><a href="#4-qms-host-review-and-record-results"><span class="n">4</span>QMS Host: review and record results</a></li><li><a href="#5-qa-admin-maintain-hosts-options-and-holidays"><span class="n">5</span>QA Admin: maintain hosts, options, and holidays</a></li><li><a href="#6-reports-search-export-and-history"><span class="n">6</span>Reports: search, export, and history</a></li><li><a href="#7-end-of-day-checklist"><span class="n">7</span>End-of-day checklist</a></li><li><a href="#8-troubleshooting"><span class="n">8</span>Troubleshooting</a></li></ol></details><nav class="lang" aria-label="Language"><a class="seg" href="../th/user-guide.html" hreflang="th" lang="th" data-keep-chapter>ไทย</a><a class="seg on" href="../en/user-guide.html" hreflang="en" lang="en" aria-current="true">EN</a></nav><button type="button" class="btn ink" data-print>Print</button></div>
+</header>
+<div class="desk">
+<nav class="rail" aria-label="Chapters"><a class="rail-home" href="#top">User Guide</a><ol><li><a href="#1-before-you-start" data-ch="1"><span class="n">1</span><span>Before you start</span></a></li><li><a href="#2-how-the-calendar-works" data-ch="2"><span class="n">2</span><span>How the calendar works</span></a></li><li><a href="#3-qa-planner-plan-audits" data-ch="3"><span class="n">3</span><span>QA Planner: plan audits</span></a></li><li><a href="#4-qms-host-review-and-record-results" data-ch="4"><span class="n">4</span><span>QMS Host: review and record results</span></a></li><li><a href="#5-qa-admin-maintain-hosts-options-and-holidays" data-ch="5"><span class="n">5</span><span>QA Admin: maintain hosts, options, and holidays</span></a></li><li><a href="#6-reports-search-export-and-history" data-ch="6"><span class="n">6</span><span>Reports: search, export, and history</span></a></li><li><a href="#7-end-of-day-checklist" data-ch="7"><span class="n">7</span><span>End-of-day checklist</span></a></li><li><a href="#8-troubleshooting" data-ch="8"><span class="n">8</span><span>Troubleshooting</span></a></li></ol></nav>
+<main id="main" class="binder" style="--tab:#2e7d32">
+<nav class="tabs" aria-label="Guides"><div class="tabs-in"><a class="tab on" style="--c:#2e7d32" href="../en/user-guide.html" aria-current="page">User Guide</a><a class="tab" style="--c:#1e5fa8" href="../en/developer-guide.html">Developer</a><a class="tab" style="--c:#123f73" href="../en/it-handover.html">IT Handover</a></div></nav>
+<section class="sheet cover" id="top" data-ch="0">
+<div class="runhead"><span>User Guide</span><span>Rev 2026-11-27</span></div>
+<h1>User Guide</h1>
+<p class="lede">How to plan Customer Audits (CS) and Internal Audits (IA) in UTAC QA Calendar (QMS-CASS), record their results, maintain the data behind them, and report on them. Part one explains how the calendar works. Part two gives step-by-step tasks for each role.</p>
+<aside class="callout note" role="note"><span class="badge">Note</span><p>Roles in this guide describe who usually does a task. The app does not hide menus by role, so follow your team&#39;s approval rules before changing shared data.</p>
+</aside>
+
+<h2 class="contents-title">Contents</h2>
+<ol class="contents"><li><a href="#1-before-you-start"><span class="n">1</span><span class="ct"><span class="cn">Before you start</span><span class="cs">Browser · Sign in · Find your way around</span></span></a></li><li><a href="#2-how-the-calendar-works"><span class="n">2</span><span class="ct"><span class="cn">How the calendar works</span><span class="cs">Sites · Appointment status · Day rules · Required fields</span></span></a></li><li><a href="#3-qa-planner-plan-audits"><span class="n">3</span><span class="ct"><span class="cn">QA Planner: plan audits</span><span class="cs">Create a Customer Audit (CS) · Create an Internal Audit (IA) · Find, edit, or delete an appointment</span></span></a></li><li><a href="#4-qms-host-review-and-record-results"><span class="n">4</span><span class="ct"><span class="cn">QMS Host: review and record results</span><span class="cs">Review your audits · Record results</span></span></a></li><li><a href="#5-qa-admin-maintain-hosts-options-and-holidays"><span class="n">5</span><span class="ct"><span class="cn">QA Admin: maintain hosts, options, and holidays</span><span class="cs">QMS Hosts · Form options · Holidays and restrictions</span></span></a></li><li><a href="#6-reports-search-export-and-history"><span class="n">6</span><span class="ct"><span class="cn">Reports: search, export, and history</span><span class="cs">Table and Excel export · Summary · History</span></span></a></li><li><a href="#7-end-of-day-checklist"><span class="n">7</span><span class="ct"><span class="cn">End-of-day checklist</span></span></a></li><li><a href="#8-troubleshooting"><span class="n">8</span><span class="ct"><span class="cn">Troubleshooting</span></span></a></li></ol>
+</section>
+<section class="sheet" id="ch-1" data-ch="1">
+<div class="runhead"><span>User Guide · 1</span><span>Rev 2026-11-27</span></div>
+<h2 id="1-before-you-start"><span class="num">1</span><span class="ht">Before you start</span><a class="anchor" href="#1-before-you-start" aria-label="Link to this section: Before you start"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
+<h3 id="11-browser"><span class="num">1.1</span><span class="ht">Browser</span><a class="anchor" href="#11-browser" aria-label="Link to this section: Browser"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<p>Use a current <strong>Microsoft Edge</strong> (UTAC standard) or <strong>Google Chrome</strong> in a standard window.</p>
+<ul>
+<li>Avoid InPrivate or Incognito windows; the sign-in does not survive closing them.</li>
+<li>Do not set the browser to clear cookies and site data on exit, or you will be signed out every time.</li>
+<li>Allow downloads from the app so Excel (<code>.xlsx</code>) exports can be saved.</li>
+</ul>
+<h3 id="12-sign-in"><span class="num">1.2</span><span class="ht">Sign in</span><a class="anchor" href="#12-sign-in" aria-label="Link to this section: Sign in"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<ol>
+<li>Enter your <strong>User ID</strong> and <strong>Password</strong>, then select <strong>Sign in</strong>. The app opens <strong>Schedule</strong> on the current month.</li>
+<li>Tick <strong>Remember me on this device</strong> to stay signed in for up to 30 days. Without it, the session ends after 12 hours.</li>
+<li>New account: choose <strong>Sign up</strong> and enter the registration code your administrator gave you, a User ID, and a password. Sign-up does not work without a valid code.</li>
+<li>To change your password, choose <strong>Change password</strong> and enter your current password first. Changing it ends every session for your account, so sign in again with the new password.</li>
+</ol>
+<figure><a class="shot" href="../images/login.png" target="_blank" rel="noopener" title="Open full size in a new tab"><img src="../images/login.png" alt="The sign-in screen with User ID, Password, Remember me, Change password, and Sign up." width="2880" height="1800" loading="lazy" decoding="async"></a><figcaption><span class="fig">Fig. 1</span>Sign-in screen</figcaption></figure>
+<h3 id="13-find-your-way-around"><span class="num">1.3</span><span class="ht">Find your way around</span><a class="anchor" href="#13-find-your-way-around" aria-label="Link to this section: Find your way around"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<p>The top bar has five pages: <strong>Schedule</strong> (calendar), <strong>Table</strong> (searchable records), <strong>Summary</strong> (yearly totals), <strong>Manage</strong> (QMS Hosts, options, holidays), and <strong>History</strong> (change log). Open the menu under your name for <strong>Your profile</strong> and <strong>Sign out</strong>.</p>
+<figure><a class="shot" href="../images/app-header.png" target="_blank" rel="noopener" title="Open full size in a new tab"><img src="../images/app-header.png" alt="The app header: page tabs on the left, account menu on the right." width="2880" height="116" loading="lazy" decoding="async"></a><figcaption><span class="fig">Fig. 2</span>App header and account menu (demonstration data)</figcaption></figure>
+<aside class="callout warning" role="note"><span class="badge">Warning</span><p>On a shared computer, always choose <strong>Sign out</strong> when you finish. Do not use shared or public computers for sensitive audit records.</p>
+</aside>
+
+<footer class="sheet-foot"><span></span><span class="folio">1 / 8</span><a href="#2-how-the-calendar-works" rel="next"><span class="dir">Next →</span>How the calendar works</a></footer>
+</section>
+<section class="sheet" id="ch-2" data-ch="2">
+<div class="runhead"><span>User Guide · 2</span><span>Rev 2026-11-27</span></div>
+<h2 id="2-how-the-calendar-works"><span class="num">2</span><span class="ht">How the calendar works</span><a class="anchor" href="#2-how-the-calendar-works" aria-label="Link to this section: How the calendar works"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
+<h3 id="21-sites"><span class="num">2.1</span><span class="ht">Sites</span><a class="anchor" href="#21-sites" aria-label="Link to this section: Sites"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<p>The calendar covers seven sites. Each has a color used for the strip on the left edge of its cards. Administrators can change these colors; the app shows the current ones under <strong>Site Color Code</strong> in the Schedule sidebar.</p>
+<div class="table"><table><thead><tr><th scope="col">Site</th><th scope="col">Default color</th></tr></thead><tbody>
+<tr><td><span class="site" style="--c:#c0392b">UTL1</span></td><td><span class="hex"><span class="sw" style="--c:#c0392b" aria-hidden="true"></span><code>#c0392b</code></span></td></tr>
+<tr><td><span class="site" style="--c:#2e7d32">UTL2</span></td><td><span class="hex"><span class="sw" style="--c:#2e7d32" aria-hidden="true"></span><code>#2e7d32</code></span></td></tr>
+<tr><td><span class="site" style="--c:#66bb6a">UTL2A</span></td><td><span class="hex"><span class="sw" style="--c:#66bb6a" aria-hidden="true"></span><code>#66bb6a</code></span></td></tr>
+<tr><td><span class="site" style="--c:#1b5e20">UTL2B</span></td><td><span class="hex"><span class="sw" style="--c:#1b5e20" aria-hidden="true"></span><code>#1b5e20</code></span></td></tr>
+<tr><td><span class="site" style="--c:#1e5fa8">UTL3</span></td><td><span class="hex"><span class="sw" style="--c:#1e5fa8" aria-hidden="true"></span><code>#1e5fa8</code></span></td></tr>
+<tr><td><span class="site" style="--c:#4a90d9">UTL3A</span></td><td><span class="hex"><span class="sw" style="--c:#4a90d9" aria-hidden="true"></span><code>#4a90d9</code></span></td></tr>
+<tr><td><span class="site" style="--c:#123f73">UTL3T</span></td><td><span class="hex"><span class="sw" style="--c:#123f73" aria-hidden="true"></span><code>#123f73</code></span></td></tr>
+</tbody></table></div>
+<h3 id="22-appointment-status"><span class="num">2.2</span><span class="ht">Appointment status</span><a class="anchor" href="#22-appointment-status" aria-label="Link to this section: Appointment status"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<p>A card&#39;s background color shows its status. The app works the status out for you; you never set it by hand.</p>
+<div class="table"><table><thead><tr><th scope="col">Color</th><th scope="col">Status</th><th scope="col">Meaning</th><th scope="col">What to do</th></tr></thead><tbody>
+<tr><td><span class="swl"><span class="sw" style="--c:#dc2626" aria-hidden="true"></span>Red</span></td><td>Incomplete Data</td><td>A required field or the date range is missing</td><td>Open the card and fill the fields it lists</td></tr>
+<tr><td><span class="swl"><span class="sw" style="--c:#0284c7" aria-hidden="true"></span>Blue</span></td><td>Updated Data</td><td>Complete, and edited in the last 7 days</td><td>Check that the change is correct</td></tr>
+<tr><td><span class="swl"><span class="sw" style="--c:#7c3aed" aria-hidden="true"></span>Purple</span></td><td>New Data</td><td>Complete, and created in the last 7 days</td><td>Nothing; it is a new booking</td></tr>
+<tr><td><span class="swl"><span class="sw" style="--c:#d97706" aria-hidden="true"></span>Amber</span></td><td>Pending Result</td><td>The audit date has arrived but no results are recorded</td><td>Record the results</td></tr>
+<tr><td><span class="swl"><span class="sw" style="--c:#059669" aria-hidden="true"></span>Green</span></td><td>Complete Data</td><td>Complete, with nothing pending</td><td>Nothing</td></tr>
+</tbody></table></div>
+<p>The app checks in the order shown: red first, then blue, purple, amber, and finally green. So an appointment created this week and then edited shows blue, not purple.</p>
+<figure><a class="shot" href="../images/schedule-month.png" target="_blank" rel="noopener" title="Open full size in a new tab"><img src="../images/schedule-month.png" alt="Schedule month view showing cards in all five status colors and a No Customer Audits day." width="2880" height="1800" loading="lazy" decoding="async"></a><figcaption><span class="fig">Fig. 3</span>Schedule, month view: every status color, site strips, and a No Customer Audits day (demonstration data)</figcaption></figure>
+<h3 id="23-day-rules"><span class="num">2.3</span><span class="ht">Day rules</span><a class="anchor" href="#23-day-rules" aria-label="Link to this section: Day rules"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<p>Day cells show whether a date accepts audits. Always read the label on the cell.</p>
+<div class="table"><table><thead><tr><th scope="col">Day cell</th><th scope="col">Rule</th><th scope="col">Customer Audit (CS)</th><th scope="col">Internal Audit (IA)</th></tr></thead><tbody>
+<tr><td>White</td><td>Normal working day</td><td>Allowed</td><td>Allowed</td></tr>
+<tr><td>Gray</td><td><code>Public Holiday</code></td><td>Blocked</td><td>Blocked</td></tr>
+<tr><td>Blue</td><td><code>No Customer Audits</code></td><td>Blocked</td><td>Allowed</td></tr>
+<tr><td>Blue</td><td><code>Shutdown Plant</code></td><td>Blocked</td><td>Allowed only at sites the rule does not lock</td></tr>
+</tbody></table></div>
+<p>Weekends are skipped: a multi-day range books weekdays only. A <code>Working Day</code> override makes a built-in holiday bookable again. Holiday rules never move or delete appointments that already exist.</p>
+<h3 id="24-required-fields"><span class="num">2.4</span><span class="ht">Required fields</span><a class="anchor" href="#24-required-fields" aria-label="Link to this section: Required fields"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<div class="table"><table><thead><tr><th scope="col">Audit type</th><th scope="col">Required fields</th></tr></thead><tbody>
+<tr><td>Customer Audit (CS)</td><td>Standard, Site, Customer, End Customer, Purpose, Target Package, Customer Name, QMS Host, and a valid date range</td></tr>
+<tr><td>Internal Audit (IA)</td><td>Standard, Site, Audit Category, Area, QMS Host, and a valid date range</td></tr>
+</tbody></table></div>
+<p>You can save an appointment before every field is filled. It stays red, and the sidebar lists it under <strong>Incomplete Appointments</strong> until you complete it.</p>
+
+<footer class="sheet-foot"><a href="#1-before-you-start" rel="prev"><span class="dir">← Previous</span>Before you start</a><span class="folio">2 / 8</span><a href="#3-qa-planner-plan-audits" rel="next"><span class="dir">Next →</span>QA Planner: plan audits</a></footer>
+</section>
+<section class="sheet" id="ch-3" data-ch="3">
+<div class="runhead"><span>User Guide · 3</span><span>Rev 2026-11-27</span></div>
+<h2 id="3-qa-planner-plan-audits"><span class="num">3</span><span class="ht">QA Planner: plan audits</span><a class="anchor" href="#3-qa-planner-plan-audits" aria-label="Link to this section: QA Planner: plan audits"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
+<h3 id="31-create-a-customer-audit-cs"><span class="num">3.1</span><span class="ht">Create a Customer Audit (CS)</span><a class="anchor" href="#31-create-a-customer-audit-cs" aria-label="Link to this section: Create a Customer Audit (CS)"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<ol>
+<li>Open <strong>Schedule</strong>, choose <strong>Month</strong>, and use the arrows to reach the month you are planning.</li>
+<li>Check the day cells. <code>Public Holiday</code>, <code>No Customer Audits</code>, and <code>Shutdown Plant</code> all block CS.</li>
+<li>Select <strong>New appointment</strong>, or click a date, then choose <strong>Customer Audit</strong>.</li>
+<li>Fill the eight CS fields and set <strong>From</strong> and <strong>To</strong>. The end date cannot be before the start date.</li>
+<li>Select <strong>Create appointment</strong>.</li>
+<li>Check that the card appears on the right days and site. If it is red, open it and complete the missing fields.</li>
+</ol>
+<figure><a class="shot" href="../images/form-customer-audit.png" target="_blank" rel="noopener" title="Open full size in a new tab"><img src="../images/form-customer-audit.png" alt="The New appointment form with the Customer Audit fields." width="2880" height="1800" loading="lazy" decoding="async"></a><figcaption><span class="fig">Fig. 4</span>New appointment, Customer Audit</figcaption></figure>
+<p>Fields such as Customer and QMS Host are searchable lists. Type to filter, click to select one or more values, and select <strong>×</strong> to remove one.</p>
+<figure><a class="shot" href="../images/multi-select.png" target="_blank" rel="noopener" title="Open full size in a new tab"><img src="../images/multi-select.png" alt="A searchable multi-select list." width="658" height="407" loading="lazy" decoding="async"></a><figcaption><span class="fig">Fig. 5</span>Searchable multi-select field</figcaption></figure>
+<h3 id="32-create-an-internal-audit-ia"><span class="num">3.2</span><span class="ht">Create an Internal Audit (IA)</span><a class="anchor" href="#32-create-an-internal-audit-ia" aria-label="Link to this section: Create an Internal Audit (IA)"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<ol>
+<li>Pick a normal day, a <code>No Customer Audits</code> day, or a <code>Shutdown Plant</code> day whose rule does not lock your site.</li>
+<li>Select <strong>New appointment</strong> or click the date, then choose <strong>Internal Audit</strong>.</li>
+<li>Fill the five IA fields and the date range. In <strong>Area</strong>, select several values or type a new one; multiple areas are shown joined with <code>/</code>.</li>
+<li>Select <strong>Create appointment</strong> and check the card.</li>
+</ol>
+<h3 id="33-find-edit-or-delete-an-appointment"><span class="num">3.3</span><span class="ht">Find, edit, or delete an appointment</span><a class="anchor" href="#33-find-edit-or-delete-an-appointment" aria-label="Link to this section: Find, edit, or delete an appointment"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<ol>
+<li>Narrow the calendar with the sidebar filters: <strong>Audit Type</strong>, <strong>QMS Host</strong>, <strong>Standard</strong>, <strong>Site</strong>, <strong>Customer</strong>, <strong>Purpose</strong>, <strong>Target Package</strong>, <strong>Customer Name</strong>, <strong>Audit Category</strong>. <strong>Clear all</strong> removes them. Filters change only what you see.</li>
+<li>Click a card to open it. Use the pencil to edit or the bin to delete.</li>
+<li>For a multi-day appointment, the app asks whether the change applies to one day or the whole series. Read the prompt before you confirm.</li>
+<li>Select <strong>Save changes</strong>, then check the day, site, and status.</li>
+</ol>
+<figure><a class="shot" href="../images/schedule-week.png" target="_blank" rel="noopener" title="Open full size in a new tab"><img src="../images/schedule-week.png" alt="Schedule week view with the filter sidebar, Incomplete Appointments list, and status legend." width="2880" height="1800" loading="lazy" decoding="async"></a><figcaption><span class="fig">Fig. 6</span>Schedule, week view with filters and the Incomplete Appointments list (demonstration data)</figcaption></figure>
+
+<footer class="sheet-foot"><a href="#2-how-the-calendar-works" rel="prev"><span class="dir">← Previous</span>How the calendar works</a><span class="folio">3 / 8</span><a href="#4-qms-host-review-and-record-results" rel="next"><span class="dir">Next →</span>QMS Host: review and record results</a></footer>
+</section>
+<section class="sheet" id="ch-4" data-ch="4">
+<div class="runhead"><span>User Guide · 4</span><span>Rev 2026-11-27</span></div>
+<h2 id="4-qms-host-review-and-record-results"><span class="num">4</span><span class="ht">QMS Host: review and record results</span><a class="anchor" href="#4-qms-host-review-and-record-results" aria-label="Link to this section: QMS Host: review and record results"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
+<h3 id="41-review-your-audits"><span class="num">4.1</span><span class="ht">Review your audits</span><a class="anchor" href="#41-review-your-audits" aria-label="Link to this section: Review your audits"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<ol>
+<li>Open <strong>Schedule</strong> and filter by your name under <strong>QMS Host</strong> and by your <strong>Site</strong>.</li>
+<li>Check the date, site, audit type, Standard, and Customer (CS) or Area (IA).</li>
+<li>If something is wrong, tell the QA Planner rather than changing it without approval.</li>
+<li>Before an IA on a <code>Shutdown Plant</code> day, confirm your site is not locked.</li>
+</ol>
+<h3 id="42-record-results"><span class="num">4.2</span><span class="ht">Record results</span><a class="anchor" href="#42-record-results" aria-label="Link to this section: Record results"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<ol>
+<li>Open the appointment and select the <strong>Audit Results</strong> icon.</li>
+<li>For each site, enter the counts for <strong>Major</strong>, <strong>Minor</strong>, <strong>OFI</strong>, <strong>OBS</strong>, and <strong>Findings</strong>.</li>
+<li>Check the numbers and the site, then select <strong>Save Results</strong>. Results apply to the whole multi-day series.</li>
+<li>Use <strong>NOTES</strong> in the day details for handover remarks.</li>
+<li>If the card stays amber, something is still outstanding; follow it up.</li>
+</ol>
+<aside class="callout tip" role="note"><span class="badge">Tip</span><p>If results disappear after a refresh, read any warning message and tell the QA Planner or administrator before entering them again. Repeating the entry can create duplicates.</p>
+</aside>
+
+<footer class="sheet-foot"><a href="#3-qa-planner-plan-audits" rel="prev"><span class="dir">← Previous</span>QA Planner: plan audits</a><span class="folio">4 / 8</span><a href="#5-qa-admin-maintain-hosts-options-and-holidays" rel="next"><span class="dir">Next →</span>QA Admin: maintain hosts, options, and holidays</a></footer>
+</section>
+<section class="sheet" id="ch-5" data-ch="5">
+<div class="runhead"><span>User Guide · 5</span><span>Rev 2026-11-27</span></div>
+<h2 id="5-qa-admin-maintain-hosts-options-and-holidays"><span class="num">5</span><span class="ht">QA Admin: maintain hosts, options, and holidays</span><a class="anchor" href="#5-qa-admin-maintain-hosts-options-and-holidays" aria-label="Link to this section: QA Admin: maintain hosts, options, and holidays"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
+<h3 id="51-qms-hosts"><span class="num">5.1</span><span class="ht">QMS Hosts</span><a class="anchor" href="#51-qms-hosts" aria-label="Link to this section: QMS Hosts"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<ol>
+<li>Open <strong>Manage → QMS Host</strong>.</li>
+<li>Filter by <strong>Site</strong>, <strong>Standard</strong>, or <strong>Department</strong> to find the right person.</li>
+<li>Select <strong>New QMS Host</strong> to add someone, or open a row to edit name, role, site, and department. Drag rows to change the order.</li>
+<li>Before removing a host, check that no planned audit still needs them.</li>
+</ol>
+<figure><a class="shot" href="../images/manage-qms-host.png" target="_blank" rel="noopener" title="Open full size in a new tab"><img src="../images/manage-qms-host.png" alt="Manage, QMS Host tab." width="2880" height="1800" loading="lazy" decoding="async"></a><figcaption><span class="fig">Fig. 7</span>Manage → QMS Host (demonstration data)</figcaption></figure>
+<h3 id="52-form-options"><span class="num">5.2</span><span class="ht">Form options</span><a class="anchor" href="#52-form-options" aria-label="Link to this section: Form options"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<ol>
+<li>Open <strong>Manage → Options</strong> and choose a group such as Standard, Customer, Purpose, Target Package, or Audit Category.</li>
+<li>Add, remove (<strong>✕</strong>), or drag values to reorder them. Check spelling and duplicates first.</li>
+<li>Removing a value only affects future choices; existing appointments keep the value they were saved with.</li>
+</ol>
+<h3 id="53-holidays-and-restrictions"><span class="num">5.3</span><span class="ht">Holidays and restrictions</span><a class="anchor" href="#53-holidays-and-restrictions" aria-label="Link to this section: Holidays and restrictions"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<ol>
+<li>Open <strong>Manage → Holidays</strong>. Change the year with the arrows, or type a four-digit year and press Enter.</li>
+<li>Click a date, or select <strong>Add Date Range Rule</strong>, and choose the rule: <code>Public Holiday</code>, <code>No Customer Audits</code>, or <code>Shutdown Plant</code>.</li>
+<li>For <code>Shutdown Plant</code>, tick the sites to lock under <strong>Affected Sites (Shutdown)</strong>. None are ticked by default; use <strong>Select All</strong> if every site is affected.</li>
+<li>Enter a name or note, check the dates, rule, and sites, then select <strong>Save Status</strong>.</li>
+<li>Select the <strong>Public Holidays</strong> card to see the year&#39;s holidays in date order. Use <strong>Reset to Normal Day</strong> to clear a date&#39;s rule.</li>
+</ol>
+<figure><a class="shot" href="../images/manage-holidays.png" target="_blank" rel="noopener" title="Open full size in a new tab"><img src="../images/manage-holidays.png" alt="Manage, Holidays tab: rule counts, legend, configured rules, and the year calendar." width="2880" height="1800" loading="lazy" decoding="async"></a><figcaption><span class="fig">Fig. 8</span>Manage → Holidays (demonstration data)</figcaption></figure>
+<aside class="callout note" role="note"><span class="badge">Note</span><p>There is no Excel or CSV holiday import. Add rules on the calendar or with <strong>Add Date Range Rule</strong>.</p>
+</aside>
+
+<footer class="sheet-foot"><a href="#4-qms-host-review-and-record-results" rel="prev"><span class="dir">← Previous</span>QMS Host: review and record results</a><span class="folio">5 / 8</span><a href="#6-reports-search-export-and-history" rel="next"><span class="dir">Next →</span>Reports: search, export, and history</a></footer>
+</section>
+<section class="sheet" id="ch-6" data-ch="6">
+<div class="runhead"><span>User Guide · 6</span><span>Rev 2026-11-27</span></div>
+<h2 id="6-reports-search-export-and-history"><span class="num">6</span><span class="ht">Reports: search, export, and history</span><a class="anchor" href="#6-reports-search-export-and-history" aria-label="Link to this section: Reports: search, export, and history"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
+<h3 id="61-table-and-excel-export"><span class="num">6.1</span><span class="ht">Table and Excel export</span><a class="anchor" href="#61-table-and-excel-export" aria-label="Link to this section: Table and Excel export"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<ol>
+<li>Open <strong>Table</strong>. Search by text or filter by <strong>Audit Type</strong>, <strong>Sites</strong>, <strong>Standards</strong>, <strong>Categories</strong>, <strong>Packages</strong>, <strong>Customers</strong>, <strong>QMS Hosts</strong>, and <strong>From / To</strong>.</li>
+<li>Click a column heading to sort; click again to reverse. <strong>Reset filters</strong> clears everything.</li>
+<li>Check the result count, then select the Excel button to download the filtered rows as <code>.xlsx</code>.</li>
+<li>Open the file and check the headers, row count, and a sample site before you share it.</li>
+</ol>
+<figure><a class="shot" href="../images/table.png" target="_blank" rel="noopener" title="Open full size in a new tab"><img src="../images/table.png" alt="Table view with audit totals, filters, and appointment rows." width="2880" height="1800" loading="lazy" decoding="async"></a><figcaption><span class="fig">Fig. 9</span>Table view (demonstration data)</figcaption></figure>
+<h3 id="62-summary"><span class="num">6.2</span><span class="ht">Summary</span><a class="anchor" href="#62-summary" aria-label="Link to this section: Summary"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<p>Open <strong>Summary</strong> for the year&#39;s totals: audits, customer visits by site and month, and findings by site. Choose the year with the arrows or the year box. <strong>Export to Excel</strong> downloads the visits or findings tables for the selected year.</p>
+<figure><a class="shot" href="../images/summary.png" target="_blank" rel="noopener" title="Open full size in a new tab"><img src="../images/summary.png" alt="Summary dashboard with visits by site and month." width="2880" height="1800" loading="lazy" decoding="async"></a><figcaption><span class="fig">Fig. 10</span>Summary dashboard (demonstration data)</figcaption></figure>
+<h3 id="63-history"><span class="num">6.3</span><span class="ht">History</span><a class="anchor" href="#63-history" aria-label="Link to this section: History"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<p>Open <strong>History</strong> to see what changed. Filter by text, <strong>Action</strong>, <strong>Entity</strong>, and date range; times are shown in your local time. It records appointment changes, result changes, QMS Host and option changes, and holiday rules. If something looks wrong, note the time and record and contact the QA Admin.</p>
+<aside class="callout important" role="note"><span class="badge">Important</span><p>History is currently kept in each browser, not on the server. It shows only changes made in that browser, colleagues do not see it, and clearing browser data erases it. Do not rely on it as the official audit trail.</p>
+</aside>
+<figure><a class="shot" href="../images/history.png" target="_blank" rel="noopener" title="Open full size in a new tab"><img src="../images/history.png" alt="History: the activity audit log with action, entity, description, and timestamp." width="2880" height="1800" loading="lazy" decoding="async"></a><figcaption><span class="fig">Fig. 11</span>History (demonstration data)</figcaption></figure>
+<aside class="callout warning" role="note"><span class="badge">Warning</span><p>Exported workbooks can contain customer names and audit details. Store and share them under UTAC&#39;s data-handling rules.</p>
+</aside>
+
+<footer class="sheet-foot"><a href="#5-qa-admin-maintain-hosts-options-and-holidays" rel="prev"><span class="dir">← Previous</span>QA Admin: maintain hosts, options, and holidays</a><span class="folio">6 / 8</span><a href="#7-end-of-day-checklist" rel="next"><span class="dir">Next →</span>End-of-day checklist</a></footer>
+</section>
+<section class="sheet" id="ch-7" data-ch="7">
+<div class="runhead"><span>User Guide · 7</span><span>Rev 2026-11-27</span></div>
+<h2 id="7-end-of-day-checklist"><span class="num">7</span><span class="ht">End-of-day checklist</span><a class="anchor" href="#7-end-of-day-checklist" aria-label="Link to this section: End-of-day checklist"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
+<ul>
+<li><strong>QA Planner:</strong> no red cards left; new and updated bookings have the right dates and hosts.</li>
+<li><strong>QMS Host:</strong> results recorded for finished audits; pending ones have an owner and follow-up date.</li>
+<li><strong>QA Admin:</strong> master-data and holiday requests checked against the right sites and dates.</li>
+<li><strong>Report user:</strong> filters and period confirmed before sharing any export.</li>
+<li><strong>Everyone:</strong> sign out on shared computers.</li>
+</ul>
+
+<footer class="sheet-foot"><a href="#6-reports-search-export-and-history" rel="prev"><span class="dir">← Previous</span>Reports: search, export, and history</a><span class="folio">7 / 8</span><a href="#8-troubleshooting" rel="next"><span class="dir">Next →</span>Troubleshooting</a></footer>
+</section>
+<section class="sheet" id="ch-8" data-ch="8">
+<div class="runhead"><span>User Guide · 8</span><span>Rev 2026-11-27</span></div>
+<h2 id="8-troubleshooting"><span class="num">8</span><span class="ht">Troubleshooting</span><a class="anchor" href="#8-troubleshooting" aria-label="Link to this section: Troubleshooting"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
+<div class="table"><table><thead><tr><th scope="col">Problem</th><th scope="col">What to check</th></tr></thead><tbody>
+<tr><td>An appointment is missing</td><td>Month or year, view (Week / Month / Year), and active filters. Try <strong>Clear all</strong>.</td></tr>
+<tr><td>A card is red</td><td>Open it; it lists the missing fields.</td></tr>
+<tr><td>Cannot book a CS</td><td><code>Public Holiday</code>, <code>No Customer Audits</code>, or <code>Shutdown Plant</code> on any day in the range.</td></tr>
+<tr><td>Cannot book an IA</td><td><code>Public Holiday</code>, or your site is locked by <code>Shutdown Plant</code>.</td></tr>
+<tr><td>A change disappeared after refresh</td><td>Read the warning and check your connection; report it before retrying.</td></tr>
+<tr><td>Export does not match</td><td>Filters, date range, year, and result count.</td></tr>
+<tr><td>Signed out after every restart</td><td>InPrivate/Incognito, or the browser clears site data on exit.</td></tr>
+<tr><td>Cannot sign in or sign up</td><td>Check User ID and password; ask the administrator for a registration code or account help.</td></tr>
+</tbody></table></div>
+<p>When you report a problem, include the page, the time, the site, and what you did. Remove customer details from screenshots.</p>
+
+<footer class="sheet-foot"><a href="#7-end-of-day-checklist" rel="prev"><span class="dir">← Previous</span>End-of-day checklist</a><span class="folio">8 / 8</span><span></span></footer>
+</section>
+</main>
+</div>
+</body>
+</html>

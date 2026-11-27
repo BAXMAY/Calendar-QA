@@ -682,7 +682,7 @@ export function TableView({ vm }: { vm: VM }) {
             </span>
           </div>
           <div style={css('font-size:12.5px;color:#7a807a;margin-top:3px')}>
-            Comprehensive schedule table matching the 7-column format (DD/MM/YYYY, Audit Type, Customer, Site, Standard, Purpose, QMS Host).
+            Every scheduled audit day. Search, filter, sort, and export what you see.
           </div>
         </div>
 
@@ -1032,7 +1032,7 @@ export function TableView({ vm }: { vm: VM }) {
                 </th>
 
                 {/* 8. Actions */}
-                <th style={css('padding:10px 14px;font-weight:700;text-align:right;white-space:nowrap')}>
+                <th style={css('padding:10px 14px;font-weight:700;text-align:right;white-space:nowrap;position:sticky;right:0;z-index:1;background:#f8f9f6;box-shadow:inset 1px 0 0 #e8ebe4')}>
                   Actions
                 </th>
               </tr>
@@ -1077,7 +1077,11 @@ export function TableView({ vm }: { vm: VM }) {
                   return (
                     <tr
                       key={row.id}
-                      onClick={() => vm.openEdit(row.id)}
+                      onClick={() => {
+                        // Selecting text in a cell to copy it should not open the editor.
+                        if (window.getSelection()?.toString()) return;
+                        vm.openEdit(row.id);
+                      }}
                       style={css(
                         'border-bottom:1px solid #f0f2ee;transition:background .12s;cursor:pointer;' +
                         'background:' + rowBackground + ';'
@@ -1223,8 +1227,8 @@ export function TableView({ vm }: { vm: VM }) {
                         )}
                       </td>
 
-                      {/* 8. Actions */}
-                      <td style={css('padding:11px 14px;text-align:right;white-space:nowrap')}>
+                      {/* 8. Actions (pinned so Edit/Delete stay reachable when the table scrolls sideways) */}
+                      <td style={css('padding:11px 14px;text-align:right;white-space:nowrap;position:sticky;right:0;background:inherit;box-shadow:inset 1px 0 0 #e8ebe4')}>
                         {isConfirmingDelete ? (
                           <div style={css('display:flex;align-items:center;justify-content:flex-end;gap:5px')} onClick={(e) => e.stopPropagation()}>
                             <button

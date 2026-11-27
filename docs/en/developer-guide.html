@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="scripts/build-docs.mjs">
+<title>Developer Guide · UTAC QA Calendar</title>
+<link rel="icon" href="../images/utac-logo.jpg">
+<link rel="stylesheet" href="../assets/docs.css">
+<script src="../assets/docs.js" defer></script>
+</head>
+<body class="">
+<!-- Generated file. Edit the Markdown source and run: npm run docs -->
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="brand" href="../index.html"><img src="../images/utac-logo.jpg" alt="" width="28" height="28"><span><b>UTAC QA Calendar</b><small>QMS-CASS · DOCUMENTATION</small></span></a>
+  <div class="bar-tools"><details class="toc-menu"><summary>Contents</summary><ol><li><a href="#1-architecture"><span class="n">1</span>Architecture</a></li><li><a href="#2-run-locally"><span class="n">2</span>Run locally</a></li><li><a href="#3-how-the-app-starts"><span class="n">3</span>How the app starts</a></li><li><a href="#4-data-model"><span class="n">4</span>Data model</a></li><li><a href="#5-api"><span class="n">5</span>API</a></li><li><a href="#6-business-rules"><span class="n">6</span>Business rules</a></li><li><a href="#7-making-changes"><span class="n">7</span>Making changes</a></li><li><a href="#8-check-your-work"><span class="n">8</span>Check your work</a></li><li><a href="#9-migrations-and-release"><span class="n">9</span>Migrations and release</a></li><li><a href="#10-troubleshooting"><span class="n">10</span>Troubleshooting</a></li><li><a href="#11-security-notes"><span class="n">11</span>Security notes</a></li><li><a href="#12-code-map"><span class="n">12</span>Code map</a></li></ol></details><nav class="lang" aria-label="Language"><a class="seg" href="../th/developer-guide.html" hreflang="th" lang="th" data-keep-chapter>ไทย</a><a class="seg on" href="../en/developer-guide.html" hreflang="en" lang="en" aria-current="true">EN</a></nav><button type="button" class="btn ink" data-print>Print</button></div>
+</header>
+<div class="desk">
+<nav class="rail" aria-label="Chapters"><a class="rail-home" href="#top">Developer Guide</a><ol><li><a href="#1-architecture" data-ch="1"><span class="n">1</span><span>Architecture</span></a></li><li><a href="#2-run-locally" data-ch="2"><span class="n">2</span><span>Run locally</span></a></li><li><a href="#3-how-the-app-starts" data-ch="3"><span class="n">3</span><span>How the app starts</span></a></li><li><a href="#4-data-model" data-ch="4"><span class="n">4</span><span>Data model</span></a></li><li><a href="#5-api" data-ch="5"><span class="n">5</span><span>API</span></a></li><li><a href="#6-business-rules" data-ch="6"><span class="n">6</span><span>Business rules</span></a></li><li><a href="#7-making-changes" data-ch="7"><span class="n">7</span><span>Making changes</span></a></li><li><a href="#8-check-your-work" data-ch="8"><span class="n">8</span><span>Check your work</span></a></li><li><a href="#9-migrations-and-release" data-ch="9"><span class="n">9</span><span>Migrations and release</span></a></li><li><a href="#10-troubleshooting" data-ch="10"><span class="n">10</span><span>Troubleshooting</span></a></li><li><a href="#11-security-notes" data-ch="11"><span class="n">11</span><span>Security notes</span></a></li><li><a href="#12-code-map" data-ch="12"><span class="n">12</span><span>Code map</span></a></li></ol></nav>
+<main id="main" class="binder" style="--tab:#1e5fa8">
+<nav class="tabs" aria-label="Guides"><div class="tabs-in"><a class="tab" style="--c:#2e7d32" href="../en/user-guide.html">User Guide</a><a class="tab on" style="--c:#1e5fa8" href="../en/developer-guide.html" aria-current="page">Developer</a><a class="tab" style="--c:#123f73" href="../en/it-handover.html">IT Handover</a></div></nav>
+<section class="sheet cover" id="top" data-ch="0">
+<div class="runhead"><span>Developer Guide</span><span>Rev 2026-11-27</span></div>
+<h1>Developer Guide</h1>
+<p class="lede">How UTAC QA Calendar (QMS-CASS) is built, how to run it locally, and how to change it without breaking the link between screens, rules, API, and database. Production operation (ownership, releases, recovery, security review) is in the <a href="it-handover.html">IT Handover</a>.</p>
+<aside class="callout caution" role="note"><span class="badge">Caution</span><p><code>npm run deploy</code> and <code>npm run migrate:remote</code> change the live Worker and database. Work against local D1, and run production commands only with IT and QA data-owner approval.</p>
+</aside>
+
+<h2 class="contents-title">Contents</h2>
+<ol class="contents"><li><a href="#1-architecture"><span class="n">1</span><span class="ct"><span class="cn">Architecture</span></span></a></li><li><a href="#2-run-locally"><span class="n">2</span><span class="ct"><span class="cn">Run locally</span><span class="cs">Install · Frontend only · Worker with local D1 · Scripts</span></span></a></li><li><a href="#3-how-the-app-starts"><span class="n">3</span><span class="ct"><span class="cn">How the app starts</span></span></a></li><li><a href="#4-data-model"><span class="n">4</span><span class="ct"><span class="cn">Data model</span><span class="cs">D1 tables · Multi-day appointments</span></span></a></li><li><a href="#5-api"><span class="n">5</span><span class="ct"><span class="cn">API</span></span></a></li><li><a href="#6-business-rules"><span class="n">6</span><span class="ct"><span class="cn">Business rules</span></span></a></li><li><a href="#7-making-changes"><span class="n">7</span><span class="ct"><span class="cn">Making changes</span><span class="cs">Change a screen · Add a field to appointments · Add an API route · Change status colors or rules · Change holiday rules · Change an Excel export · Add a site</span></span></a></li><li><a href="#8-check-your-work"><span class="n">8</span><span class="ct"><span class="cn">Check your work</span></span></a></li><li><a href="#9-migrations-and-release"><span class="n">9</span><span class="ct"><span class="cn">Migrations and release</span></span></a></li><li><a href="#10-troubleshooting"><span class="n">10</span><span class="ct"><span class="cn">Troubleshooting</span></span></a></li><li><a href="#11-security-notes"><span class="n">11</span><span class="ct"><span class="cn">Security notes</span></span></a></li><li><a href="#12-code-map"><span class="n">12</span><span class="ct"><span class="cn">Code map</span></span></a></li></ol>
+</section>
+<section class="sheet" id="ch-1" data-ch="1">
+<div class="runhead"><span>Developer Guide · 1</span><span>Rev 2026-11-27</span></div>
+<h2 id="1-architecture"><span class="num">1</span><span class="ht">Architecture</span><a class="anchor" href="#1-architecture" aria-label="Link to this section: Architecture"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
+<p>A React 19 and TypeScript single-page app, built by Vite. One Cloudflare Worker serves the built files and the <code>/api/*</code> API. Shared data lives in Cloudflare D1 (SQLite).</p>
+<figure class="diagram"><a class="shot" href="../images/architecture.svg" target="_blank" rel="noopener" title="Open full size in a new tab"><img src="../images/architecture.svg" alt="Architecture: browser, Worker, D1, and the local snapshot cache." width="720" height="590" loading="lazy" decoding="async"></a><figcaption><span class="fig">Fig. 1</span>System architecture</figcaption></figure>
+<div class="table"><table><thead><tr><th scope="col">Part</th><th scope="col">Where</th><th scope="col">Job</th></tr></thead><tbody>
+<tr><td>Screens</td><td><code>src/components/</code></td><td>Render views and call callbacks from the view model</td></tr>
+<tr><td>State hub</td><td><code>src/useScheduler.ts</code></td><td>State, navigation, filters, validation, create/edit/delete, and the view model (<code>VM</code>)</td></tr>
+<tr><td>Domain rules</td><td><code>src/types.ts</code>, <code>src/holidays.ts</code>, <code>src/utils/</code></td><td>Types, normalization, required fields, status, day rules, metrics, dropdown options</td></tr>
+<tr><td>API client</td><td><code>src/api.ts</code>, <code>src/utils/authClient.ts</code></td><td>Same-origin calls to <code>/api/*</code>; sign-in and session</td></tr>
+<tr><td>Worker</td><td><code>worker/index.ts</code></td><td>Session checks, API routing, D1 SQL, static asset fallback</td></tr>
+<tr><td>Schema</td><td><code>migrations/*.sql</code></td><td>Ordered D1 migrations; the schema&#39;s source of truth</td></tr>
+<tr><td>Config</td><td><code>wrangler.toml</code></td><td>Worker name, <code>dist</code> asset binding, D1 binding</td></tr>
+</tbody></table></div>
+
+<footer class="sheet-foot"><span></span><span class="folio">1 / 12</span><a href="#2-run-locally" rel="next"><span class="dir">Next →</span>Run locally</a></footer>
+</section>
+<section class="sheet" id="ch-2" data-ch="2">
+<div class="runhead"><span>Developer Guide · 2</span><span>Rev 2026-11-27</span></div>
+<h2 id="2-run-locally"><span class="num">2</span><span class="ht">Run locally</span><a class="anchor" href="#2-run-locally" aria-label="Link to this section: Run locally"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
+<h3 id="21-install"><span class="num">2.1</span><span class="ht">Install</span><a class="anchor" href="#21-install" aria-label="Link to this section: Install"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<p>Use a Node.js and npm version compatible with <code>package-lock.json</code>, then from the repository root:</p>
+<div class="code"><pre><code data-lang="bash">npm ci</code></pre><button type="button" class="copy" data-copied="Copied">Copy</button></div>
+<h3 id="22-frontend-only"><span class="num">2.2</span><span class="ht">Frontend only</span><a class="anchor" href="#22-frontend-only" aria-label="Link to this section: Frontend only"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<div class="code"><pre><code data-lang="bash">npm run dev</code></pre><button type="button" class="copy" data-copied="Copied">Copy</button></div>
+<p>Vite on <code>http://localhost:5173</code>. Good for layout and component work. It does <strong>not</strong> run the Worker or D1; sign-in and data use a browser-local development store that is disabled in production builds. Create a local account through <strong>Sign up</strong>.</p>
+<h3 id="23-worker-with-local-d1"><span class="num">2.3</span><span class="ht">Worker with local D1</span><a class="anchor" href="#23-worker-with-local-d1" aria-label="Link to this section: Worker with local D1"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<ol>
+<li><p>Apply migrations to the local database:</p>
+<div class="code"><pre><code data-lang="bash">npm run migrate:local</code></pre><button type="button" class="copy" data-copied="Copied">Copy</button></div>
+</li>
+<li><p>To test sign-up, create an untracked <code>.dev.vars</code> file in the repository root:</p>
+<div class="code"><pre><code data-lang="dotenv">REGISTRATION_CODE=any-local-test-value</code></pre><button type="button" class="copy" data-copied="Copied">Copy</button></div>
+</li>
+<li><p>Build and start the Worker:</p>
+<div class="code"><pre><code data-lang="bash">npm run dev:worker</code></pre><button type="button" class="copy" data-copied="Copied">Copy</button></div>
+<p>Wrangler prints the local URL.</p>
+</li>
+</ol>
+<aside class="callout warning" role="note"><span class="badge">Warning</span><p>Never put a production registration code, Cloudflare token, or real customer data in <code>.dev.vars</code>, source, logs, or committed screenshots. Never point local development at the production D1 database.</p>
+</aside>
+<h3 id="24-scripts"><span class="num">2.4</span><span class="ht">Scripts</span><a class="anchor" href="#24-scripts" aria-label="Link to this section: Scripts"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<div class="table"><table><thead><tr><th scope="col">Command</th><th scope="col">What it does</th></tr></thead><tbody>
+<tr><td><code>npm run dev</code></td><td>Vite dev server, frontend only</td></tr>
+<tr><td><code>npm run dev:worker</code></td><td>Build, then <code>wrangler dev</code> with local D1</td></tr>
+<tr><td><code>npm run build</code></td><td>Type-check (<code>tsc -b</code>) and bundle with Vite</td></tr>
+<tr><td><code>npm run lint</code></td><td><code>oxlint</code></td></tr>
+<tr><td><code>npm run preview</code></td><td>Preview the production build</td></tr>
+<tr><td><code>npm run migrate:local</code></td><td>Apply migrations to local D1</td></tr>
+<tr><td><code>npm run migrate:remote</code></td><td>Apply migrations to the D1 database in <code>wrangler.toml</code> (production)</td></tr>
+<tr><td><code>npm run deploy</code></td><td>Build and <code>wrangler deploy</code>; does not apply migrations</td></tr>
+<tr><td><code>npm test</code></td><td>Regression test for Customer vs Internal Audit classification</td></tr>
+<tr><td><code>npm run docs</code></td><td>Rebuild the HTML documentation from these Markdown files</td></tr>
+<tr><td><code>npm run docs:screenshots</code></td><td>Recapture the doc screenshots from the running dev app</td></tr>
+</tbody></table></div>
+
+<footer class="sheet-foot"><a href="#1-architecture" rel="prev"><span class="dir">← Previous</span>Architecture</a><span class="folio">2 / 12</span><a href="#3-how-the-app-starts" rel="next"><span class="dir">Next →</span>How the app starts</a></footer>
+</section>
+<section class="sheet" id="ch-3" data-ch="3">
+<div class="runhead"><span>Developer Guide · 3</span><span>Rev 2026-11-27</span></div>
+<h2 id="3-how-the-app-starts"><span class="num">3</span><span class="ht">How the app starts</span><a class="anchor" href="#3-how-the-app-starts" aria-label="Link to this section: How the app starts"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
+<ol>
+<li><code>src/main.tsx</code> mounts <code>&lt;App /&gt;</code>; <code>src/App.tsx</code> calls <code>useScheduler()</code> and shows Login or the app.</li>
+<li><code>initialState()</code> in <code>src/data.ts</code> loads defaults and the browser snapshot (<code>calendar_qa_snapshot</code> in <code>localStorage</code>). The month and year come from <code>getCurrentCalendarDefaults(new Date())</code>.</li>
+<li><code>useScheduler()</code> restores the session through <code>authClient.getSession()</code> (<code>GET /api/auth/session</code>, HttpOnly cookie checked against D1).</li>
+<li>With a valid session it calls <code>api.fetchState()</code> (<code>GET /api/state</code>). The Worker reads engineers, plants, orders, assignments, comments, activity, options, and holidays in parallel.</li>
+<li>The client normalizes the records (<code>normalizeAssignment</code>, <code>normalizeSite</code>, …) and refreshes the snapshot. From here D1 is the source of truth; the snapshot is only a cache.</li>
+</ol>
+<p>If the screen is empty, check which mode you are in (Vite only or Worker + D1), whether you are signed in, and what <code>/api/auth/session</code> and <code>/api/state</code> return in DevTools.</p>
+
+<footer class="sheet-foot"><a href="#2-run-locally" rel="prev"><span class="dir">← Previous</span>Run locally</a><span class="folio">3 / 12</span><a href="#4-data-model" rel="next"><span class="dir">Next →</span>Data model</a></footer>
+</section>
+<section class="sheet" id="ch-4" data-ch="4">
+<div class="runhead"><span>Developer Guide · 4</span><span>Rev 2026-11-27</span></div>
+<h2 id="4-data-model"><span class="num">4</span><span class="ht">Data model</span><a class="anchor" href="#4-data-model" aria-label="Link to this section: Data model"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
+<h3 id="41-d1-tables"><span class="num">4.1</span><span class="ht">D1 tables</span><a class="anchor" href="#41-d1-tables" aria-label="Link to this section: D1 tables"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<div class="table"><table><thead><tr><th scope="col">Table</th><th scope="col">Key</th><th scope="col">Holds</th></tr></thead><tbody>
+<tr><td><code>assignments</code></td><td><code>id</code></td><td>One row per appointment day: <code>audit_type</code> (<code>customer</code> / <code>internal</code>), site, customer, purpose, audit fields, results, timestamps. Links to <code>engineers.id</code> (<code>eng</code>) and <code>orders.id</code> (<code>order_id</code>).</td></tr>
+<tr><td><code>orders</code></td><td><code>id</code></td><td>Customer, product, and order data shared by assignments</td></tr>
+<tr><td><code>engineers</code></td><td><code>id</code></td><td>QMS Hosts: role, department, sub-departments</td></tr>
+<tr><td><code>comments</code></td><td><code>id</code></td><td>Day notes; <code>assignment_id</code> links to <code>assignments</code></td></tr>
+<tr><td><code>plants</code> / <code>active_plants</code></td><td><code>id</code> / <code>plant_id</code></td><td>Site master data and its active flag</td></tr>
+<tr><td><code>options</code></td><td><code>(category, value)</code></td><td>Dropdown values and site-color metadata</td></tr>
+<tr><td><code>custom_holidays</code></td><td><code>date</code></td><td>Holiday, shutdown, no-customer-audit, and working-day rules, with locked sites</td></tr>
+<tr><td><code>activity</code></td><td><code>id</code></td><td>History entries: action, entity, date, note, timestamp</td></tr>
+<tr><td><code>users</code></td><td><code>id</code></td><td>Username, password hash and salt, display name, role</td></tr>
+<tr><td><code>sessions</code></td><td><code>token_hash</code></td><td>Server sessions (logical link to <code>users</code>; no foreign key)</td></tr>
+</tbody></table></div>
+<p>Read the migrations in numeric order from <code>0001_init.sql</code>. Never edit a migration that may already be applied; add the next number.</p>
+<h3 id="42-multi-day-appointments"><span class="num">4.2</span><span class="ht">Multi-day appointments</span><a class="anchor" href="#42-multi-day-appointments" aria-label="Link to this section: Multi-day appointments"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<p>An appointment that spans several days is several <code>assignments</code> rows, one per weekday, linked by <code>seriesId</code> / <code>groupId</code>. Every edit or delete must handle &quot;this day only&quot; versus &quot;the whole series&quot;. Audit results are stored per site in <code>results</code> and normalized by <code>normalizeAuditResults()</code>; they are shared across the series.</p>
+
+<footer class="sheet-foot"><a href="#3-how-the-app-starts" rel="prev"><span class="dir">← Previous</span>How the app starts</a><span class="folio">4 / 12</span><a href="#5-api" rel="next"><span class="dir">Next →</span>API</a></footer>
+</section>
+<section class="sheet" id="ch-5" data-ch="5">
+<div class="runhead"><span>Developer Guide · 5</span><span>Rev 2026-11-27</span></div>
+<h2 id="5-api"><span class="num">5</span><span class="ht">API</span><a class="anchor" href="#5-api" aria-label="Link to this section: API"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
+<p>All routes are same-origin under <code>/api/</code>. The Worker rejects cross-origin requests (Origin and <code>Sec-Fetch-Site</code> checks). Everything except sign-in, sign-up, and password reset requires a valid session.</p>
+<div class="table"><table><thead><tr><th scope="col">Route</th><th scope="col">Methods</th><th scope="col">Purpose</th></tr></thead><tbody>
+<tr><td><code>auth/session</code></td><td><code>GET</code></td><td>Current session</td></tr>
+<tr><td><code>auth/login</code></td><td><code>POST</code></td><td>Sign in</td></tr>
+<tr><td><code>auth/register</code></td><td><code>POST</code></td><td>Sign up; needs <code>REGISTRATION_CODE</code></td></tr>
+<tr><td><code>auth/reset-password</code></td><td><code>POST</code></td><td>Change password; revokes the account&#39;s sessions</td></tr>
+<tr><td><code>auth/logout</code></td><td><code>POST</code></td><td>Revoke the current session</td></tr>
+<tr><td><code>state</code></td><td><code>GET</code></td><td>Everything the app needs at startup</td></tr>
+<tr><td><code>assignments</code> · <code>assignments/:id</code></td><td><code>GET</code> <code>POST</code> · <code>PUT</code> <code>DELETE</code></td><td>Appointment days</td></tr>
+<tr><td><code>orders</code> · <code>orders/:id</code></td><td><code>GET</code> <code>POST</code> · <code>PUT</code> <code>DELETE</code></td><td>Orders</td></tr>
+<tr><td><code>engineers</code> · <code>engineers/:id</code></td><td><code>GET</code> <code>POST</code> · <code>PUT</code> <code>DELETE</code></td><td>QMS Hosts</td></tr>
+<tr><td><code>plants</code> · <code>plants/:id</code> · <code>plants/:id/toggle</code></td><td><code>GET</code> <code>POST</code> · <code>DELETE</code> · <code>POST</code></td><td>Sites and their active flag</td></tr>
+<tr><td><code>comments</code> · <code>comments/:id</code></td><td><code>POST</code> · <code>DELETE</code></td><td>Day notes</td></tr>
+<tr><td><code>activity</code></td><td><code>POST</code></td><td>History entries</td></tr>
+<tr><td><code>options</code> · <code>options/reorder</code></td><td><code>POST</code> <code>DELETE</code> · <code>PUT</code></td><td>Dropdown values and their order</td></tr>
+<tr><td><code>holidays</code> · <code>holidays/:date</code> · <code>holidays/reset</code></td><td><code>GET</code> <code>POST</code> <code>DELETE</code> · <code>DELETE</code> · <code>POST</code></td><td>Day rules, bulk delete, reset a year</td></tr>
+</tbody></table></div>
+<p>Sessions use the HttpOnly <code>qa_session</code> cookie (<code>SameSite=Lax</code>): 12 hours, or 30 days with <strong>Remember me</strong>. The constants are at the top of <code>worker/index.ts</code>.</p>
+
+<footer class="sheet-foot"><a href="#4-data-model" rel="prev"><span class="dir">← Previous</span>Data model</a><span class="folio">5 / 12</span><a href="#6-business-rules" rel="next"><span class="dir">Next →</span>Business rules</a></footer>
+</section>
+<section class="sheet" id="ch-6" data-ch="6">
+<div class="runhead"><span>Developer Guide · 6</span><span>Rev 2026-11-27</span></div>
+<h2 id="6-business-rules"><span class="num">6</span><span class="ht">Business rules</span><a class="anchor" href="#6-business-rules" aria-label="Link to this section: Business rules"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
+<p>Each rule has one home in code. Change it there, not in a component.</p>
+<div class="table"><table><thead><tr><th scope="col">Rule</th><th scope="col">Where</th></tr></thead><tbody>
+<tr><td>Seven sites <span class="site" style="--c:#c0392b">UTL1</span> <span class="site" style="--c:#2e7d32">UTL2</span> <span class="site" style="--c:#66bb6a">UTL2A</span> <span class="site" style="--c:#1b5e20">UTL2B</span> <span class="site" style="--c:#1e5fa8">UTL3</span> <span class="site" style="--c:#4a90d9">UTL3A</span> <span class="site" style="--c:#123f73">UTL3T</span>; legacy values normalized</td><td><code>normalizeSite()</code> / <code>normalizeSites()</code> in <code>src/types.ts</code>; <code>MASTER_PLANT_SITES</code> in <code>src/utils/auditOptionsHelper.ts</code></td></tr>
+<tr><td>Customer vs Internal Audit: stored in <code>audit_type</code> (migration <code>0020</code>). Without it, decided from content: customer fields → CS, area / audit category → IA. Never from <code>site2</code>, <code>auditor2</code>, <code>department2</code>: those are compatibility copies on every row.</td><td><code>isInternalAssignment()</code> in <code>src/types.ts</code>; covered by <code>npm test</code></td></tr>
+<tr><td>CS needs 8 fields, IA needs 5, both need a valid date range</td><td><code>getMissingFields()</code> and <code>isAppointmentFormIncomplete()</code> in <code>src/types.ts</code></td></tr>
+<tr><td>Status: Incomplete → Updated → New → Pending Result → Complete, 7-day windows</td><td><code>resolveAuditStatus()</code> and <code>STATUS_COLOR_MAP</code> in <code>src/types.ts</code></td></tr>
+<tr><td>Card fill and border from status; left strip from site color</td><td><code>getApptCardColors()</code> in <code>src/useScheduler.ts</code>; <code>initialSiteColors</code> in <code>src/data.ts</code></td></tr>
+<tr><td>Public Holiday blocks CS and IA; No Customer Audits blocks CS; Shutdown Plant blocks CS and IA at locked sites; Working Day overrides</td><td><code>src/holidays.ts</code>; enforced in <code>submitCreate()</code> / <code>submitEdit()</code></td></tr>
+<tr><td>Dropdown suggestions come from appointments in use, except Site (fixed list)</td><td><code>getActiveDropdownOptions()</code> in <code>src/utils/auditOptionsHelper.ts</code></td></tr>
+<tr><td>Consecutive weekdays with the same customer, site, and purpose count as one audit</td><td><code>calculateUnifiedAuditMetrics()</code> / <code>calculateAuditStats()</code> in <code>src/utils/auditMetricsHelper.ts</code></td></tr>
+<tr><td>Card subtitle: &quot;purpose - host&quot;, or whichever exists, or &quot;Unassigned&quot;</td><td><code>formatCardSubtitle()</code> in <code>src/types.ts</code></td></tr>
+<tr><td>Multi-value fields stored and shown joined with <code>/</code>; single legacy values stay readable</td><td>Form fields and normalizers in <code>src/types.ts</code></td></tr>
+</tbody></table></div>
+
+<footer class="sheet-foot"><a href="#5-api" rel="prev"><span class="dir">← Previous</span>API</a><span class="folio">6 / 12</span><a href="#7-making-changes" rel="next"><span class="dir">Next →</span>Making changes</a></footer>
+</section>
+<section class="sheet" id="ch-7" data-ch="7">
+<div class="runhead"><span>Developer Guide · 7</span><span>Rev 2026-11-27</span></div>
+<h2 id="7-making-changes"><span class="num">7</span><span class="ht">Making changes</span><a class="anchor" href="#7-making-changes" aria-label="Link to this section: Making changes"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
+<h3 id="71-change-a-screen"><span class="num">7.1</span><span class="ht">Change a screen</span><a class="anchor" href="#71-change-a-screen" aria-label="Link to this section: Change a screen"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<ol>
+<li>Find the component that renders it from <code>src/App.tsx</code>.</li>
+<li>Trace its props back to the <code>VM</code> returned by <code>useScheduler()</code>.</li>
+<li>Put markup and interaction in the component, state and actions in the hook, shared rules in the domain helpers.</li>
+<li>Check wide and narrow layouts, loading, empty, and error states, and keyboard focus.</li>
+</ol>
+<h3 id="72-add-a-field-to-appointments"><span class="num">7.2</span><span class="ht">Add a field to appointments</span><a class="anchor" href="#72-add-a-field-to-appointments" aria-label="Link to this section: Add a field to appointments"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<p>Change the whole path, top to bottom:</p>
+<ol>
+<li>Types and meaning: <code>Assignment</code>, <code>CreateDraft</code>, <code>EditDraft</code> in <code>src/types.ts</code>.</li>
+<li>Defaults and hydration: <code>src/data.ts</code>, <code>src/useScheduler.ts</code>.</li>
+<li>Form control: <code>AppointmentFormFields.tsx</code>, for CS and IA, in create and edit.</li>
+<li>Validation and normalization in the shared helpers; decide whether the field affects the red status.</li>
+<li>Serialization in <code>src/api.ts</code> and <code>worker/index.ts</code>.</li>
+<li>A new migration, <code>migrations/0021_&lt;name&gt;.sql</code> (use the next free number), tested on local D1 with existing data.</li>
+<li>Cards and details, filters, Table, Summary and exports, History, as relevant.</li>
+<li>The user and developer guides.</li>
+</ol>
+<p>Do not add a form field without its API and database path. Do not break old rows where the field is empty.</p>
+<h3 id="73-add-an-api-route"><span class="num">7.3</span><span class="ht">Add an API route</span><a class="anchor" href="#73-add-an-api-route" aria-label="Link to this section: Add an API route"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<ol>
+<li>Define request and response types and add the client method in <code>src/api.ts</code>.</li>
+<li>Add the route in <code>handleApi()</code> in <code>worker/index.ts</code>; check method, payload, and errors.</li>
+<li>Bind every request value with <code>DB.prepare(...).bind(...)</code>. Never build SQL from strings.</li>
+<li>Remember that <code>admin</code> is not enforced server-side yet (see the <a href="it-handover.html#4-security-findings">IT Handover</a>). Add an explicit check if the route needs one.</li>
+</ol>
+<h3 id="74-change-status-colors-or-rules"><span class="num">7.4</span><span class="ht">Change status colors or rules</span><a class="anchor" href="#74-change-status-colors-or-rules" aria-label="Link to this section: Change status colors or rules"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<p>Edit <code>resolveAuditStatus()</code> and <code>STATUS_COLOR_MAP</code> in <code>src/types.ts</code>, and <code>getApptCardColors()</code> for fills. Keep the site strip as the site color, never the status color. Check the sidebar legend, Schedule, Table, compact cards, and these guides.</p>
+<h3 id="75-change-holiday-rules"><span class="num">7.5</span><span class="ht">Change holiday rules</span><a class="anchor" href="#75-change-holiday-rules" aria-label="Link to this section: Change holiday rules"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<p>Touch all four layers: the Manage UI (<code>HolidaysPanel.tsx</code>), <code>src/holidays.ts</code>, validation in <code>submitCreate()</code> / <code>submitEdit()</code>, and the <code>custom_holidays</code> routes in the Worker. Changing a cell&#39;s color alone does not change what can be booked.</p>
+<h3 id="76-change-an-excel-export"><span class="num">7.6</span><span class="ht">Change an Excel export</span><a class="anchor" href="#76-change-an-excel-export" aria-label="Link to this section: Change an Excel export"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<p>Exports live in <code>TableView.tsx</code> (<code>handleExportExcel</code>) and <code>SummaryDashboard.tsx</code> (<code>handleExportVisitsExcel</code>, <code>handleExportFindingsExcel</code>). They load <code>xlsx-js-style</code> on demand and build the file in the browser. Check that the export follows the current filters, year, sites, and column order, then open the file.</p>
+<h3 id="77-add-a-site"><span class="num">7.7</span><span class="ht">Add a site</span><a class="anchor" href="#77-add-a-site" aria-label="Link to this section: Add a site"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
+<ol>
+<li>Add the code to <code>MASTER_PLANT_SITES</code> in <code>src/utils/auditOptionsHelper.ts</code> and <code>initialSiteCodeOptions</code> in <code>src/data.ts</code>.</li>
+<li>Add its color to <code>initialSiteColors</code> in <code>src/data.ts</code>.</li>
+<li>Add it to <code>CANONICAL_SITE_ORDER</code> in <code>src/components/SummaryDashboard.tsx</code>.</li>
+<li>Check <code>normalizeSite()</code> and the Worker&#39;s site ordering, then run <code>npm run build</code>.</li>
+</ol>
+
+<footer class="sheet-foot"><a href="#6-business-rules" rel="prev"><span class="dir">← Previous</span>Business rules</a><span class="folio">7 / 12</span><a href="#8-check-your-work" rel="next"><span class="dir">Next →</span>Check your work</a></footer>
+</section>
+<section class="sheet" id="ch-8" data-ch="8">
+<div class="runhead"><span>Developer Guide · 8</span><span>Rev 2026-11-27</span></div>
+<h2 id="8-check-your-work"><span class="num">8</span><span class="ht">Check your work</span><a class="anchor" href="#8-check-your-work" aria-label="Link to this section: Check your work"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
+<p>Before review:</p>
+<div class="code"><pre><code data-lang="bash">npm test          # audit-type classification regression test
+npm run lint
+npm run build</code></pre><button type="button" class="copy" data-copied="Copied">Copy</button></div>
+<p>Then test by hand on Worker + local D1, for what you touched:</p>
+<ul>
+<li>sign-in, refresh, sign-out (if auth changed);</li>
+<li>create, edit, delete for both CS and IA, including multi-day and one-day-of-series;</li>
+<li>required fields, red drafts, and holiday rules;</li>
+<li>QMS Hosts, filters, Schedule and Table agreeing, Summary, History, exports;</li>
+<li>no errors in DevTools; data still there after reload.</li>
+</ul>
+<p>In the pull request, list the changed files, affected rules, any migration, how you tested, and risks. Never attach secrets or real customer data.</p>
+
+<footer class="sheet-foot"><a href="#7-making-changes" rel="prev"><span class="dir">← Previous</span>Making changes</a><span class="folio">8 / 12</span><a href="#9-migrations-and-release" rel="next"><span class="dir">Next →</span>Migrations and release</a></footer>
+</section>
+<section class="sheet" id="ch-9" data-ch="9">
+<div class="runhead"><span>Developer Guide · 9</span><span>Rev 2026-11-27</span></div>
+<h2 id="9-migrations-and-release"><span class="num">9</span><span class="ht">Migrations and release</span><a class="anchor" href="#9-migrations-and-release" aria-label="Link to this section: Migrations and release"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
+<ol>
+<li>Number the migration after the latest committed one and name it clearly.</li>
+<li>Write it to work with existing rows; note whether it can be undone.</li>
+<li>Apply locally with <code>npm run migrate:local</code> and check reads and writes before and after.</li>
+<li>Get code review and QA data-owner approval.</li>
+<li>Production migration and deployment are separate steps run by IT. Follow the <a href="it-handover.html#5-release-and-database-runbook">release runbook</a>.</li>
+</ol>
+<p>There is no staging environment in <code>wrangler.toml</code>. Local is not staging, and production D1 is never a test database.</p>
+
+<footer class="sheet-foot"><a href="#8-check-your-work" rel="prev"><span class="dir">← Previous</span>Check your work</a><span class="folio">9 / 12</span><a href="#10-troubleshooting" rel="next"><span class="dir">Next →</span>Troubleshooting</a></footer>
+</section>
+<section class="sheet" id="ch-10" data-ch="10">
+<div class="runhead"><span>Developer Guide · 10</span><span>Rev 2026-11-27</span></div>
+<h2 id="10-troubleshooting"><span class="num">10</span><span class="ht">Troubleshooting</span><a class="anchor" href="#10-troubleshooting" aria-label="Link to this section: Troubleshooting"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
+<div class="table"><table><thead><tr><th scope="col">Symptom</th><th scope="col">Check</th></tr></thead><tbody>
+<tr><td>App opens but shows no or odd data</td><td>Vite only (<code>npm run dev</code>) or Worker (<code>npm run dev:worker</code>)? Vite does not use D1.</td></tr>
+<tr><td>API returns 401</td><td>Session cookie, expiry, and that app and API share one origin</td></tr>
+<tr><td>Saved data gone after reload</td><td>The save warning, the Network response, Worker logs, local D1. The optimistic UI is not proof of a write.</td></tr>
+<tr><td>Dropdown missing a value, or showing an old one</td><td>An appointment still uses (or no longer uses) it; see <code>getActiveDropdownOptions()</code></td></tr>
+<tr><td>Build fails</td><td>Read the first <code>npm run build</code> error; check types, <code>VM</code>, and API payloads agree</td></tr>
+<tr><td>Migration fails</td><td>Local schema and migration history; add a new migration instead of editing one</td></tr>
+<tr><td>API works but the page does not load</td><td><code>npm run build</code>, the <code>dist/</code> folder, <code>[assets]</code> and <code>ASSETS</code> in <code>wrangler.toml</code></td></tr>
+</tbody></table></div>
+
+<footer class="sheet-foot"><a href="#9-migrations-and-release" rel="prev"><span class="dir">← Previous</span>Migrations and release</a><span class="folio">10 / 12</span><a href="#11-security-notes" rel="next"><span class="dir">Next →</span>Security notes</a></footer>
+</section>
+<section class="sheet" id="ch-11" data-ch="11">
+<div class="runhead"><span>Developer Guide · 11</span><span>Rev 2026-11-27</span></div>
+<h2 id="11-security-notes"><span class="num">11</span><span class="ht">Security notes</span><a class="anchor" href="#11-security-notes" aria-label="Link to this section: Security notes"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
+<p>Read the <a href="it-handover.html#4-security-findings">security findings</a> before widening access. In short:</p>
+<ul>
+<li><code>admin</code> / <code>user</code> is a label, not a server-side permission. Do not assume Manage routes are admin-only.</li>
+<li><code>calendar_qa_snapshot</code> keeps schedule data in <code>localStorage</code> after sign-out.</li>
+<li>Sign-up uses one shared <code>REGISTRATION_CODE</code>; passwords are salted SHA-256 with a 4-character minimum.</li>
+<li>Never log credentials, cookies, session tokens, registration codes, or unneeded customer data.</li>
+</ul>
+
+<footer class="sheet-foot"><a href="#10-troubleshooting" rel="prev"><span class="dir">← Previous</span>Troubleshooting</a><span class="folio">11 / 12</span><a href="#12-code-map" rel="next"><span class="dir">Next →</span>Code map</a></footer>
+</section>
+<section class="sheet" id="ch-12" data-ch="12">
+<div class="runhead"><span>Developer Guide · 12</span><span>Rev 2026-11-27</span></div>
+<h2 id="12-code-map"><span class="num">12</span><span class="ht">Code map</span><a class="anchor" href="#12-code-map" aria-label="Link to this section: Code map"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
+<div class="table"><table><thead><tr><th scope="col">To understand or change</th><th scope="col">Start with</th></tr></thead><tbody>
+<tr><td>App shell and navigation</td><td><code>src/App.tsx</code>, <code>src/components/Header.tsx</code></td></tr>
+<tr><td>Startup, sign-in, hydration</td><td><code>src/data.ts</code>, <code>src/useScheduler.ts</code>, <code>src/utils/authClient.ts</code></td></tr>
+<tr><td>Create, edit, delete</td><td><code>AppointmentFormFields.tsx</code>, <code>CreateModal.tsx</code>, <code>EditModal.tsx</code>, <code>EditScopeModal.tsx</code>, <code>src/useScheduler.ts</code>, <code>src/api.ts</code>, <code>worker/index.ts</code></td></tr>
+<tr><td>Audit results</td><td><code>AuditResultsModal.tsx</code>, <code>normalizeAuditResults()</code></td></tr>
+<tr><td>Holiday rules</td><td><code>src/holidays.ts</code>, <code>HolidaysPanel.tsx</code>, <code>src/useScheduler.ts</code>, <code>worker/index.ts</code></td></tr>
+<tr><td>Status and site colors</td><td><code>src/types.ts</code>, <code>src/useScheduler.ts</code>, <code>Schedule.tsx</code>, <code>TableView.tsx</code></td></tr>
+<tr><td>Excel export</td><td><code>TableView.tsx</code>, <code>SummaryDashboard.tsx</code></td></tr>
+<tr><td>Database schema</td><td><code>migrations/</code></td></tr>
+<tr><td>Production operation</td><td><a href="it-handover.html">IT Handover</a></td></tr>
+</tbody></table></div>
+
+<footer class="sheet-foot"><a href="#11-security-notes" rel="prev"><span class="dir">← Previous</span>Security notes</a><span class="folio">12 / 12</span><span></span></footer>
+</section>
+</main>
+</div>
+</body>
+</html>

@@ -340,18 +340,12 @@ export function useScheduler() {
     description: string,
     metadata?: Record<string, any>
   ) => {
-    const now = new Date();
-    const dd = String(now.getDate()).padStart(2, '0');
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const yyyy = now.getFullYear();
-    const hh = String(now.getHours()).padStart(2, '0');
-    const min = String(now.getMinutes()).padStart(2, '0');
-    const ss = String(now.getSeconds()).padStart(2, '0');
-    const timestamp = `${dd}/${mm}/${yyyy} ${hh}:${min}:${ss}`;
+    // ISO (UTC) so History can sort, filter by date, and show the viewer's local time.
+    const timestamp = new Date().toISOString();
 
     setRaw((prev) => {
-      const uName = prev.currentUser?.name || 'Jordan Lee';
-      const uEmail = prev.currentUser?.email || (uName === 'Jordan Lee' ? 'jordan.lee@nexsil.com' : undefined);
+      const uName = prev.currentUser?.name || prev.currentUser?.username || 'Unknown user';
+      const uEmail = prev.currentUser?.email || undefined;
       const uInitials =
         prev.currentUser?.avatarInitials ||
         uName
@@ -360,7 +354,7 @@ export function useScheduler() {
           .join('')
           .slice(0, 2)
           .toUpperCase() ||
-        'JL';
+        '?';
 
       const newLog: ActivityLog = {
         id: 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
@@ -759,7 +753,7 @@ export function useScheduler() {
 
   // ---- auth / nav ----
   const onAuthSuccess = (user?: { id: string; username: string; name?: string; role?: string }, _rememberMe = false) => {
-    const sessionUser = user || { id: 'usr_jordan', username: 'jordan.lee', name: 'Jordan Lee', role: 'admin' };
+    const sessionUser = user || { id: '', username: '', name: '', role: 'user' };
     const currentCalendar = getCurrentCalendarDefaults(new Date());
     authClient.persistSession(sessionUser);
     setState({
@@ -1652,7 +1646,7 @@ export function useScheduler() {
           department1: d.sectionType === 'customer' ? stdVal : '',
           department2: d.sectionType === 'internal' ? stdVal : '',
           department: hostDept,
-          createdBy: profile.name || 'Jordan Lee',
+          createdBy: S.currentUser?.name || S.currentUser?.username || '',
           createdAt: new Date().toISOString(),
         });
       }
@@ -4369,16 +4363,6 @@ export function useScheduler() {
   const timetableGridCols = '200px repeat(5, minmax(168px, 1fr))';
   const mobileTimetableRows = timetableRows.map((r) => ({ slotId: r.slotId, label: r.label, hours: r.hours, cell: r.cells[selDay] }));
 
-  const team = [
-    { name: 'You', initials: 'YO', color: '#15191e' },
-    { name: 'Marco Ruiz', initials: 'MR', color: '#0f9d8c' },
-    { name: 'Priya Nair', initials: 'PN', color: '#c2620c' },
-    { name: 'Lena Fischer', initials: 'LF', color: '#7a4ddb' },
-  ];
-  const presence = team.map((t, i) => ({
-    name: t.name, initials: t.initials,
-    avatarStyle: sx({ width: '27px', height: '27px', borderRadius: '50%', background: t.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'IBM Plex Mono',monospace", fontSize: '9.5px', fontWeight: 600, border: '2px solid #fff', marginLeft: i ? '-8px' : 0, position: 'relative', zIndex: 10 - i }),
-  }));
   const activity = S.activity.map((a) => ({
     who: a.who, text: a.text.replace(/NEW-\d+/g, 'appointment'), ago: a.ago,
     dotStyle: sx({ width: '7px', height: '7px', borderRadius: '50%', background: a.color, marginTop: '4px', flexShrink: 0 }),
@@ -4495,14 +4479,19 @@ export function useScheduler() {
 
   // ---- profile VM ----
   const myWeekAppointments = S.assignments.filter((a) => a.week === todayWeekOffset).length;
+  const profileName = S.currentUser?.name || S.currentUser?.username || 'Signed-in user';
+  const profileSites: string[] = (S.siteCodeOptions && S.siteCodeOptions.length ? S.siteCodeOptions : initialSiteCodeOptions);
   const profile = {
-    name: 'Jordan Lee', role: 'QA Planner - Operations', email: 'jordan.lee@nexsil.com', phone: '+1 (480) 555-0173', team: 'Front-end Quality, Reliability', joined: 'Joined March 2023',
+    name: profileName,
+    initials: (profileName.split(/\s+/).map((w: string) => w[0]).join('').slice(0, 2) || '?').toUpperCase(),
+    role: S.currentUser?.role === 'admin' ? 'QA Admin' : 'QA Planner',
+    userId: S.currentUser?.username || '',
     stats: [
-      { label: 'APPOINTMENTS PLANNED', value: String(myWeekAppointments), sub: 'this week' },
-      { label: 'OPEN ORDERS', value: String(poolOrders.length), sub: 'awaiting staffing' },
-      { label: 'SITES', value: String(S.plants.length), sub: 'under coverage' },
+      { label: 'APPOINTMENTS', value: String(myWeekAppointments), sub: 'scheduled days this week' },
+      { label: 'INCOMPLETE', value: String(S.assignments.filter((a) => isAppointmentFormIncomplete(a)).length), sub: 'appointment days missing data' },
+      { label: 'SITES', value: String(profileSites.length), sub: 'on the calendar' },
     ],
-    sites: S.plants.map((p) => ({ name: p.name, code: p.code, swatchStyle: sx({ width: '10px', height: '10px', borderRadius: '3px', background: p.color, flexShrink: 0 }) })),
+    sites: profileSites.map((code) => ({ name: code, code: '', swatchStyle: sx({ width: '10px', height: '10px', borderRadius: '3px', background: (S.siteColors && S.siteColors[code]) || '#8a9088', flexShrink: 0 }) })),
     activity: S.activity.slice(0, 5).map((a) => ({ who: a.who, text: a.text, ago: a.ago, dotStyle: sx({ width: '7px', height: '7px', borderRadius: '50%', background: a.color, marginTop: '4px', flexShrink: 0 }) })),
   };
 
@@ -5018,7 +5007,8 @@ export function useScheduler() {
 
       const isInternal = isInternalAssignment(a);
       const code = formatApptDisplayTitle(a, orderById(a.order));
-      const creatorName = a.createdBy || profile.name || 'Jordan Lee';
+      // The Worker does not store a creator; show one only when this session recorded it.
+      const creatorName = a.createdBy || '';
 
       // Compute multi-date range across all sibling slots for this appointment
       const siblings = S.assignments.filter((x) => x.order === a.order && x.eng === a.eng);
@@ -5167,7 +5157,7 @@ export function useScheduler() {
     weekCalendarDays, weekMergedSpans,
     showTimetable, timetableRows, timetableGridCols, timetableEngName: timetableEng?.name || '',
     closeTimetable, mobileTimetableRows,
-    presence, activity, detail, incompleteAppointments,
+    activity, detail, incompleteAppointments,
     emptyWeek: S.timeScale === 'week' && S.weekOffset !== todayWeekOffset && wk.length === 0, copyWeek,
     toggleSidebar, closeSidebar, showSidebarBackdrop: isMobile && S.sidebarOpen,
     sidebarStyle, toolbarStyle, detailAsideStyle, modalOverlayStyle, modalCardStyle, modalColsStyle, modalColLeftStyle, modalColRightStyle,

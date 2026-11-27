@@ -746,10 +746,12 @@ function Sidebar({ vm }: { vm: VM }) {
                 >
                   <span style={css('width:8px;height:8px;border-radius:50%;background:#ef4444;flex-shrink:0')} />
                   <div style={css('flex:1;min-width:0;display:flex;flex-direction:column;gap:1.5px;line-height:1.2')}>
-                    <div style={css('font-size:10px;font-weight:700;color:#991b1b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:3px')}>
-                      <span style={css('font-size:9px;color:#b91c1c')}>👤</span>
-                      <span>{item.creatorName || vm.profile?.name || 'Jordan Lee'}</span>
-                    </div>
+                    {item.creatorName && (
+                      <div style={css('font-size:10px;font-weight:700;color:#991b1b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:3px')}>
+                        <span aria-hidden="true" style={css('font-size:9px;color:#b91c1c')}>👤</span>
+                        <span>{item.creatorName}</span>
+                      </div>
+                    )}
                     <div style={css('font-size:11px;font-weight:700;color:#991b1b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis')}>
                       {renderApptCode(item.code, '#991b1b')}
                     </div>
@@ -1998,16 +2000,22 @@ function MonthGrid({ vm }: { vm: VM }) {
                       flexDirection: 'column',
                       alignItems: 'flex-end',
                       textAlign: 'right',
-                      wordBreak: 'break-word',
+                      minWidth: 0,
+                      overflow: 'hidden',
                     }}
                     title={c.holiday.subtitle ? `${c.holiday.name}\n${c.holiday.subtitle}` : c.holiday.name}
                   >
+                    {/* Narrow cells clamp the label (full text in the tooltip) instead of breaking it letter by letter. */}
                     <span
                       style={{
                         fontSize: '11.5px',
                         fontWeight: 700,
                         color: getHolidayStyle(c.holiday).textColor,
                         lineHeight: '1.2',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
                       }}
                     >
                       {c.holiday.name}
@@ -2021,6 +2029,10 @@ function MonthGrid({ vm }: { vm: VM }) {
                           lineHeight: '1.2',
                           marginTop: '1px',
                           opacity: 0.9,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
                         }}
                       >
                         {c.holiday.subtitle}

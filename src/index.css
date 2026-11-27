@@ -106,10 +106,28 @@ input::placeholder{color:#8a9088;opacity:1}
 }
 
 button:focus-visible,
-[role="button"]:focus-visible {
+[role="button"]:focus-visible,
+a:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
   outline: 2px solid #2756d6 !important;
   outline-offset: 2px !important;
 }
+
+/* Read-only data stays copyable: table cells, history entries, and detail panels.
+   The global user-select:none above exists to stop accidental selection while dragging cards. */
+td, td *, th,
+.selectable, .selectable * {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}
+
+/* Main navigation scrolls sideways on narrow windows instead of clipping tabs. */
+.nav-scroll { scrollbar-width: none; }
+.nav-scroll::-webkit-scrollbar { display: none; }
+.nav-scroll > button { flex-shrink: 0; white-space: nowrap; }
 
 /* Summary Dashboard KPI Grid: 1 col on mobile, 3 cols on medium+ screens */
 .summary-kpi-grid {
@@ -122,4 +140,9 @@ button:focus-visible,
   .summary-kpi-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+}
+
+/* Appointment form: one column on narrow screens so field placeholders stay readable. */
+@media (max-width: 560px) {
+  .appointment-modal-fields { grid-template-columns: minmax(0, 1fr) !important; }
 }

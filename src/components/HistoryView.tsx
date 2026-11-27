@@ -3,6 +3,43 @@ import type { VM } from '../useScheduler';
 import type { ActionType, ActivityLog, EntityType } from '../types';
 import { css, HButton } from '../ui';
 
+const ACTION_LABELS: Record<string, string> = {
+  CREATE: 'Create', UPDATE: 'Update', DELETE: 'Delete', REORDER: 'Reorder', MANAGE_ITEM: 'Manage', RESET: 'Reset', OTHER: 'Other',
+};
+const ENTITY_LABELS: Record<string, string> = {
+  APPOINTMENT: 'Appointment', HOLIDAY: 'Holiday / Restriction', CUSTOMER: 'Customer', END_CUSTOMER: 'End Customer',
+  AUDITOR: 'QMS Host', QMS_HOST: 'QMS Host', SITE: 'Site', STANDARD: 'Standard', DEPARTMENT: 'Department', PURPOSE: 'Purpose',
+  TARGET_PACKAGE: 'Target Package', CUSTOMER_NAME: 'Customer Name', AUDIT_CATEGORY: 'Audit Category',
+};
+const humanize = (code: string) => code.charAt(0) + code.slice(1).toLowerCase().replace(/_/g, ' ');
+
+/** Parses log timestamps: ISO (current) or the older local 'dd/mm/yyyy hh:mm:ss' format. */
+function parseLogTime(value: string): Date | null {
+  if (!value) return null;
+  const legacy = value.match(/^(\d{2})\/(\d{2})\/(\d{4})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
+  const d = legacy
+    ? new Date(+legacy[3], +legacy[2] - 1, +legacy[1], +legacy[4], +legacy[5], +(legacy[6] || 0))
+    : new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+/** Local calendar day (yyyy-mm-dd) of a log entry, for the From/To filter. */
+function logDayKey(value: string): string {
+  const d = parseLogTime(value);
+  if (!d) return '';
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Shows a log timestamp in the viewer's local time. */
+function formatLogTime(value: string): { date: string; time: string } | null {
+  const d = parseLogTime(value);
+  if (!d) return null;
+  return {
+    date: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+    time: d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+  };
+}
+
 function getActionBadgeStyle(actionType: ActionType): { bg: string; color: string; border: string } {
   switch (actionType) {
     case 'CREATE':
@@ -118,13 +155,15 @@ export function HistoryView({ vm }: { vm: VM }) {
 
     if (dateFrom) {
       logs = logs.filter((log) => {
-        return log.timestamp >= dateFrom;
+        const day = logDayKey(log.timestamp);
+        return day !== '' && day >= dateFrom;
       });
     }
 
     if (dateTo) {
       logs = logs.filter((log) => {
-        return log.timestamp <= dateTo + 'T23:59:59';
+        const day = logDayKey(log.timestamp);
+        return day !== '' && day <= dateTo;
       });
     }
 
@@ -153,8 +192,7 @@ export function HistoryView({ vm }: { vm: VM }) {
             </span>
           </div>
           <p style={css('font-size:12px;color:#8a9088;margin:3px 0 0 0')}>
-            Track real-time appointment updates, master data modifications, and user actions across the system.
-          </p>
+            Changes made in this browser: appointments, results, master data, and holiday rules. Times are shown in your local time zone.</p>
         </div>
       </div>
 
@@ -180,12 +218,12 @@ export function HistoryView({ vm }: { vm: VM }) {
             style={css("padding:6px 10px;border:1px solid #d8dcd4;border-radius:8px;font-size:12px;color:#15191e;background:#fff;outline:none;font-family:'Archivo',sans-serif;cursor:pointer")}
           >
             <option value="ALL">All Actions</option>
-            <option value="CREATE">CREATE</option>
-            <option value="UPDATE">UPDATE</option>
-            <option value="DELETE">DELETE</option>
-            <option value="REORDER">REORDER</option>
-            <option value="MANAGE_ITEM">MANAGE_ITEM</option>
-            <option value="RESET">RESET</option>
+            <option value="CREATE">{ACTION_LABELS.CREATE}</option>
+            <option value="UPDATE">{ACTION_LABELS.UPDATE}</option>
+            <option value="DELETE">{ACTION_LABELS.DELETE}</option>
+            <option value="REORDER">{ACTION_LABELS.REORDER}</option>
+            <option value="MANAGE_ITEM">{ACTION_LABELS.MANAGE_ITEM}</option>
+            <option value="RESET">{ACTION_LABELS.RESET}</option>
           </select>
         </div>
 
@@ -246,8 +284,8 @@ export function HistoryView({ vm }: { vm: VM }) {
 
       {/* Audit Log Table Feed */}
       <div style={css('background:#fff;border:1px solid #d8dcd4;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.03);display:flex;flex-direction:column;flex:1')}>
-        <div className="scrl" style={css('overflow-y:auto;flex:1')}>
-          <table style={css('width:100%;border-collapse:collapse;text-align:left;font-size:12.5px')}>
+        <div className="scrl" style={css('overflow:auto;flex:1')}>
+          <table style={css('width:100%;min-width:760px;border-collapse:collapse;text-align:left;font-size:12.5px')}>
             <thead>
               <tr style={css('background:#f8faf6;border-bottom:1px solid #e2e5de;color:#5c625c;font-size:11.5px;font-weight:700;letter-spacing:.2px;text-transform:uppercase')}>
                 <th style={css('padding:10px 16px;width:180px')}>User</th>
@@ -306,7 +344,7 @@ export function HistoryView({ vm }: { vm: VM }) {
                             border: `1px solid ${actionStyle.border}`,
                           }}
                         >
-                          {log.actionType}
+                          {ACTION_LABELS[log.actionType] || humanize(String(log.actionType))}
                         </span>
                       </td>
 
@@ -323,7 +361,7 @@ export function HistoryView({ vm }: { vm: VM }) {
                             color: entityStyle.color,
                           }}
                         >
-                          {log.entityType === 'AUDITOR' ? 'QMS_HOST' : log.entityType}
+                          {ENTITY_LABELS[log.entityType] || humanize(String(log.entityType))}
                         </span>
                       </td>
 
@@ -333,8 +371,17 @@ export function HistoryView({ vm }: { vm: VM }) {
                       </td>
 
                       {/* Timestamp */}
-                      <td style={css("padding:12px 16px;vertical-align:middle;text-align:right;color:#6a706a;font-family:'IBM Plex Mono',monospace;font-size:11px")}>
-                        {log.timestamp}
+                      <td style={css("padding:12px 16px;vertical-align:middle;text-align:right;color:#6a706a;font-family:'IBM Plex Mono',monospace;font-size:11px;white-space:nowrap")}>
+                        {(() => {
+                          const t = formatLogTime(log.timestamp);
+                          if (!t) return log.timestamp;
+                          return (
+                            <time dateTime={log.timestamp} title={log.timestamp}>
+                              <span style={css('color:#23282a')}>{t.date}</span>
+                              <span style={css('margin-left:8px')}>{t.time}</span>
+                            </time>
+                          );
+                        })()}
                       </td>
                     </tr>
                   );
