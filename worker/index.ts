@@ -150,7 +150,7 @@ async function insertActivityLog(
 ) {
   const actId = entry.id || ('act_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
   const ts = entry.timestamp || new Date().toISOString();
-  const who = entry.who || 'Jordan Lee';
+  const who = entry.who || 'Unknown user';
   const text = entry.text || '';
   const ago = entry.ago || 'just now';
   const color = entry.color || '#0f9d8c';
@@ -256,6 +256,18 @@ function assignmentOut(r: any) {
 }
 
 let migrationChecked = false;
+// assignments.audit_type is created only by migration 0020. The Worker never adds it itself, so a
+// migration and a runtime ALTER can never collide ("duplicate column name"); until the column
+// exists the Worker simply does not write it, and the client infers the type from content.
+let hasAuditTypeColumn = false;
+async function refreshAuditTypeColumn(DB: D1Database) {
+  try {
+    const cols = await DB.prepare('PRAGMA table_info(assignments)').all();
+    hasAuditTypeColumn = ((cols.results as any[]) || []).some((c) => c.name === 'audit_type');
+  } catch {
+    hasAuditTypeColumn = false;
+  }
+}
 async function ensureAssignmentColumns(DB: D1Database) {
   if (migrationChecked) return;
   try {
@@ -284,9 +296,6 @@ async function ensureAssignmentColumns(DB: D1Database) {
   } catch {}
   try {
     await DB.prepare('ALTER TABLE assignments ADD COLUMN created_at TEXT NOT NULL DEFAULT ""').run();
-  } catch {}
-  try {
-    await DB.prepare('ALTER TABLE assignments ADD COLUMN audit_type TEXT NOT NULL DEFAULT ""').run();
   } catch {}
   try {
     await DB.prepare('ALTER TABLE assignments ADD COLUMN updated_at TEXT NOT NULL DEFAULT ""').run();
@@ -418,10 +427,13 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
     const publicAuthRoute = method === 'POST' && (
       path === 'auth/register' || path === 'auth/signup' || path === 'auth/login' || path === 'auth/signin' || path === 'auth/reset-password' || path === 'auth/reset'
     );
+    let sessionUser: any = null;
     if (!publicAuthRoute) {
-      const user = await findSessionUser(DB, request);
-      if (!user) return json({ error: 'Authentication required.' }, 401);
+      sessionUser = await findSessionUser(DB, request);
+      if (!sessionUser) return json({ error: 'Authentication required.' }, 401);
     }
+    // Audit entries are attributed to the server-verified account, never to a name sent by the browser.
+    const actorName = String(sessionUser?.name || sessionUser?.username || 'Unknown user').trim();
 
     // --- auth: register / signup ---
     if (method === 'POST' && (path === 'auth/register' || path === 'auth/signup')) {
@@ -755,6 +767,7 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
     }
     if (method === 'POST' && path === 'assignments') {
       await ensureAssignmentColumns(DB);
+      if (!hasAuditTypeColumn) await refreshAuditTypeColumn(DB);
       const d = body || {};
       const dept = d.department === 'Non-QA' ? 'Non-QA' : d.department === 'QA' ? 'QA' : '';
       const resolvedSite = normalizeSites(d.site || (d.sectionType === 'internal' ? d.site2 : d.site1) || '');
@@ -775,8 +788,8 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
       ).trim();
 
       await DB.prepare(
-        `INSERT INTO assignments (id, eng, order_id, day, week, site, customer, end_customer, auditor, purpose, target_package, customer_names, audit_category, area, standard, department, results, created_at, updated_at, audit_type)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO assignments (id, eng, order_id, day, week, site, customer, end_customer, auditor, purpose, target_package, customer_names, audit_category, area, standard, department, results, created_at, updated_at${hasAuditTypeColumn ? ', audit_type' : ''})
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${hasAuditTypeColumn ? ', ?' : ''})`,
       ).bind(
         d.id, d.eng || '', d.order || '', d.day ?? 0, d.week ?? 0,
         resolvedSite,
@@ -787,7 +800,7 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
         typeof d.results === 'string' ? d.results : JSON.stringify(d.results || {}),
         d.createdAt ? String(d.createdAt) : '',
         d.updatedAt ? String(d.updatedAt) : '',
-        auditTypeIn(d),
+        ...(hasAuditTypeColumn ? [auditTypeIn(d)] : []),
       ).run();
       return json({ id: d.id }, 201);
     }
@@ -800,6 +813,7 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
       const existing = await DB.prepare('SELECT * FROM assignments WHERE id = ?').bind(assignMatch[1]).first<any>();
       if (!existing) return json({ error: 'not found' }, 404);
       await ensureAssignmentColumns(DB);
+      if (!hasAuditTypeColumn) await refreshAuditTypeColumn(DB);
       const resolvedSite = d.site !== undefined ? normalizeSites(d.site) : (d.site1 !== undefined || d.site2 !== undefined ? normalizeSites(d.site1 || d.site2 || '') : undefined);
       const resolvedAuditor = d.auditor !== undefined
         ? String(d.auditor).trim()
@@ -818,7 +832,7 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
       await DB.prepare(
         `UPDATE assignments SET eng = ?, order_id = ?, day = ?, week = ?, site = ?, customer = ?, end_customer = ?, auditor = ?, purpose = ?,
            target_package = ?, customer_names = ?, audit_category = ?, area = ?, standard = ?, department = ?, results = ?,
-           created_at = ?, updated_at = ?, audit_type = ? WHERE id = ?`,
+           created_at = ?, updated_at = ?${hasAuditTypeColumn ? ', audit_type = ?' : ''} WHERE id = ?`,
       ).bind(
         d.eng ?? existing.eng, d.order ?? existing.order_id, d.day ?? existing.day, d.week ?? existing.week,
         resolvedSite ?? existing.site ?? '',
@@ -832,7 +846,7 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
         d.results !== undefined ? (typeof d.results === 'string' ? d.results : JSON.stringify(d.results)) : (existing.results ?? '{}'),
         d.createdAt !== undefined ? String(d.createdAt) : (existing.created_at ?? ''),
         d.updatedAt !== undefined ? String(d.updatedAt) : (existing.updated_at ?? ''),
-        auditTypeIn(d) || existing.audit_type || '',
+        ...(hasAuditTypeColumn ? [auditTypeIn(d) || existing.audit_type || ''] : []),
         assignMatch[1],
       ).run();
       return json({ ok: true });
@@ -907,7 +921,7 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
       const prefix = `${year}-%`;
       await DB.prepare("DELETE FROM custom_holidays WHERE date LIKE ? AND type IN ('PUBLIC_HOLIDAY', 'WORKING_DAY')").bind(prefix).run();
 
-      const actor = String(body?.actor || body?.user || 'Jordan Lee').trim();
+      const actor = actorName;
       const desc = String(body?.description || `Reset Public Holidays to default reference list (${year})`).trim();
 
       const activity = await insertActivityLog(DB, {
@@ -944,7 +958,7 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
       }
 
       // Log activity into D1
-      const actor = String(body?.actor || body?.user || 'Jordan Lee').trim();
+      const actor = actorName;
       let actionType = String(body?.actionType || 'CREATE').toUpperCase();
       let desc = String(body?.description || '').trim();
       let color = '#0f9d8c';
@@ -1006,7 +1020,7 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
       const existing = await DB.prepare('SELECT type, note, locked_sites FROM custom_holidays WHERE date = ?').bind(dateKey).first() as { type?: string; note?: string; locked_sites?: string } | null;
       await DB.prepare('DELETE FROM custom_holidays WHERE date = ?').bind(dateKey).run();
 
-      const actor = String(body?.actor || body?.user || 'Jordan Lee').trim();
+      const actor = actorName;
       let desc = String(body?.description || '').trim();
       if (!desc) {
         if (existing?.type === 'PUBLIC_HOLIDAY') {
@@ -1043,7 +1057,7 @@ async function handleApi(request: Request, env: Env, path: string): Promise<Resp
         }
       }
 
-      const actor = String(body?.actor || body?.user || 'Jordan Lee').trim();
+      const actor = actorName;
       let desc = String(body?.description || '').trim();
       const actionType = String(body?.actionType || 'DELETE').toUpperCase();
       if (!desc) {
