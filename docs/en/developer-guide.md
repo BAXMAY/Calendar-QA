@@ -76,7 +76,7 @@ Vite on `http://localhost:5173`, good for layout and component work. There is no
 | `npm run dev:worker` | Build, then `wrangler dev` with local D1 |
 | `npm run build` | Type-check (`tsc -b`) and bundle with Vite |
 | `npm run lint` | `oxlint` |
-| `npm test` | Regression test for Customer vs Internal Audit classification |
+| `npm test` | Regression tests: Customer vs Internal Audit classification, and when an audit counts as having a result |
 | `npm run preview` | Preview the production build |
 | `npm run migrate:local` | Apply migrations to local D1 |
 | `npm run migrate:remote` | Apply migrations to the D1 database in `wrangler.toml` (production) |
@@ -89,8 +89,8 @@ Vite on `http://localhost:5173`, good for layout and component work. There is no
 1. `src/main.tsx` mounts `<App />`; `src/App.tsx` calls `useScheduler()` and shows Login or the app.
 2. `initialState()` in `src/data.ts` loads defaults, the browser snapshot (`calendar_qa_snapshot`), saved notes (`calendar_qa_comments`) and the remembered user (`calendar_qa_session_user`). A remembered user makes the app open signed in. The month and year come from `getCurrentCalendarDefaults(new Date())`.
 3. `useScheduler()` checks the server session with `authClient.getSession()` (`GET /api/auth/session`, the HttpOnly cookie checked against D1). If the session has ended (401), the app **keeps** the remembered identity and the cached snapshot and does not load server data; every save then fails until the user signs out and in again.
-4. With a valid session it calls `api.fetchState()` (`GET /api/state`) once. The Worker reads engineers, plants, active plants, orders, assignments, comments, the latest 50 `activity` rows, options, and holidays in parallel. There is no polling: other users' changes appear after a reload.
-5. The client normalizes the records (`normalizeAssignment`, `normalizeSite`, …) and refreshes the snapshot. From here D1 is the source of truth; the snapshot is only a cache. On every load the client also deletes from D1 any Customer option that no appointment uses, unless it was added in that browser.
+4. With a valid session it calls `api.fetchState()` (`GET /api/state`) once. The Worker reads engineers, plants, active plants, orders, assignments, comments, the latest 50 `activity` rows, options, holidays, and the latest 200 History entries in parallel. There is no polling: other users' changes appear after a reload.
+5. The client normalizes the records (`normalizeAssignment`, `normalizeSite`, …) and refreshes the snapshot. From here D1 is the source of truth; the snapshot is only a cache. History shows the server's entries plus any entry this browser could not save (marked "This browser only"); only those unsaved entries are cached.
 
 If the screen is empty, check which mode you are in (Vite only or Worker + D1), whether you are signed in, and what `/api/auth/session` and `/api/state` return in DevTools.
 
@@ -100,14 +100,15 @@ If the screen is empty, check which mode you are in (Vite only or Worker + D1), 
 
 | Table | Key | Holds |
 |---|---|---|
-| `assignments` | `id` | One row per bookable appointment day: `audit_type` (`customer`, `internal`, or `''` = unknown, treated as CS), site, customer, purpose, audit fields, results, timestamps. Foreign keys to `engineers.id` (`eng`) and `orders.id` (`order_id`). |
+| `assignments` | `id` | One row per bookable appointment day: `audit_type` (`customer`, `internal`, or `''` = unknown, treated as CS), site, customer, purpose, audit fields, results (per site; `recorded: true` marks a saved result, so all-zero counts still count as a result), timestamps. Foreign keys to `engineers.id` (`eng`) and `orders.id` (`order_id`). |
 | `orders` | `id` | One row per appointment. Every day of the appointment shares it, so it is what links a series. `product` holds the end customer (CS) or area (IA); `plant` holds the site (CS) or standard (IA). |
 | `engineers` | `id` | QMS Hosts: name, role, department, sub-departments, plus `site` and `host_department`. A row is created automatically when a new host name is typed in the form. |
 | `comments` | `id` | Day notes; `assignment_id` links to `assignments`. Author and time are not recorded (always "You", "just now"). |
 | `plants` / `active_plants` | `id` / `plant_id` | Legacy QMS / EHS / ESD plant records and their active flag. No screen uses them. |
 | `options` | `(category, value)` | Dropdown values. Sites are `site_code` rows with their color in `meta`. Custom orders are stored as JSON in `_order_<category>` rows. |
 | `custom_holidays` | `date` | Holiday, shutdown, no-customer-audit, and working-day rules, with locked sites |
-| `activity` | `id` | The legacy activity feed (shown on Profile) and audit rows for holiday changes, attributed to the signed-in account. **Not** the History screen, which lives in `localStorage`. |
+| `activity` | `id` | The legacy activity feed (shown on Profile) and audit rows for holiday changes, attributed to the signed-in account. Not used by the History screen. |
+| `history_log` | `id` | The shared History (migration `0021`): one row per change, with the user and time set by the Worker from the session; action, entity, description and metadata come from the browser. |
 | `users` | `id` | Username, password hash and salt, display name, role |
 | `sessions` | `token_hash` | Server sessions (logical link to `users`; no foreign key). Expired rows are not purged. |
 
@@ -136,6 +137,7 @@ All routes are same-origin under `/api/`. The Worker answers a cross-origin requ
 | `engineers` · `engineers/:id` | `GET` `POST` · `PUT` `DELETE` | QMS Hosts. `DELETE` also deletes every linked assignment and its comments. |
 | `plants` · `plants/:id` · `plants/:id/toggle` | `GET` `POST` · `DELETE` · `POST` | Legacy plants (unused by the UI) |
 | `comments` · `comments/:id` | `POST` · `DELETE` | Day notes |
+| `history` | `GET` `POST` | Shared History. `GET` pages newest first (`before`, `beforeId`, `limit` up to 500; default 200). `POST` stores one entry; the Worker sets the user and time and checks the action and entity names. |
 | `activity` | `POST` | Legacy activity feed |
 | `options` · `options/reorder` | `POST` `DELETE` · `PUT` | Dropdown values and their order |
 | `holidays` · `holidays/:date` · `holidays/reset` | `GET` `POST` `DELETE` · `DELETE` · `POST` | Day rules, bulk delete, reset a year; each change writes an `activity` row |
@@ -151,7 +153,7 @@ Each rule has one home in code. Change it there, not in a component.
 | Seven sites `UTL1` `UTL2` `UTL2A` `UTL2B` `UTL3` `UTL3A` `UTL3T`; legacy values normalized | `normalizeSite()` / `normalizeSites()` in `src/types.ts`; `MASTER_PLANT_SITES` in `src/utils/auditOptionsHelper.ts` |
 | Customer vs Internal Audit: stored in `audit_type` (migration `0020`). Without it, decided from content: customer fields → CS, area / audit category → IA. Never from `site2`, `auditor2`, `department2`: those are compatibility copies on every row. An id, order, code or title starting with "IA" also means IA. | `isInternalAssignment()` in `src/types.ts`; covered by `npm test` |
 | CS needs 8 fields, IA needs 5, both need a valid date range | `getMissingFields()` and `isAppointmentFormIncomplete()` in `src/types.ts` |
-| Status: Incomplete → Updated → New → Pending Result → Complete, 7-day windows. Results whose counts are all 0 count as "no result". | `resolveAuditStatus()`, `isAuditResultCompleted()` and `STATUS_COLOR_MAP` in `src/types.ts` |
+| Status: Incomplete → Updated → New → Pending Result → Complete, 7-day windows. An audit has a result when a site result is saved (`recorded: true`, set by **Save Results**) or any count is above 0; **Clear Results** saves zeros without the flag. | `resolveAuditStatus()`, `isAuditResultCompleted()` and `STATUS_COLOR_MAP` in `src/types.ts` |
 | Card fill and border from status (`getApptCardColors()`); left strip from the site color (`siteColorsOfAssignment()` + `getAccentStyle()`) | `src/useScheduler.ts`; site colors are `initialSiteColors` (`src/data.ts`) overlaid with D1 `site_code` options, edited in Manage → Options → Site |
 | Public Holiday and weekends are skipped from a range; No Customer Audits blocks CS; Shutdown Plant blocks CS at all sites and IA only at locked sites; Working Day overrides a built-in holiday | `src/holidays.ts`; enforced **only in the browser**, in `submitCreate()` / `submitEdit()`. Drag-move, duplicate, copy-week and the Worker do not check them. |
 | Dropdown suggestions come from appointments in use, except Site (fixed list) | `getActiveDropdownOptions()` in `src/utils/auditOptionsHelper.ts` |
@@ -224,7 +226,7 @@ Site codes are hard-coded in several places. Update all of them, then run `npm r
 Before review:
 
 ```bash
-npm test          # audit-type classification regression test
+npm test          # audit type and audit result regression tests
 npm run lint
 npm run build
 ```
@@ -259,7 +261,8 @@ There is no staging environment in `wrangler.toml`. Local is not staging, and pr
 | API returns 401 | Session cookie, expiry, and that app and API share one origin |
 | API returns 403 "Cross-origin request denied." | The request came from another origin, or a proxy changed `Origin` / `Sec-Fetch-Site` |
 | Saved data gone after reload | The save warning, the Network response, Worker logs, local D1. The optimistic UI is not proof of a write. |
-| Dropdown missing a value, or showing an old one | An appointment still uses (or no longer uses) it; see `getActiveDropdownOptions()`. A value can also be hidden by `removedOptions` in this browser's snapshot, and unused Customer values are deleted on load. |
+| Dropdown missing a value, or showing an old one | An appointment still uses (or no longer uses) it; see `getActiveDropdownOptions()`. A value can also be hidden by `removedOptions` in this browser's snapshot. |
+| History entries marked "This browser only" | Recorded before migration `0021`, or `POST /api/history` failed (the app shows a warning). A frontend-only run (`npm run dev`) never stores History on a server. |
 | Build fails | Read the first `npm run build` error; check types, `VM`, and API payloads agree |
 | Migration fails with "duplicate column name" | The column was already created by an `ensure*()` function (9, step 3) |
 | Migration fails otherwise | Local schema and migration history; add a new migration instead of editing one |
@@ -271,7 +274,8 @@ Read the [security findings](it-handover.md#4-security-findings) before widening
 
 - `admin` / `user` is a label, not a server-side permission. Do not assume Manage routes are admin-only.
 - The Worker trusts the browser for required fields and holiday rules, and ids are generated in the browser.
-- `localStorage` keeps the calendar snapshot, History, notes and the remembered user after sign-out; with an ended session the app still opens on that cached data.
+- `localStorage` keeps the calendar snapshot, notes, History entries not yet saved to the server, and the remembered user after sign-out; with an ended session the app still opens on that cached data.
+- History records the real user and time, but the description is written by the browser.
 - Sign-up uses one shared `REGISTRATION_CODE`; passwords are salted SHA-256 with a 4-character minimum, and there is no rate limiting.
 - Never log credentials, cookies, session tokens, registration codes, or unneeded customer data.
 
@@ -288,4 +292,5 @@ Read the [security findings](it-handover.md#4-security-findings) before widening
 | Excel and CSV export | `TableView.tsx`, `SummaryDashboard.tsx` |
 | Database schema | `migrations/`, and the `ensure*()` functions in `worker/index.ts` |
 | Release | `scripts/deploy.mjs` |
+| History | `HistoryView.tsx`, `logActivity()` and `loadOlderHistory()` in `src/useScheduler.ts`, the `history` routes in `worker/index.ts` |
 | Production operation | [IT Handover](it-handover.md) |

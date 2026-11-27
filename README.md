@@ -53,4 +53,4 @@ Production migrations, releases, and recovery follow the [IT Handover runbook](d
 
 ## Open IT review items
 
-Server-side role enforcement, account lifecycle and the shared registration code, password handling, business data kept in the browser after sign-out, the missing server-side audit trail, and browser-only validation. Details and suggested decisions: [IT Handover § Security findings](docs/en/it-handover.md#4-security-findings). Confirmed application defects are listed under [Known application issues](docs/en/it-handover.md#7-known-application-issues).
+Server-side role enforcement, account lifecycle and the shared registration code, password handling, business data kept in the browser after sign-out, a History whose entries are written by the browser, and browser-only validation. Details and suggested decisions: [IT Handover § Security findings](docs/en/it-handover.md#4-security-findings). Confirmed application defects are listed under [Known application issues](docs/en/it-handover.md#7-known-application-issues).

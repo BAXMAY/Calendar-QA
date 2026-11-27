@@ -76,7 +76,7 @@ Vite ที่ `http://localhost:5173` เหมาะกับงาน layout 
 | `npm run dev:worker` | build แล้ว `wrangler dev` กับ local D1 |
 | `npm run build` | ตรวจ type (`tsc -b`) และ bundle ด้วย Vite |
 | `npm run lint` | `oxlint` |
-| `npm test` | regression test การแยกประเภท Customer / Internal Audit |
+| `npm test` | regression test การแยกประเภท Customer / Internal Audit และเกณฑ์ว่าการตรวจใดนับว่ามีผลตรวจแล้ว |
 | `npm run preview` | ดูตัวอย่าง production build |
 | `npm run migrate:local` | apply migration กับ local D1 |
 | `npm run migrate:remote` | apply migration กับ D1 ใน `wrangler.toml` (production) |
@@ -89,8 +89,8 @@ Vite ที่ `http://localhost:5173` เหมาะกับงาน layout 
 1. `src/main.tsx` mount `<App />` แล้ว `src/App.tsx` เรียก `useScheduler()` และแสดง Login หรือแอป
 2. `initialState()` ใน `src/data.ts` โหลดค่าเริ่มต้น browser snapshot (`calendar_qa_snapshot`) บันทึกที่เก็บไว้ (`calendar_qa_comments`) และผู้ใช้ที่จำไว้ (`calendar_qa_session_user`) หากมีผู้ใช้ที่จำไว้ แอปจะเปิดขึ้นในสถานะ sign-in แล้ว เดือนและปีมาจาก `getCurrentCalendarDefaults(new Date())`
 3. `useScheduler()` ตรวจ session ฝั่งเซิร์ฟเวอร์ด้วย `authClient.getSession()` (`GET /api/auth/session` ตรวจ HttpOnly cookie กับ D1) หาก session หมดแล้ว (401) แอป**ยังคง**ใช้ตัวตนที่จำไว้และ snapshot ใน cache และไม่โหลดข้อมูลจากเซิร์ฟเวอร์ หลังจากนั้นการบันทึกทุกครั้งจะล้มเหลวจนกว่าผู้ใช้จะ sign out แล้ว sign in ใหม่
-4. เมื่อ session ใช้ได้ จะเรียก `api.fetchState()` (`GET /api/state`) หนึ่งครั้ง Worker อ่าน engineers, plants, active plants, orders, assignments, comments, แถว `activity` 50 แถวล่าสุด, options และ holidays พร้อมกัน ไม่มีการ polling การเปลี่ยนแปลงของผู้ใช้อื่นจะเห็นหลัง reload
-5. client normalize ข้อมูล (`normalizeAssignment`, `normalizeSite` ฯลฯ) และอัปเดต snapshot จากจุดนี้ D1 เป็นแหล่งข้อมูลหลัก snapshot เป็นเพียง cache ทุกครั้งที่โหลด client ยังลบตัวเลือก Customer ที่ไม่มีนัดหมายใดใช้ออกจาก D1 ด้วย เว้นแต่ตัวเลือกนั้นถูกเพิ่มในเบราว์เซอร์นั้น
+4. เมื่อ session ใช้ได้ จะเรียก `api.fetchState()` (`GET /api/state`) หนึ่งครั้ง Worker อ่าน engineers, plants, active plants, orders, assignments, comments, แถว `activity` 50 แถวล่าสุด, options, holidays และรายการ History 200 รายการล่าสุดพร้อมกัน ไม่มีการ polling การเปลี่ยนแปลงของผู้ใช้อื่นจะเห็นหลัง reload
+5. client normalize ข้อมูล (`normalizeAssignment`, `normalizeSite` ฯลฯ) และอัปเดต snapshot จากจุดนี้ D1 เป็นแหล่งข้อมูลหลัก snapshot เป็นเพียง cache หน้า History แสดงรายการจากเซิร์ฟเวอร์ รวมถึงรายการที่เบราว์เซอร์นี้บันทึกไม่สำเร็จ (มีป้าย "This browser only") และเก็บใน cache เฉพาะรายการที่ยังบันทึกไม่สำเร็จเหล่านั้น
 
 หากหน้าจอว่าง ให้ตรวจว่าอยู่ในโหมดใด (Vite อย่างเดียว หรือ Worker + D1) เข้าสู่ระบบแล้วหรือยัง และดูใน DevTools ว่า `/api/auth/session` และ `/api/state` ตอบอะไร
 
@@ -100,14 +100,15 @@ Vite ที่ `http://localhost:5173` เหมาะกับงาน layout 
 
 | ตาราง | คีย์ | เก็บอะไร |
 |---|---|---|
-| `assignments` | `id` | หนึ่งแถวต่อหนึ่งวันของนัดหมายที่จองได้: `audit_type` (`customer`, `internal` หรือ `''` = ไม่ทราบ ถือเป็น CS) ไซต์ ลูกค้า purpose ฟิลด์การตรวจ ผลตรวจ timestamps มี foreign key ไปที่ `engineers.id` (`eng`) และ `orders.id` (`order_id`) |
+| `assignments` | `id` | หนึ่งแถวต่อหนึ่งวันของนัดหมายที่จองได้: `audit_type` (`customer`, `internal` หรือ `''` = ไม่ทราบ ถือเป็น CS) ไซต์ ลูกค้า purpose ฟิลด์การตรวจ ผลตรวจ (แยกตามไซต์; `recorded: true` ระบุว่าผลตรวจถูกบันทึกแล้ว ดังนั้นแม้จำนวนเป็น 0 ทั้งหมดก็ยังนับว่ามีผลตรวจ) timestamps มี foreign key ไปที่ `engineers.id` (`eng`) และ `orders.id` (`order_id`) |
 | `orders` | `id` | หนึ่งแถวต่อหนึ่งนัดหมาย ทุกวันของนัดหมายใช้แถวเดียวกัน จึงเป็นตัวเชื่อมชุดนัดหมาย `product` เก็บ end customer (CS) หรือ area (IA); `plant` เก็บไซต์ (CS) หรือ standard (IA) |
 | `engineers` | `id` | QMS Host: ชื่อ บทบาท แผนก แผนกย่อย รวมถึง `site` และ `host_department` ระบบสร้างแถวให้อัตโนมัติเมื่อพิมพ์ชื่อ host ใหม่ในฟอร์ม |
 | `comments` | `id` | บันทึกของวัน เชื่อม `assignments` ด้วย `assignment_id` ไม่ได้บันทึกผู้เขียนและเวลา (แสดงเป็น "You", "just now" เสมอ) |
 | `plants` / `active_plants` | `id` / `plant_id` | ข้อมูล plant แบบเก่าของ QMS / EHS / ESD และ flag สถานะเปิดใช้ ไม่มีหน้าจอใดใช้ |
 | `options` | `(category, value)` | ค่าของ dropdown ไซต์คือแถว `site_code` ที่เก็บสีไว้ใน `meta` ลำดับที่กำหนดเองเก็บเป็น JSON ในแถว `_order_<category>` |
 | `custom_holidays` | `date` | กฎวันหยุด shutdown no-customer-audit และ working-day พร้อมไซต์ที่ล็อก |
-| `activity` | `id` | activity feed แบบเก่า (แสดงในหน้า Profile) และแถว audit ของการเปลี่ยนวันหยุด โดยระบุบัญชีที่ sign-in อยู่ **ไม่ใช่**หน้า History ซึ่งเก็บอยู่ใน `localStorage` |
+| `activity` | `id` | activity feed แบบเก่า (แสดงในหน้า Profile) และแถว audit ของการเปลี่ยนวันหยุด โดยระบุบัญชีที่ sign-in อยู่ หน้า History ไม่ได้ใช้ตารางนี้ |
+| `history_log` | `id` | History ที่ใช้ร่วมกัน (migration `0021`): หนึ่งแถวต่อหนึ่งการเปลี่ยนแปลง โดย Worker กำหนดผู้ใช้และเวลาจาก session ส่วน action, entity, คำอธิบาย และ metadata มาจากเบราว์เซอร์ |
 | `users` | `id` | ชื่อผู้ใช้ hash และ salt ของรหัสผ่าน ชื่อที่แสดง บทบาท |
 | `sessions` | `token_hash` | session ฝั่งเซิร์ฟเวอร์ (เชื่อม `users` เชิงตรรกะ ไม่มี foreign key) แถวที่หมดอายุแล้วไม่ถูกลบทิ้ง |
 
@@ -136,6 +137,7 @@ Worker ยังแก้ schema ตอน runtime ด้วย: ใน request 
 | `engineers` · `engineers/:id` | `GET` `POST` · `PUT` `DELETE` | QMS Host `DELETE` จะลบ assignment ทุกแถวที่เชื่อมอยู่และ comment ของแถวเหล่านั้นด้วย |
 | `plants` · `plants/:id` · `plants/:id/toggle` | `GET` `POST` · `DELETE` · `POST` | plant แบบเก่า (UI ไม่ได้ใช้) |
 | `comments` · `comments/:id` | `POST` · `DELETE` | บันทึกของวัน |
+| `history` | `GET` `POST` | History ที่ใช้ร่วมกัน `GET` คืนค่าทีละหน้าโดยเรียงจากใหม่ไปเก่า (`before`, `beforeId`, `limit` สูงสุด 500 ค่าเริ่มต้น 200) `POST` เก็บหนึ่งรายการ โดย Worker กำหนดผู้ใช้และเวลา และตรวจชื่อ action และ entity |
 | `activity` | `POST` | activity feed แบบเก่า |
 | `options` · `options/reorder` | `POST` `DELETE` · `PUT` | ค่าของ dropdown และลำดับ |
 | `holidays` · `holidays/:date` · `holidays/reset` | `GET` `POST` `DELETE` · `DELETE` · `POST` | กฎวัน ลบหลายรายการ รีเซ็ตทั้งปี ทุกการเปลี่ยนแปลงจะเขียนแถว `activity` |
@@ -151,7 +153,7 @@ session ใช้ cookie `qa_session` แบบ HttpOnly (`SameSite=Lax` แล�
 | 7 ไซต์ `UTL1` `UTL2` `UTL2A` `UTL2B` `UTL3` `UTL3A` `UTL3T` และ normalize ค่าเก่า | `normalizeSite()` / `normalizeSites()` ใน `src/types.ts`; `MASTER_PLANT_SITES` ใน `src/utils/auditOptionsHelper.ts` |
 | ประเภท Customer หรือ Internal Audit: เก็บใน `audit_type` (migration `0020`) หากไม่มีค่า ให้ตัดสินจากเนื้อหา: มีฟิลด์ลูกค้า → CS, มี area / audit category → IA ห้ามใช้ `site2`, `auditor2`, `department2` เพราะเป็นค่าสำเนาเพื่อความเข้ากันได้ที่มีในทุกแถว id, order, code หรือ title ที่ขึ้นต้นด้วย "IA" ก็ถือเป็น IA เช่นกัน | `isInternalAssignment()` ใน `src/types.ts` ทดสอบด้วย `npm test` |
 | CS ต้องมี 8 ฟิลด์ IA ต้องมี 5 ฟิลด์ และทั้งคู่ต้องมีช่วงวันที่ที่ถูกต้อง | `getMissingFields()` และ `isAppointmentFormIncomplete()` ใน `src/types.ts` |
-| สถานะ: Incomplete → Updated → New → Pending Result → Complete ด้วยกรอบเวลา 7 วัน ผลตรวจที่จำนวนเป็น 0 ทั้งหมดนับเป็น "no result" | `resolveAuditStatus()`, `isAuditResultCompleted()` และ `STATUS_COLOR_MAP` ใน `src/types.ts` |
+| สถานะ: Incomplete → Updated → New → Pending Result → Complete ด้วยกรอบเวลา 7 วัน การตรวจนับว่ามีผลตรวจเมื่อบันทึกผลตรวจของไซต์แล้ว (`recorded: true` ซึ่งตั้งโดย **Save Results**) หรือมีจำนวนใดมากกว่า 0 ส่วน **Clear Results** จะบันทึกค่า 0 โดยไม่มี flag นี้ | `resolveAuditStatus()`, `isAuditResultCompleted()` และ `STATUS_COLOR_MAP` ใน `src/types.ts` |
 | สีพื้นและขอบการ์ดมาจากสถานะ (`getApptCardColors()`) แถบซ้ายมาจากสีไซต์ (`siteColorsOfAssignment()` + `getAccentStyle()`) | `src/useScheduler.ts`; สีไซต์คือ `initialSiteColors` (`src/data.ts`) ที่ถูกทับด้วยตัวเลือก `site_code` จาก D1 แก้ได้ที่ Manage → Options → Site |
 | Public Holiday และวันหยุดสุดสัปดาห์ถูกข้ามออกจากช่วงวันที่; No Customer Audits ปิด CS; Shutdown Plant ปิด CS ทุกไซต์ และปิด IA เฉพาะไซต์ที่ล็อก; Working Day ยกเว้นวันหยุดในตัว (built-in) | `src/holidays.ts` บังคับใช้**เฉพาะในเบราว์เซอร์** ใน `submitCreate()` / `submitEdit()` การลากย้าย (drag-move), duplicate, copy-week และ Worker ไม่ได้ตรวจกฎเหล่านี้ |
 | ตัวเลือก dropdown มาจากนัดหมายที่ใช้งานอยู่ ยกเว้น Site (รายการคงที่) | `getActiveDropdownOptions()` ใน `src/utils/auditOptionsHelper.ts` |
@@ -224,7 +226,7 @@ export อยู่ใน `TableView.tsx` (`handleExportExcel`, `handleExportCSV
 ก่อนส่ง review:
 
 ```bash
-npm test          # audit-type classification regression test
+npm test          # audit type and audit result regression tests
 npm run lint
 npm run build
 ```
@@ -259,7 +261,8 @@ npm run build
 | API ตอบ 401 | session cookie, เวลาหมดอายุ และแอปกับ API ใช้ origin เดียวกัน |
 | API ตอบ 403 "Cross-origin request denied." | request มาจาก origin อื่น หรือ proxy เปลี่ยนค่า `Origin` / `Sec-Fetch-Site` |
 | ข้อมูลหายหลัง reload | ข้อความเตือนการบันทึก, Network response, Worker log, local D1 การแสดงผลแบบ optimistic ไม่ได้ยืนยันว่าเขียนสำเร็จ |
-| dropdown ไม่มีค่า หรือยังมีค่าเก่า | มี (หรือไม่มี) นัดหมายที่ใช้ค่านั้นอยู่ ดู `getActiveDropdownOptions()` ค่าอาจถูกซ่อนด้วย `removedOptions` ใน snapshot ของเบราว์เซอร์นี้ และค่า Customer ที่ไม่ได้ใช้จะถูกลบตอนโหลด |
+| dropdown ไม่มีค่า หรือยังมีค่าเก่า | มี (หรือไม่มี) นัดหมายที่ใช้ค่านั้นอยู่ ดู `getActiveDropdownOptions()` ค่าอาจถูกซ่อนด้วย `removedOptions` ใน snapshot ของเบราว์เซอร์นี้ |
+| รายการ History มีป้าย "This browser only" | บันทึกไว้ก่อน migration `0021` หรือ `POST /api/history` ล้มเหลว (แอปจะแสดงข้อความเตือน) การรันเฉพาะ frontend (`npm run dev`) จะไม่เก็บ History บนเซิร์ฟเวอร์เลย |
 | build ไม่ผ่าน | อ่าน error แรกจาก `npm run build` ตรวจ types, `VM` และ API payload ให้ตรงกัน |
 | migration ล้มเหลวด้วย "duplicate column name" | คอลัมน์ถูกสร้างไว้แล้วโดยฟังก์ชัน `ensure*()` (ข้อ 9 ขั้นตอนที่ 3) |
 | migration ล้มเหลวด้วยสาเหตุอื่น | schema และประวัติ migration ในเครื่อง ให้เพิ่ม migration ใหม่แทนการแก้ไฟล์เดิม |
@@ -271,7 +274,8 @@ npm run build
 
 - `admin` / `user` เป็นเพียงป้ายชื่อ ไม่ใช่สิทธิ์ฝั่งเซิร์ฟเวอร์ อย่าสมมติว่า route ของ Manage ใช้ได้เฉพาะ admin
 - Worker เชื่อข้อมูลจากเบราว์เซอร์เรื่องฟิลด์บังคับและกฎวันหยุด และ id ถูกสร้างในเบราว์เซอร์
-- `localStorage` ยังเก็บ snapshot ของปฏิทิน History บันทึก และผู้ใช้ที่จำไว้หลัง sign-out และเมื่อ session หมดแล้ว แอปก็ยังเปิดด้วยข้อมูลใน cache นั้น
+- `localStorage` ยังเก็บ snapshot ของปฏิทิน บันทึก รายการ History ที่ยังไม่ได้เก็บบนเซิร์ฟเวอร์ และผู้ใช้ที่จำไว้หลัง sign-out และเมื่อ session หมดแล้ว แอปก็ยังเปิดด้วยข้อมูลใน cache นั้น
+- History บันทึกผู้ใช้และเวลาจริง แต่คำอธิบายเขียนโดยเบราว์เซอร์
 - การสมัครใช้ `REGISTRATION_CODE` ร่วมกันค่าเดียว รหัสผ่านใช้ salted SHA-256 ยาวขั้นต่ำ 4 ตัวอักษร และไม่มี rate limiting
 - ห้าม log credential, cookie, session token, registration code หรือข้อมูลลูกค้าที่ไม่จำเป็น
 
@@ -288,4 +292,5 @@ npm run build
 | การ export Excel และ CSV | `TableView.tsx`, `SummaryDashboard.tsx` |
 | Database schema | `migrations/` และฟังก์ชัน `ensure*()` ใน `worker/index.ts` |
 | การ release | `scripts/deploy.mjs` |
+| History | `HistoryView.tsx`, `logActivity()` และ `loadOlderHistory()` ใน `src/useScheduler.ts`, route `history` ใน `worker/index.ts` |
 | การดูแลระบบจริง | [คู่มือส่งมอบ IT](it-handover.md) |

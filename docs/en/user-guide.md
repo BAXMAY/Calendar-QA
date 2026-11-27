@@ -31,7 +31,7 @@ The top bar has five pages: **Schedule** (calendar), **Table** (searchable recor
 ![The app header: page tabs on the left, account menu on the right.](../images/app-header.png "App header and account menu (demonstration data)")
 
 > [!WARNING]
-> On a shared computer, choose **Sign out** when you finish. Signing out ends your session, but the browser keeps its copy of the calendar (appointments, customer names, notes) and History. Do not use shared or public computers for sensitive audit records.
+> On a shared computer, choose **Sign out** when you finish. Signing out ends your session, but the browser keeps its copy of the calendar (appointments, customer names, notes). Do not use shared or public computers for sensitive audit records.
 
 ## 2. How the calendar works
 
@@ -121,8 +121,8 @@ You can save before every field is filled, but **Create appointment** stays disa
 3. For a multi-day appointment, Schedule asks: **Edit this day only** or **Edit entire appointment**, and **Delete this day only** or **Delete entire appointment**. When you edit one day, **From** and **To** are locked.
 4. Select **Save changes**, then check the day, site, and status.
 
-> [!WARNING]
-> In **Table**, ✕ → **Delete** removes the whole multi-day appointment without asking, even though each row shows one day. To delete a single day, use Schedule.
+> [!NOTE]
+> In **Table**, each row is one day. ✕ on a day of a multi-day appointment offers **This day** (delete only that day) or **All N days** (delete the whole appointment); a one-day appointment shows **Delete**.
 
 ![Schedule week view with the filter sidebar, Incomplete Appointments list, and status legend.](../images/schedule-week.png "Schedule, week view with filters and the Incomplete Appointments list (demonstration data)")
 
@@ -144,7 +144,7 @@ You can save before every field is filled, but **Create appointment** stays disa
 5. After **Save Results** the card turns blue for 7 days, then green.
 
 > [!IMPORTANT]
-> Results where every count is 0 are treated as "no result". After 7 days such an audit goes back to amber, so an audit with zero findings cannot currently turn green. **Clear Results** has the same effect.
+> **Save Results** records a result even when every count is 0, so an audit with no findings turns green. **Clear Results** removes the result, and the card goes back to amber. Results saved as all zeros with an older version of the app still count as "no result": open **Audit Results** and select **Save Results** again.
 
 > [!TIP]
 > If results disappear after a refresh, read any warning message and tell the QA Planner or administrator before entering them again. Repeating the entry can create duplicates.
@@ -167,9 +167,6 @@ You can drag rows, but the new order is not saved: it resets on reload and other
 1. Open **Manage → Options**. Every group is listed: **Site** (with its color square), **Standard** (Internal Audit and Customer Audit), **Customer**, **End Customer**, **Purpose**, **Target Package**, **Customer Name** and **Audit Category**.
 2. Add a value with the text box and **+ Add** (or Enter). Drag values to reorder them; remove one with **✕**. Check spelling and duplicates first.
 3. The app refuses to remove a value while any appointment uses it (every group except Audit Category). Deleting the last appointment that uses a Customer, End Customer, Purpose or Audit Category also removes that value from Options.
-
-> [!WARNING]
-> Customer values that no appointment uses can disappear on their own: when the app loads, it removes them unless they were added in that same browser.
 
 ### 5.3 Holidays and restrictions
 
@@ -206,10 +203,10 @@ Open **Summary** for the year's totals: audits, customer visits by site and mont
 
 ### 6.3 History
 
-Open **History** to see what changed. Filter by text, **Action**, **Entity**, and date range; times are shown in your local time. It records appointment changes, result changes, option changes, and holiday rules. Changes to the QMS Host list in Manage are not recorded. If something looks wrong, note the time and record and contact the QA Admin.
+Open **History** to see what everyone changed: appointments, results, options, and holiday rules. The server records who made each change and when, so the name shown is the account that was signed in. Filter by text, **Action**, **Entity**, and date range; times are shown in your local time. History first loads the latest 200 changes; select **Load older changes** at the bottom for earlier ones (the filters search the changes loaded). Changes to the QMS Host list in Manage are not recorded. If something looks wrong, note the time and record and contact the QA Admin.
 
-> [!IMPORTANT]
-> History is currently kept in each browser, not on the server. It shows only changes made in that browser, colleagues do not see it, and clearing browser data erases it. Do not rely on it as the official audit trail.
+> [!NOTE]
+> An entry marked **This browser only** is stored only on this computer: it was recorded before History moved to the server, or it could not be saved there (a warning appears when that happens). Colleagues do not see it, and clearing browser data erases it.
 
 ![History: the activity audit log with action, entity, description, and timestamp.](../images/history.png "History (demonstration data)")
 

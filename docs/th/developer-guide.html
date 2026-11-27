@@ -90,7 +90,7 @@
 <tr><td><code>npm run dev:worker</code></td><td>build แล้ว <code>wrangler dev</code> กับ local D1</td></tr>
 <tr><td><code>npm run build</code></td><td>ตรวจ type (<code>tsc -b</code>) และ bundle ด้วย Vite</td></tr>
 <tr><td><code>npm run lint</code></td><td><code>oxlint</code></td></tr>
-<tr><td><code>npm test</code></td><td>regression test การแยกประเภท Customer / Internal Audit</td></tr>
+<tr><td><code>npm test</code></td><td>regression test การแยกประเภท Customer / Internal Audit และเกณฑ์ว่าการตรวจใดนับว่ามีผลตรวจแล้ว</td></tr>
 <tr><td><code>npm run preview</code></td><td>ดูตัวอย่าง production build</td></tr>
 <tr><td><code>npm run migrate:local</code></td><td>apply migration กับ local D1</td></tr>
 <tr><td><code>npm run migrate:remote</code></td><td>apply migration กับ D1 ใน <code>wrangler.toml</code> (production)</td></tr>
@@ -108,8 +108,8 @@
 <li><code>src/main.tsx</code> mount <code>&lt;App /&gt;</code> แล้ว <code>src/App.tsx</code> เรียก <code>useScheduler()</code> และแสดง Login หรือแอป</li>
 <li><code>initialState()</code> ใน <code>src/data.ts</code> โหลดค่าเริ่มต้น browser snapshot (<code>calendar_qa_snapshot</code>) บันทึกที่เก็บไว้ (<code>calendar_qa_comments</code>) และผู้ใช้ที่จำไว้ (<code>calendar_qa_session_user</code>) หากมีผู้ใช้ที่จำไว้ แอปจะเปิดขึ้นในสถานะ sign-in แล้ว เดือนและปีมาจาก <code>getCurrentCalendarDefaults(new Date())</code></li>
 <li><code>useScheduler()</code> ตรวจ session ฝั่งเซิร์ฟเวอร์ด้วย <code>authClient.getSession()</code> (<code>GET /api/auth/session</code> ตรวจ HttpOnly cookie กับ D1) หาก session หมดแล้ว (401) แอป<strong>ยังคง</strong>ใช้ตัวตนที่จำไว้และ snapshot ใน cache และไม่โหลดข้อมูลจากเซิร์ฟเวอร์ หลังจากนั้นการบันทึกทุกครั้งจะล้มเหลวจนกว่าผู้ใช้จะ sign out แล้ว sign in ใหม่</li>
-<li>เมื่อ session ใช้ได้ จะเรียก <code>api.fetchState()</code> (<code>GET /api/state</code>) หนึ่งครั้ง Worker อ่าน engineers, plants, active plants, orders, assignments, comments, แถว <code>activity</code> 50 แถวล่าสุด, options และ holidays พร้อมกัน ไม่มีการ polling การเปลี่ยนแปลงของผู้ใช้อื่นจะเห็นหลัง reload</li>
-<li>client normalize ข้อมูล (<code>normalizeAssignment</code>, <code>normalizeSite</code> ฯลฯ) และอัปเดต snapshot จากจุดนี้ D1 เป็นแหล่งข้อมูลหลัก snapshot เป็นเพียง cache ทุกครั้งที่โหลด client ยังลบตัวเลือก Customer ที่ไม่มีนัดหมายใดใช้ออกจาก D1 ด้วย เว้นแต่ตัวเลือกนั้นถูกเพิ่มในเบราว์เซอร์นั้น</li>
+<li>เมื่อ session ใช้ได้ จะเรียก <code>api.fetchState()</code> (<code>GET /api/state</code>) หนึ่งครั้ง Worker อ่าน engineers, plants, active plants, orders, assignments, comments, แถว <code>activity</code> 50 แถวล่าสุด, options, holidays และรายการ History 200 รายการล่าสุดพร้อมกัน ไม่มีการ polling การเปลี่ยนแปลงของผู้ใช้อื่นจะเห็นหลัง reload</li>
+<li>client normalize ข้อมูล (<code>normalizeAssignment</code>, <code>normalizeSite</code> ฯลฯ) และอัปเดต snapshot จากจุดนี้ D1 เป็นแหล่งข้อมูลหลัก snapshot เป็นเพียง cache หน้า History แสดงรายการจากเซิร์ฟเวอร์ รวมถึงรายการที่เบราว์เซอร์นี้บันทึกไม่สำเร็จ (มีป้าย &quot;This browser only&quot;) และเก็บใน cache เฉพาะรายการที่ยังบันทึกไม่สำเร็จเหล่านั้น</li>
 </ol>
 <p>หากหน้าจอว่าง ให้ตรวจว่าอยู่ในโหมดใด (Vite อย่างเดียว หรือ Worker + D1) เข้าสู่ระบบแล้วหรือยัง และดูใน DevTools ว่า <code>/api/auth/session</code> และ <code>/api/state</code> ตอบอะไร</p>
 
@@ -120,14 +120,15 @@
 <h2 id="4-โครงสร้างข้อมูล"><span class="num">4</span><span class="ht">โครงสร้างข้อมูล</span><a class="anchor" href="#4-โครงสร้างข้อมูล" aria-label="ลิงก์ไปยังหัวข้อนี้: โครงสร้างข้อมูล"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
 <h3 id="41-ตารางใน-d1"><span class="num">4.1</span><span class="ht">ตารางใน D1</span><a class="anchor" href="#41-ตารางใน-d1" aria-label="ลิงก์ไปยังหัวข้อนี้: ตารางใน D1"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
 <div class="table"><table><thead><tr><th scope="col">ตาราง</th><th scope="col">คีย์</th><th scope="col">เก็บอะไร</th></tr></thead><tbody>
-<tr><td><code>assignments</code></td><td><code>id</code></td><td>หนึ่งแถวต่อหนึ่งวันของนัดหมายที่จองได้: <code>audit_type</code> (<code>customer</code>, <code>internal</code> หรือ <code>''</code> = ไม่ทราบ ถือเป็น CS) ไซต์ ลูกค้า purpose ฟิลด์การตรวจ ผลตรวจ timestamps มี foreign key ไปที่ <code>engineers.id</code> (<code>eng</code>) และ <code>orders.id</code> (<code>order_id</code>)</td></tr>
+<tr><td><code>assignments</code></td><td><code>id</code></td><td>หนึ่งแถวต่อหนึ่งวันของนัดหมายที่จองได้: <code>audit_type</code> (<code>customer</code>, <code>internal</code> หรือ <code>''</code> = ไม่ทราบ ถือเป็น CS) ไซต์ ลูกค้า purpose ฟิลด์การตรวจ ผลตรวจ (แยกตามไซต์; <code>recorded: true</code> ระบุว่าผลตรวจถูกบันทึกแล้ว ดังนั้นแม้จำนวนเป็น 0 ทั้งหมดก็ยังนับว่ามีผลตรวจ) timestamps มี foreign key ไปที่ <code>engineers.id</code> (<code>eng</code>) และ <code>orders.id</code> (<code>order_id</code>)</td></tr>
 <tr><td><code>orders</code></td><td><code>id</code></td><td>หนึ่งแถวต่อหนึ่งนัดหมาย ทุกวันของนัดหมายใช้แถวเดียวกัน จึงเป็นตัวเชื่อมชุดนัดหมาย <code>product</code> เก็บ end customer (CS) หรือ area (IA); <code>plant</code> เก็บไซต์ (CS) หรือ standard (IA)</td></tr>
 <tr><td><code>engineers</code></td><td><code>id</code></td><td>QMS Host: ชื่อ บทบาท แผนก แผนกย่อย รวมถึง <code>site</code> และ <code>host_department</code> ระบบสร้างแถวให้อัตโนมัติเมื่อพิมพ์ชื่อ host ใหม่ในฟอร์ม</td></tr>
 <tr><td><code>comments</code></td><td><code>id</code></td><td>บันทึกของวัน เชื่อม <code>assignments</code> ด้วย <code>assignment_id</code> ไม่ได้บันทึกผู้เขียนและเวลา (แสดงเป็น &quot;You&quot;, &quot;just now&quot; เสมอ)</td></tr>
 <tr><td><code>plants</code> / <code>active_plants</code></td><td><code>id</code> / <code>plant_id</code></td><td>ข้อมูล plant แบบเก่าของ QMS / EHS / ESD และ flag สถานะเปิดใช้ ไม่มีหน้าจอใดใช้</td></tr>
 <tr><td><code>options</code></td><td><code>(category, value)</code></td><td>ค่าของ dropdown ไซต์คือแถว <code>site_code</code> ที่เก็บสีไว้ใน <code>meta</code> ลำดับที่กำหนดเองเก็บเป็น JSON ในแถว <code>_order_&lt;category&gt;</code></td></tr>
 <tr><td><code>custom_holidays</code></td><td><code>date</code></td><td>กฎวันหยุด shutdown no-customer-audit และ working-day พร้อมไซต์ที่ล็อก</td></tr>
-<tr><td><code>activity</code></td><td><code>id</code></td><td>activity feed แบบเก่า (แสดงในหน้า Profile) และแถว audit ของการเปลี่ยนวันหยุด โดยระบุบัญชีที่ sign-in อยู่ <strong>ไม่ใช่</strong>หน้า History ซึ่งเก็บอยู่ใน <code>localStorage</code></td></tr>
+<tr><td><code>activity</code></td><td><code>id</code></td><td>activity feed แบบเก่า (แสดงในหน้า Profile) และแถว audit ของการเปลี่ยนวันหยุด โดยระบุบัญชีที่ sign-in อยู่ หน้า History ไม่ได้ใช้ตารางนี้</td></tr>
+<tr><td><code>history_log</code></td><td><code>id</code></td><td>History ที่ใช้ร่วมกัน (migration <code>0021</code>): หนึ่งแถวต่อหนึ่งการเปลี่ยนแปลง โดย Worker กำหนดผู้ใช้และเวลาจาก session ส่วน action, entity, คำอธิบาย และ metadata มาจากเบราว์เซอร์</td></tr>
 <tr><td><code>users</code></td><td><code>id</code></td><td>ชื่อผู้ใช้ hash และ salt ของรหัสผ่าน ชื่อที่แสดง บทบาท</td></tr>
 <tr><td><code>sessions</code></td><td><code>token_hash</code></td><td>session ฝั่งเซิร์ฟเวอร์ (เชื่อม <code>users</code> เชิงตรรกะ ไม่มี foreign key) แถวที่หมดอายุแล้วไม่ถูกลบทิ้ง</td></tr>
 </tbody></table></div>
@@ -154,6 +155,7 @@
 <tr><td><code>engineers</code> · <code>engineers/:id</code></td><td><code>GET</code> <code>POST</code> · <code>PUT</code> <code>DELETE</code></td><td>QMS Host <code>DELETE</code> จะลบ assignment ทุกแถวที่เชื่อมอยู่และ comment ของแถวเหล่านั้นด้วย</td></tr>
 <tr><td><code>plants</code> · <code>plants/:id</code> · <code>plants/:id/toggle</code></td><td><code>GET</code> <code>POST</code> · <code>DELETE</code> · <code>POST</code></td><td>plant แบบเก่า (UI ไม่ได้ใช้)</td></tr>
 <tr><td><code>comments</code> · <code>comments/:id</code></td><td><code>POST</code> · <code>DELETE</code></td><td>บันทึกของวัน</td></tr>
+<tr><td><code>history</code></td><td><code>GET</code> <code>POST</code></td><td>History ที่ใช้ร่วมกัน <code>GET</code> คืนค่าทีละหน้าโดยเรียงจากใหม่ไปเก่า (<code>before</code>, <code>beforeId</code>, <code>limit</code> สูงสุด 500 ค่าเริ่มต้น 200) <code>POST</code> เก็บหนึ่งรายการ โดย Worker กำหนดผู้ใช้และเวลา และตรวจชื่อ action และ entity</td></tr>
 <tr><td><code>activity</code></td><td><code>POST</code></td><td>activity feed แบบเก่า</td></tr>
 <tr><td><code>options</code> · <code>options/reorder</code></td><td><code>POST</code> <code>DELETE</code> · <code>PUT</code></td><td>ค่าของ dropdown และลำดับ</td></tr>
 <tr><td><code>holidays</code> · <code>holidays/:date</code> · <code>holidays/reset</code></td><td><code>GET</code> <code>POST</code> <code>DELETE</code> · <code>DELETE</code> · <code>POST</code></td><td>กฎวัน ลบหลายรายการ รีเซ็ตทั้งปี ทุกการเปลี่ยนแปลงจะเขียนแถว <code>activity</code></td></tr>
@@ -170,7 +172,7 @@
 <tr><td>7 ไซต์ <span class="site" style="--c:#c0392b">UTL1</span> <span class="site" style="--c:#2e7d32">UTL2</span> <span class="site" style="--c:#66bb6a">UTL2A</span> <span class="site" style="--c:#1b5e20">UTL2B</span> <span class="site" style="--c:#1e5fa8">UTL3</span> <span class="site" style="--c:#4a90d9">UTL3A</span> <span class="site" style="--c:#123f73">UTL3T</span> และ normalize ค่าเก่า</td><td><code>normalizeSite()</code> / <code>normalizeSites()</code> ใน <code>src/types.ts</code>; <code>MASTER_PLANT_SITES</code> ใน <code>src/utils/auditOptionsHelper.ts</code></td></tr>
 <tr><td>ประเภท Customer หรือ Internal Audit: เก็บใน <code>audit_type</code> (migration <code>0020</code>) หากไม่มีค่า ให้ตัดสินจากเนื้อหา: มีฟิลด์ลูกค้า → CS, มี area / audit category → IA ห้ามใช้ <code>site2</code>, <code>auditor2</code>, <code>department2</code> เพราะเป็นค่าสำเนาเพื่อความเข้ากันได้ที่มีในทุกแถว id, order, code หรือ title ที่ขึ้นต้นด้วย &quot;IA&quot; ก็ถือเป็น IA เช่นกัน</td><td><code>isInternalAssignment()</code> ใน <code>src/types.ts</code> ทดสอบด้วย <code>npm test</code></td></tr>
 <tr><td>CS ต้องมี 8 ฟิลด์ IA ต้องมี 5 ฟิลด์ และทั้งคู่ต้องมีช่วงวันที่ที่ถูกต้อง</td><td><code>getMissingFields()</code> และ <code>isAppointmentFormIncomplete()</code> ใน <code>src/types.ts</code></td></tr>
-<tr><td>สถานะ: Incomplete → Updated → New → Pending Result → Complete ด้วยกรอบเวลา 7 วัน ผลตรวจที่จำนวนเป็น 0 ทั้งหมดนับเป็น &quot;no result&quot;</td><td><code>resolveAuditStatus()</code>, <code>isAuditResultCompleted()</code> และ <code>STATUS_COLOR_MAP</code> ใน <code>src/types.ts</code></td></tr>
+<tr><td>สถานะ: Incomplete → Updated → New → Pending Result → Complete ด้วยกรอบเวลา 7 วัน การตรวจนับว่ามีผลตรวจเมื่อบันทึกผลตรวจของไซต์แล้ว (<code>recorded: true</code> ซึ่งตั้งโดย <strong>Save Results</strong>) หรือมีจำนวนใดมากกว่า 0 ส่วน <strong>Clear Results</strong> จะบันทึกค่า 0 โดยไม่มี flag นี้</td><td><code>resolveAuditStatus()</code>, <code>isAuditResultCompleted()</code> และ <code>STATUS_COLOR_MAP</code> ใน <code>src/types.ts</code></td></tr>
 <tr><td>สีพื้นและขอบการ์ดมาจากสถานะ (<code>getApptCardColors()</code>) แถบซ้ายมาจากสีไซต์ (<code>siteColorsOfAssignment()</code> + <code>getAccentStyle()</code>)</td><td><code>src/useScheduler.ts</code>; สีไซต์คือ <code>initialSiteColors</code> (<code>src/data.ts</code>) ที่ถูกทับด้วยตัวเลือก <code>site_code</code> จาก D1 แก้ได้ที่ Manage → Options → Site</td></tr>
 <tr><td>Public Holiday และวันหยุดสุดสัปดาห์ถูกข้ามออกจากช่วงวันที่; No Customer Audits ปิด CS; Shutdown Plant ปิด CS ทุกไซต์ และปิด IA เฉพาะไซต์ที่ล็อก; Working Day ยกเว้นวันหยุดในตัว (built-in)</td><td><code>src/holidays.ts</code> บังคับใช้<strong>เฉพาะในเบราว์เซอร์</strong> ใน <code>submitCreate()</code> / <code>submitEdit()</code> การลากย้าย (drag-move), duplicate, copy-week และ Worker ไม่ได้ตรวจกฎเหล่านี้</td></tr>
 <tr><td>ตัวเลือก dropdown มาจากนัดหมายที่ใช้งานอยู่ ยกเว้น Site (รายการคงที่)</td><td><code>getActiveDropdownOptions()</code> ใน <code>src/utils/auditOptionsHelper.ts</code></td></tr>
@@ -240,7 +242,7 @@
 <div class="runhead"><span>คู่มือนักพัฒนา · 8</span><span>ปรับปรุง 2026-11-27</span></div>
 <h2 id="8-ตรวจงานก่อนส่ง"><span class="num">8</span><span class="ht">ตรวจงานก่อนส่ง</span><a class="anchor" href="#8-ตรวจงานก่อนส่ง" aria-label="ลิงก์ไปยังหัวข้อนี้: ตรวจงานก่อนส่ง"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
 <p>ก่อนส่ง review:</p>
-<div class="code"><pre><code data-lang="bash">npm test          # audit-type classification regression test
+<div class="code"><pre><code data-lang="bash">npm test          # audit type and audit result regression tests
 npm run lint
 npm run build</code></pre><button type="button" class="copy" data-copied="คัดลอกแล้ว">คัดลอก</button></div>
 <p>จากนั้นทดสอบด้วยมือบน Worker + local D1 ตามส่วนที่แก้:</p>
@@ -279,7 +281,8 @@ npm run build</code></pre><button type="button" class="copy" data-copied="คั
 <tr><td>API ตอบ 401</td><td>session cookie, เวลาหมดอายุ และแอปกับ API ใช้ origin เดียวกัน</td></tr>
 <tr><td>API ตอบ 403 &quot;Cross-origin request denied.&quot;</td><td>request มาจาก origin อื่น หรือ proxy เปลี่ยนค่า <code>Origin</code> / <code>Sec-Fetch-Site</code></td></tr>
 <tr><td>ข้อมูลหายหลัง reload</td><td>ข้อความเตือนการบันทึก, Network response, Worker log, local D1 การแสดงผลแบบ optimistic ไม่ได้ยืนยันว่าเขียนสำเร็จ</td></tr>
-<tr><td>dropdown ไม่มีค่า หรือยังมีค่าเก่า</td><td>มี (หรือไม่มี) นัดหมายที่ใช้ค่านั้นอยู่ ดู <code>getActiveDropdownOptions()</code> ค่าอาจถูกซ่อนด้วย <code>removedOptions</code> ใน snapshot ของเบราว์เซอร์นี้ และค่า Customer ที่ไม่ได้ใช้จะถูกลบตอนโหลด</td></tr>
+<tr><td>dropdown ไม่มีค่า หรือยังมีค่าเก่า</td><td>มี (หรือไม่มี) นัดหมายที่ใช้ค่านั้นอยู่ ดู <code>getActiveDropdownOptions()</code> ค่าอาจถูกซ่อนด้วย <code>removedOptions</code> ใน snapshot ของเบราว์เซอร์นี้</td></tr>
+<tr><td>รายการ History มีป้าย &quot;This browser only&quot;</td><td>บันทึกไว้ก่อน migration <code>0021</code> หรือ <code>POST /api/history</code> ล้มเหลว (แอปจะแสดงข้อความเตือน) การรันเฉพาะ frontend (<code>npm run dev</code>) จะไม่เก็บ History บนเซิร์ฟเวอร์เลย</td></tr>
 <tr><td>build ไม่ผ่าน</td><td>อ่าน error แรกจาก <code>npm run build</code> ตรวจ types, <code>VM</code> และ API payload ให้ตรงกัน</td></tr>
 <tr><td>migration ล้มเหลวด้วย &quot;duplicate column name&quot;</td><td>คอลัมน์ถูกสร้างไว้แล้วโดยฟังก์ชัน <code>ensure*()</code> (ข้อ 9 ขั้นตอนที่ 3)</td></tr>
 <tr><td>migration ล้มเหลวด้วยสาเหตุอื่น</td><td>schema และประวัติ migration ในเครื่อง ให้เพิ่ม migration ใหม่แทนการแก้ไฟล์เดิม</td></tr>
@@ -295,7 +298,8 @@ npm run build</code></pre><button type="button" class="copy" data-copied="คั
 <ul>
 <li><code>admin</code> / <code>user</code> เป็นเพียงป้ายชื่อ ไม่ใช่สิทธิ์ฝั่งเซิร์ฟเวอร์ อย่าสมมติว่า route ของ Manage ใช้ได้เฉพาะ admin</li>
 <li>Worker เชื่อข้อมูลจากเบราว์เซอร์เรื่องฟิลด์บังคับและกฎวันหยุด และ id ถูกสร้างในเบราว์เซอร์</li>
-<li><code>localStorage</code> ยังเก็บ snapshot ของปฏิทิน History บันทึก และผู้ใช้ที่จำไว้หลัง sign-out และเมื่อ session หมดแล้ว แอปก็ยังเปิดด้วยข้อมูลใน cache นั้น</li>
+<li><code>localStorage</code> ยังเก็บ snapshot ของปฏิทิน บันทึก รายการ History ที่ยังไม่ได้เก็บบนเซิร์ฟเวอร์ และผู้ใช้ที่จำไว้หลัง sign-out และเมื่อ session หมดแล้ว แอปก็ยังเปิดด้วยข้อมูลใน cache นั้น</li>
+<li>History บันทึกผู้ใช้และเวลาจริง แต่คำอธิบายเขียนโดยเบราว์เซอร์</li>
 <li>การสมัครใช้ <code>REGISTRATION_CODE</code> ร่วมกันค่าเดียว รหัสผ่านใช้ salted SHA-256 ยาวขั้นต่ำ 4 ตัวอักษร และไม่มี rate limiting</li>
 <li>ห้าม log credential, cookie, session token, registration code หรือข้อมูลลูกค้าที่ไม่จำเป็น</li>
 </ul>
@@ -315,6 +319,7 @@ npm run build</code></pre><button type="button" class="copy" data-copied="คั
 <tr><td>การ export Excel และ CSV</td><td><code>TableView.tsx</code>, <code>SummaryDashboard.tsx</code></td></tr>
 <tr><td>Database schema</td><td><code>migrations/</code> และฟังก์ชัน <code>ensure*()</code> ใน <code>worker/index.ts</code></td></tr>
 <tr><td>การ release</td><td><code>scripts/deploy.mjs</code></td></tr>
+<tr><td>History</td><td><code>HistoryView.tsx</code>, <code>logActivity()</code> และ <code>loadOlderHistory()</code> ใน <code>src/useScheduler.ts</code>, route <code>history</code> ใน <code>worker/index.ts</code></td></tr>
 <tr><td>การดูแลระบบจริง</td><td><a href="it-handover.html">คู่มือส่งมอบ IT</a></td></tr>
 </tbody></table></div>
 

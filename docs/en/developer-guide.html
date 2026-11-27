@@ -90,7 +90,7 @@
 <tr><td><code>npm run dev:worker</code></td><td>Build, then <code>wrangler dev</code> with local D1</td></tr>
 <tr><td><code>npm run build</code></td><td>Type-check (<code>tsc -b</code>) and bundle with Vite</td></tr>
 <tr><td><code>npm run lint</code></td><td><code>oxlint</code></td></tr>
-<tr><td><code>npm test</code></td><td>Regression test for Customer vs Internal Audit classification</td></tr>
+<tr><td><code>npm test</code></td><td>Regression tests: Customer vs Internal Audit classification, and when an audit counts as having a result</td></tr>
 <tr><td><code>npm run preview</code></td><td>Preview the production build</td></tr>
 <tr><td><code>npm run migrate:local</code></td><td>Apply migrations to local D1</td></tr>
 <tr><td><code>npm run migrate:remote</code></td><td>Apply migrations to the D1 database in <code>wrangler.toml</code> (production)</td></tr>
@@ -108,8 +108,8 @@
 <li><code>src/main.tsx</code> mounts <code>&lt;App /&gt;</code>; <code>src/App.tsx</code> calls <code>useScheduler()</code> and shows Login or the app.</li>
 <li><code>initialState()</code> in <code>src/data.ts</code> loads defaults, the browser snapshot (<code>calendar_qa_snapshot</code>), saved notes (<code>calendar_qa_comments</code>) and the remembered user (<code>calendar_qa_session_user</code>). A remembered user makes the app open signed in. The month and year come from <code>getCurrentCalendarDefaults(new Date())</code>.</li>
 <li><code>useScheduler()</code> checks the server session with <code>authClient.getSession()</code> (<code>GET /api/auth/session</code>, the HttpOnly cookie checked against D1). If the session has ended (401), the app <strong>keeps</strong> the remembered identity and the cached snapshot and does not load server data; every save then fails until the user signs out and in again.</li>
-<li>With a valid session it calls <code>api.fetchState()</code> (<code>GET /api/state</code>) once. The Worker reads engineers, plants, active plants, orders, assignments, comments, the latest 50 <code>activity</code> rows, options, and holidays in parallel. There is no polling: other users&#39; changes appear after a reload.</li>
-<li>The client normalizes the records (<code>normalizeAssignment</code>, <code>normalizeSite</code>, …) and refreshes the snapshot. From here D1 is the source of truth; the snapshot is only a cache. On every load the client also deletes from D1 any Customer option that no appointment uses, unless it was added in that browser.</li>
+<li>With a valid session it calls <code>api.fetchState()</code> (<code>GET /api/state</code>) once. The Worker reads engineers, plants, active plants, orders, assignments, comments, the latest 50 <code>activity</code> rows, options, holidays, and the latest 200 History entries in parallel. There is no polling: other users&#39; changes appear after a reload.</li>
+<li>The client normalizes the records (<code>normalizeAssignment</code>, <code>normalizeSite</code>, …) and refreshes the snapshot. From here D1 is the source of truth; the snapshot is only a cache. History shows the server&#39;s entries plus any entry this browser could not save (marked &quot;This browser only&quot;); only those unsaved entries are cached.</li>
 </ol>
 <p>If the screen is empty, check which mode you are in (Vite only or Worker + D1), whether you are signed in, and what <code>/api/auth/session</code> and <code>/api/state</code> return in DevTools.</p>
 
@@ -120,14 +120,15 @@
 <h2 id="4-data-model"><span class="num">4</span><span class="ht">Data model</span><a class="anchor" href="#4-data-model" aria-label="Link to this section: Data model"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
 <h3 id="41-d1-tables"><span class="num">4.1</span><span class="ht">D1 tables</span><a class="anchor" href="#41-d1-tables" aria-label="Link to this section: D1 tables"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h3>
 <div class="table"><table><thead><tr><th scope="col">Table</th><th scope="col">Key</th><th scope="col">Holds</th></tr></thead><tbody>
-<tr><td><code>assignments</code></td><td><code>id</code></td><td>One row per bookable appointment day: <code>audit_type</code> (<code>customer</code>, <code>internal</code>, or <code>''</code> = unknown, treated as CS), site, customer, purpose, audit fields, results, timestamps. Foreign keys to <code>engineers.id</code> (<code>eng</code>) and <code>orders.id</code> (<code>order_id</code>).</td></tr>
+<tr><td><code>assignments</code></td><td><code>id</code></td><td>One row per bookable appointment day: <code>audit_type</code> (<code>customer</code>, <code>internal</code>, or <code>''</code> = unknown, treated as CS), site, customer, purpose, audit fields, results (per site; <code>recorded: true</code> marks a saved result, so all-zero counts still count as a result), timestamps. Foreign keys to <code>engineers.id</code> (<code>eng</code>) and <code>orders.id</code> (<code>order_id</code>).</td></tr>
 <tr><td><code>orders</code></td><td><code>id</code></td><td>One row per appointment. Every day of the appointment shares it, so it is what links a series. <code>product</code> holds the end customer (CS) or area (IA); <code>plant</code> holds the site (CS) or standard (IA).</td></tr>
 <tr><td><code>engineers</code></td><td><code>id</code></td><td>QMS Hosts: name, role, department, sub-departments, plus <code>site</code> and <code>host_department</code>. A row is created automatically when a new host name is typed in the form.</td></tr>
 <tr><td><code>comments</code></td><td><code>id</code></td><td>Day notes; <code>assignment_id</code> links to <code>assignments</code>. Author and time are not recorded (always &quot;You&quot;, &quot;just now&quot;).</td></tr>
 <tr><td><code>plants</code> / <code>active_plants</code></td><td><code>id</code> / <code>plant_id</code></td><td>Legacy QMS / EHS / ESD plant records and their active flag. No screen uses them.</td></tr>
 <tr><td><code>options</code></td><td><code>(category, value)</code></td><td>Dropdown values. Sites are <code>site_code</code> rows with their color in <code>meta</code>. Custom orders are stored as JSON in <code>_order_&lt;category&gt;</code> rows.</td></tr>
 <tr><td><code>custom_holidays</code></td><td><code>date</code></td><td>Holiday, shutdown, no-customer-audit, and working-day rules, with locked sites</td></tr>
-<tr><td><code>activity</code></td><td><code>id</code></td><td>The legacy activity feed (shown on Profile) and audit rows for holiday changes, attributed to the signed-in account. <strong>Not</strong> the History screen, which lives in <code>localStorage</code>.</td></tr>
+<tr><td><code>activity</code></td><td><code>id</code></td><td>The legacy activity feed (shown on Profile) and audit rows for holiday changes, attributed to the signed-in account. Not used by the History screen.</td></tr>
+<tr><td><code>history_log</code></td><td><code>id</code></td><td>The shared History (migration <code>0021</code>): one row per change, with the user and time set by the Worker from the session; action, entity, description and metadata come from the browser.</td></tr>
 <tr><td><code>users</code></td><td><code>id</code></td><td>Username, password hash and salt, display name, role</td></tr>
 <tr><td><code>sessions</code></td><td><code>token_hash</code></td><td>Server sessions (logical link to <code>users</code>; no foreign key). Expired rows are not purged.</td></tr>
 </tbody></table></div>
@@ -154,6 +155,7 @@
 <tr><td><code>engineers</code> · <code>engineers/:id</code></td><td><code>GET</code> <code>POST</code> · <code>PUT</code> <code>DELETE</code></td><td>QMS Hosts. <code>DELETE</code> also deletes every linked assignment and its comments.</td></tr>
 <tr><td><code>plants</code> · <code>plants/:id</code> · <code>plants/:id/toggle</code></td><td><code>GET</code> <code>POST</code> · <code>DELETE</code> · <code>POST</code></td><td>Legacy plants (unused by the UI)</td></tr>
 <tr><td><code>comments</code> · <code>comments/:id</code></td><td><code>POST</code> · <code>DELETE</code></td><td>Day notes</td></tr>
+<tr><td><code>history</code></td><td><code>GET</code> <code>POST</code></td><td>Shared History. <code>GET</code> pages newest first (<code>before</code>, <code>beforeId</code>, <code>limit</code> up to 500; default 200). <code>POST</code> stores one entry; the Worker sets the user and time and checks the action and entity names.</td></tr>
 <tr><td><code>activity</code></td><td><code>POST</code></td><td>Legacy activity feed</td></tr>
 <tr><td><code>options</code> · <code>options/reorder</code></td><td><code>POST</code> <code>DELETE</code> · <code>PUT</code></td><td>Dropdown values and their order</td></tr>
 <tr><td><code>holidays</code> · <code>holidays/:date</code> · <code>holidays/reset</code></td><td><code>GET</code> <code>POST</code> <code>DELETE</code> · <code>DELETE</code> · <code>POST</code></td><td>Day rules, bulk delete, reset a year; each change writes an <code>activity</code> row</td></tr>
@@ -170,7 +172,7 @@
 <tr><td>Seven sites <span class="site" style="--c:#c0392b">UTL1</span> <span class="site" style="--c:#2e7d32">UTL2</span> <span class="site" style="--c:#66bb6a">UTL2A</span> <span class="site" style="--c:#1b5e20">UTL2B</span> <span class="site" style="--c:#1e5fa8">UTL3</span> <span class="site" style="--c:#4a90d9">UTL3A</span> <span class="site" style="--c:#123f73">UTL3T</span>; legacy values normalized</td><td><code>normalizeSite()</code> / <code>normalizeSites()</code> in <code>src/types.ts</code>; <code>MASTER_PLANT_SITES</code> in <code>src/utils/auditOptionsHelper.ts</code></td></tr>
 <tr><td>Customer vs Internal Audit: stored in <code>audit_type</code> (migration <code>0020</code>). Without it, decided from content: customer fields → CS, area / audit category → IA. Never from <code>site2</code>, <code>auditor2</code>, <code>department2</code>: those are compatibility copies on every row. An id, order, code or title starting with &quot;IA&quot; also means IA.</td><td><code>isInternalAssignment()</code> in <code>src/types.ts</code>; covered by <code>npm test</code></td></tr>
 <tr><td>CS needs 8 fields, IA needs 5, both need a valid date range</td><td><code>getMissingFields()</code> and <code>isAppointmentFormIncomplete()</code> in <code>src/types.ts</code></td></tr>
-<tr><td>Status: Incomplete → Updated → New → Pending Result → Complete, 7-day windows. Results whose counts are all 0 count as &quot;no result&quot;.</td><td><code>resolveAuditStatus()</code>, <code>isAuditResultCompleted()</code> and <code>STATUS_COLOR_MAP</code> in <code>src/types.ts</code></td></tr>
+<tr><td>Status: Incomplete → Updated → New → Pending Result → Complete, 7-day windows. An audit has a result when a site result is saved (<code>recorded: true</code>, set by <strong>Save Results</strong>) or any count is above 0; <strong>Clear Results</strong> saves zeros without the flag.</td><td><code>resolveAuditStatus()</code>, <code>isAuditResultCompleted()</code> and <code>STATUS_COLOR_MAP</code> in <code>src/types.ts</code></td></tr>
 <tr><td>Card fill and border from status (<code>getApptCardColors()</code>); left strip from the site color (<code>siteColorsOfAssignment()</code> + <code>getAccentStyle()</code>)</td><td><code>src/useScheduler.ts</code>; site colors are <code>initialSiteColors</code> (<code>src/data.ts</code>) overlaid with D1 <code>site_code</code> options, edited in Manage → Options → Site</td></tr>
 <tr><td>Public Holiday and weekends are skipped from a range; No Customer Audits blocks CS; Shutdown Plant blocks CS at all sites and IA only at locked sites; Working Day overrides a built-in holiday</td><td><code>src/holidays.ts</code>; enforced <strong>only in the browser</strong>, in <code>submitCreate()</code> / <code>submitEdit()</code>. Drag-move, duplicate, copy-week and the Worker do not check them.</td></tr>
 <tr><td>Dropdown suggestions come from appointments in use, except Site (fixed list)</td><td><code>getActiveDropdownOptions()</code> in <code>src/utils/auditOptionsHelper.ts</code></td></tr>
@@ -240,7 +242,7 @@
 <div class="runhead"><span>Developer Guide · 8</span><span>Rev 2026-11-27</span></div>
 <h2 id="8-check-your-work"><span class="num">8</span><span class="ht">Check your work</span><a class="anchor" href="#8-check-your-work" aria-label="Link to this section: Check your work"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></a></h2>
 <p>Before review:</p>
-<div class="code"><pre><code data-lang="bash">npm test          # audit-type classification regression test
+<div class="code"><pre><code data-lang="bash">npm test          # audit type and audit result regression tests
 npm run lint
 npm run build</code></pre><button type="button" class="copy" data-copied="Copied">Copy</button></div>
 <p>Then test by hand on Worker + local D1, for what you touched:</p>
@@ -279,7 +281,8 @@ It must also work with the Worker that is <strong>currently live</strong>: <code
 <tr><td>API returns 401</td><td>Session cookie, expiry, and that app and API share one origin</td></tr>
 <tr><td>API returns 403 &quot;Cross-origin request denied.&quot;</td><td>The request came from another origin, or a proxy changed <code>Origin</code> / <code>Sec-Fetch-Site</code></td></tr>
 <tr><td>Saved data gone after reload</td><td>The save warning, the Network response, Worker logs, local D1. The optimistic UI is not proof of a write.</td></tr>
-<tr><td>Dropdown missing a value, or showing an old one</td><td>An appointment still uses (or no longer uses) it; see <code>getActiveDropdownOptions()</code>. A value can also be hidden by <code>removedOptions</code> in this browser&#39;s snapshot, and unused Customer values are deleted on load.</td></tr>
+<tr><td>Dropdown missing a value, or showing an old one</td><td>An appointment still uses (or no longer uses) it; see <code>getActiveDropdownOptions()</code>. A value can also be hidden by <code>removedOptions</code> in this browser&#39;s snapshot.</td></tr>
+<tr><td>History entries marked &quot;This browser only&quot;</td><td>Recorded before migration <code>0021</code>, or <code>POST /api/history</code> failed (the app shows a warning). A frontend-only run (<code>npm run dev</code>) never stores History on a server.</td></tr>
 <tr><td>Build fails</td><td>Read the first <code>npm run build</code> error; check types, <code>VM</code>, and API payloads agree</td></tr>
 <tr><td>Migration fails with &quot;duplicate column name&quot;</td><td>The column was already created by an <code>ensure*()</code> function (9, step 3)</td></tr>
 <tr><td>Migration fails otherwise</td><td>Local schema and migration history; add a new migration instead of editing one</td></tr>
@@ -295,7 +298,8 @@ It must also work with the Worker that is <strong>currently live</strong>: <code
 <ul>
 <li><code>admin</code> / <code>user</code> is a label, not a server-side permission. Do not assume Manage routes are admin-only.</li>
 <li>The Worker trusts the browser for required fields and holiday rules, and ids are generated in the browser.</li>
-<li><code>localStorage</code> keeps the calendar snapshot, History, notes and the remembered user after sign-out; with an ended session the app still opens on that cached data.</li>
+<li><code>localStorage</code> keeps the calendar snapshot, notes, History entries not yet saved to the server, and the remembered user after sign-out; with an ended session the app still opens on that cached data.</li>
+<li>History records the real user and time, but the description is written by the browser.</li>
 <li>Sign-up uses one shared <code>REGISTRATION_CODE</code>; passwords are salted SHA-256 with a 4-character minimum, and there is no rate limiting.</li>
 <li>Never log credentials, cookies, session tokens, registration codes, or unneeded customer data.</li>
 </ul>
@@ -315,6 +319,7 @@ It must also work with the Worker that is <strong>currently live</strong>: <code
 <tr><td>Excel and CSV export</td><td><code>TableView.tsx</code>, <code>SummaryDashboard.tsx</code></td></tr>
 <tr><td>Database schema</td><td><code>migrations/</code>, and the <code>ensure*()</code> functions in <code>worker/index.ts</code></td></tr>
 <tr><td>Release</td><td><code>scripts/deploy.mjs</code></td></tr>
+<tr><td>History</td><td><code>HistoryView.tsx</code>, <code>logActivity()</code> and <code>loadOlderHistory()</code> in <code>src/useScheduler.ts</code>, the <code>history</code> routes in <code>worker/index.ts</code></td></tr>
 <tr><td>Production operation</td><td><a href="it-handover.html">IT Handover</a></td></tr>
 </tbody></table></div>
 
