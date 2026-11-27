@@ -288,6 +288,16 @@ interface MonthCell {
   onClick?: () => void;
 }
 
+/** History entries that exist only in this browser (never stored on the server). Only these are cached locally. */
+const unsyncedLogs = (logs?: ActivityLog[]): ActivityLog[] => (logs || []).filter((l) => !l.synced);
+
+/** Server History entries carry only the user's name; add the initials the History table shows. */
+const withInitials = (l: ActivityLog): ActivityLog => {
+  const name = l.user?.name || 'Unknown user';
+  const initials = name.split(/\s+/).filter(Boolean).map((n) => n[0]).join('').slice(0, 2).toUpperCase() || '?';
+  return { ...l, user: { ...l.user, name, avatarInitials: l.user?.avatarInitials || initials } };
+};
+
 const idNumber = (id: string): number => {
   const m = /(\d+)$/.exec(id || '');
   return m ? parseInt(m[1], 10) : 0;
@@ -334,6 +344,9 @@ export function useScheduler() {
     [],
   );
 
+  const historyOnServerRef = useRef(false);
+  const [historyLoadingOlder, setHistoryLoadingOlder] = useState(false);
+
   const logActivity = useCallback((
     actionType: ActionType,
     entityType: EntityType,
@@ -342,6 +355,7 @@ export function useScheduler() {
   ) => {
     // ISO (UTC) so History can sort, filter by date, and show the viewer's local time.
     const timestamp = new Date().toISOString();
+    const localId = 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
 
     setRaw((prev) => {
       const uName = prev.currentUser?.name || prev.currentUser?.username || 'Unknown user';
@@ -357,7 +371,7 @@ export function useScheduler() {
         '?';
 
       const newLog: ActivityLog = {
-        id: 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+        id: localId,
         timestamp,
         user: {
           name: uName,
@@ -374,11 +388,26 @@ export function useScheduler() {
       try {
         const snap = localStorage.getItem('calendar_qa_snapshot');
         const parsed = snap ? JSON.parse(snap) : {};
-        parsed.activityLogs = updatedLogs;
+        parsed.activityLogs = unsyncedLogs(updatedLogs);
         localStorage.setItem('calendar_qa_snapshot', JSON.stringify(parsed));
       } catch {}
       return { ...prev, activityLogs: updatedLogs };
     });
+
+    // Store it in the shared History; the server's copy (real user and time) replaces the local one.
+    api.addHistory({ actionType, entityType, description, metadata })
+      .then((saved) => {
+        setRaw((prev) => ({
+          ...prev,
+          activityLogs: (prev.activityLogs || []).map((l) => (l.id === localId ? withInitials({ ...saved, synced: true }) : l)),
+        }));
+      })
+      .catch((err) => {
+        // Before the server has History (or in frontend-only mode) the entry simply stays in this browser.
+        if (historyOnServerRef.current) {
+          setSaveError(`A History entry could not be saved to the server, so it is kept only in this browser. (${String(err)})`);
+        }
+      });
   }, []);
 
   useEffect(() => {
@@ -434,29 +463,22 @@ export function useScheduler() {
           const customerNameOptions = data.customerNameOptions || [];
           const auditCategoryOptions = data.auditCategoryOptions || [];
 
-          // Purge orphan customer options (e.g. IFX) that have no active assignments
-          const activeCustomerLower = new Set(
-            mergedAssignments.map((a) => (a.customer || '').trim().toLowerCase()).filter(Boolean)
-          );
-          let nextCustomerOptions = customerOptions;
-          let nextRemovedOptions: string[] = [];
-          let nextFilterCompany = s.filterCompany || [];
-          let nextMasterCreated = { ...(s.masterCreatedOptions || {}) };
+          // Customer values are master data: keep every value D1 returns, even if no appointment uses it yet.
+          const nextCustomerOptions = customerOptions;
+          const nextRemovedOptions: string[] = [];
+          const nextFilterCompany = s.filterCompany || [];
+          const nextMasterCreated = { ...(s.masterCreatedOptions || {}) };
 
-          for (const cust of customerOptions) {
-            const cLower = cust.trim().toLowerCase();
-            if (!activeCustomerLower.has(cLower)) {
-              if (cLower === 'ifx' || !nextMasterCreated['customerOptions:' + cLower]) {
-                nextCustomerOptions = nextCustomerOptions.filter((c) => c.trim().toLowerCase() !== cLower);
-                if (!nextRemovedOptions.some((r) => r.toLowerCase() === cLower)) {
-                  nextRemovedOptions = [...nextRemovedOptions, cust];
-                }
-                nextFilterCompany = nextFilterCompany.filter((f) => f.trim().toLowerCase() !== cLower);
-                delete nextMasterCreated['customerOptions:' + cLower];
-                api.deleteOption('customer_name', cust).catch(reportSaveFailure);
-              }
-            }
-          }
+          // History: the server's entries, plus any entry this browser could not store there (kept, marked as local).
+          const serverHistory = Array.isArray(data.activityLogs) ? data.activityLogs.map((l) => withInitials({ ...l, synced: true })) : null;
+          historyOnServerRef.current = serverHistory !== null;
+          const nextActivityLogs = serverHistory
+            ? (() => {
+                const ids = new Set(serverHistory.map((l) => l.id));
+                const localOnly = unsyncedLogs(s.activityLogs || []).filter((l) => !ids.has(l.id));
+                return [...serverHistory, ...localOnly].sort((x, y) => String(y.timestamp).localeCompare(String(x.timestamp)));
+              })()
+            : (s.activityLogs || []);
 
           const customHolidaysMap: Record<string, CustomHoliday> = {};
           if (data.customHolidays && Array.isArray(data.customHolidays)) {
@@ -475,7 +497,9 @@ export function useScheduler() {
             assignments: mergedAssignments.map(normalizeAssignment),
             comments: mergedComments,
             activity: data.activity || [],
-            activityLogs: s.activityLogs && s.activityLogs.length ? s.activityLogs : (data.activityLogs || []),
+            activityLogs: nextActivityLogs,
+            historyOnServer: serverHistory !== null,
+            historyHasMore: serverHistory !== null && Boolean(data.historyHasMore),
             purposeOptions,
             auditorOptions,
             customerDepartmentOptions,
@@ -500,7 +524,7 @@ export function useScheduler() {
               assignments: mergedState.assignments,
               comments: mergedState.comments,
               activity: mergedState.activity,
-              activityLogs: mergedState.activityLogs,
+              activityLogs: unsyncedLogs(mergedState.activityLogs),
               purposeOptions: mergedState.purposeOptions,
               auditorOptions: mergedState.auditorOptions,
               targetPackageOptions: mergedState.targetPackageOptions,
@@ -552,7 +576,8 @@ export function useScheduler() {
         assignments: state.assignments,
         comments: state.comments,
         activity: state.activity,
-        activityLogs: state.activityLogs,
+        // Only entries not yet on the server; the shared History is loaded from D1 on startup.
+        activityLogs: unsyncedLogs(state.activityLogs),
         purposeOptions: state.purposeOptions,
         customerDepartmentOptions: state.customerDepartmentOptions,
         internalDepartmentOptions: state.internalDepartmentOptions,
@@ -767,6 +792,23 @@ export function useScheduler() {
     });
   };
   const signIn = (user?: { id: string; username: string; name?: string; role?: string }) => onAuthSuccess(user);
+  const loadOlderHistory = () => {
+    const oldest = (S.activityLogs || []).filter((l) => l.synced).at(-1);
+    if (!oldest || historyLoadingOlder) return;
+    setHistoryLoadingOlder(true);
+    api.fetchHistory({ timestamp: oldest.timestamp, id: oldest.id })
+      .then((page) => {
+        setRaw((prev) => {
+          const have = new Set((prev.activityLogs || []).map((l) => l.id));
+          const older = page.entries.filter((l) => !have.has(l.id)).map((l) => withInitials({ ...l, synced: true }));
+          const all = [...(prev.activityLogs || []), ...older].sort((x, y) => String(y.timestamp).localeCompare(String(x.timestamp)));
+          return { ...prev, activityLogs: all, historyHasMore: page.hasMore };
+        });
+      })
+      .catch((err) => setSaveError(`Could not load older History from the server. (${String(err)})`))
+      .finally(() => setHistoryLoadingOlder(false));
+  };
+
   const signOut = async () => {
     try {
       await authClient.logout();
@@ -2175,6 +2217,7 @@ export function useScheduler() {
           ofi: Number(prev.ofi) || 0,
           obs: Number(prev.obs) || 0,
           findings: Number(prev.findings) || 0,
+          ...(prev.recorded ? { recorded: true } : {}),
         };
       } else {
         reconciledResults[s] = { major: 0, minor: 0, ofi: 0, obs: 0, findings: 0 };
@@ -5107,6 +5150,10 @@ export function useScheduler() {
     goSchedule, goTable, goAdmin, goProfile, goSummary, goHistory,
     navSchedStyle: S.page === 'schedule' ? tabOn : tabOff, navTableStyle: S.page === 'table' ? tabOn : tabOff, navAdminStyle: S.page === 'admin' ? tabOn : tabOff, navSummaryStyle: S.page === 'summary' ? tabOn : tabOff, navHistoryStyle: S.page === 'history' ? tabOn : tabOff,
     activityLogs: S.activityLogs || [],
+    historyOnServer: Boolean(S.historyOnServer),
+    historyHasMore: Boolean(S.historyHasMore),
+    historyLoadingOlder,
+    loadOlderHistory,
     userMenuOpen: S.userMenuOpen, toggleUserMenu,
     isPerson: S.view === 'person', isPlant: S.view === 'plant', isSiteDept: S.view === 'site',
     isMonth, isYear,

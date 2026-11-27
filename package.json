@@ -14,7 +14,7 @@
     "migrate:remote": "wrangler d1 migrations apply calendar-qa-db --remote",
     "docs": "node scripts/build-docs.mjs",
     "docs:screenshots": "node scripts/capture-docs-screenshots.mjs",
-    "test": "node tests/audit-type.test.mjs"
+    "test": "node tests/audit-type.test.mjs && node tests/audit-results.test.mjs"
   },
   "dependencies": {
     "react": "^19.2.7",

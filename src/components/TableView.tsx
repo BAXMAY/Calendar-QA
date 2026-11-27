@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import type { VM } from '../useScheduler';
 import { getApptCardColors } from '../useScheduler';
 import type { Assignment } from '../types';
-import { isInternalAssignment, calculateAuditStats, formatAreaString, normalizeSite, normalizeSites, getSiteOrderIndex } from '../types';
+import { isInternalAssignment, calculateAuditStats, formatAreaString, normalizeSite, normalizeSites, getSiteOrderIndex, getSeriesSiblings } from '../types';
 import { getActiveDropdownOptions, MASTER_PLANT_SITES } from '../utils/auditOptionsHelper';
 import { css, HButton } from '../ui';
 
@@ -662,9 +662,9 @@ export function TableView({ vm }: { vm: VM }) {
     XLSX.writeFile(workbook, `calendar-qa-audits-${todayISO}.xlsx`);
   };
 
-  const handleDelete = (id: string, e: React.MouseEvent) => {
+  const handleDelete = (id: string, scope: 'day' | 'all', e: React.MouseEvent) => {
     e.stopPropagation();
-    vm.removeAssign(id);
+    vm.removeAssign(id, scope);
     setDeleteConfirmId(null);
   };
 
@@ -1073,6 +1073,8 @@ export function TableView({ vm }: { vm: VM }) {
                   const rowBackground = getApptCardColors(row.assignment, Date.now(), false).barBg;
                   const isCustomer = row.auditType === 'Customer Audit';
                   const isConfirmingDelete = deleteConfirmId === row.id;
+                  // Each row is one day; a multi-day appointment asks whether to delete this day or all of its days.
+                  const seriesDays = isConfirmingDelete ? getSeriesSiblings(vm.assignments, row.assignment).length : 1;
 
                   return (
                     <tr
@@ -1231,11 +1233,21 @@ export function TableView({ vm }: { vm: VM }) {
                       <td style={css('padding:11px 14px;text-align:right;white-space:nowrap;position:sticky;right:0;background:inherit;box-shadow:inset 1px 0 0 #e8ebe4')}>
                         {isConfirmingDelete ? (
                           <div style={css('display:flex;align-items:center;justify-content:flex-end;gap:5px')} onClick={(e) => e.stopPropagation()}>
+                            {seriesDays > 1 && (
+                              <button
+                                onClick={(e) => handleDelete(row.id, 'day', e)}
+                                title={`Delete only ${row.dateStr} and keep the other days`}
+                                style={css("background:#fef2f2;color:#b91c1c;border:1px solid #fca5a5;border-radius:5px;padding:3px 8px;font-size:11px;font-weight:600;cursor:pointer;font-family:'Archivo',sans-serif")}
+                              >
+                                This day
+                              </button>
+                            )}
                             <button
-                              onClick={(e) => handleDelete(row.id, e)}
+                              onClick={(e) => handleDelete(row.id, 'all', e)}
+                              title={seriesDays > 1 ? `Delete all ${seriesDays} days of this appointment` : 'Delete this appointment'}
                               style={css("background:#dc2626;color:#fff;border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-weight:600;cursor:pointer;font-family:'Archivo',sans-serif")}
                             >
-                              Delete
+                              {seriesDays > 1 ? `All ${seriesDays} days` : 'Delete'}
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(null); }}

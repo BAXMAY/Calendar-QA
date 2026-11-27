@@ -192,7 +192,9 @@ export function HistoryView({ vm }: { vm: VM }) {
             </span>
           </div>
           <p style={css('font-size:12px;color:#8a9088;margin:3px 0 0 0')}>
-            Changes made in this browser: appointments, results, master data, and holiday rules. Times are shown in your local time zone.</p>
+            {vm.historyOnServer
+              ? 'Changes made by everyone: appointments, results, master data, and holiday rules. The server records who made each change and when. Times are shown in your local time zone.'
+              : 'Changes made in this browser: appointments, results, master data, and holiday rules. Shared History appears once you are signed in to the server. Times are shown in your local time zone.'}</p>
         </div>
       </div>
 
@@ -325,6 +327,14 @@ export function HistoryView({ vm }: { vm: VM }) {
                             {log.user.email && (
                               <div style={css('font-size:10.5px;color:#8a9088;margin-top:1px')}>{log.user.email}</div>
                             )}
+                            {vm.historyOnServer && !log.synced && (
+                              <div
+                                title="This entry is stored only in this browser: it was recorded before shared History, or it could not be saved to the server. Other people cannot see it."
+                                style={css('font-size:10.5px;color:#92400e;margin-top:2px')}
+                              >
+                                This browser only
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -390,6 +400,18 @@ export function HistoryView({ vm }: { vm: VM }) {
             </tbody>
           </table>
         </div>
+        {vm.historyHasMore && (
+          <div style={css('display:flex;justify-content:center;padding:12px;border-top:1px solid #f0f3ec')}>
+            <HButton
+              onClick={vm.loadOlderHistory}
+              disabled={vm.historyLoadingOlder}
+              style={css("background:#f4f6f1;border:1px solid #dde0d9;color:#3c423d;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Archivo',sans-serif")}
+              hover={{ background: '#e9ece5' }}
+            >
+              {vm.historyLoadingOlder ? 'Loading older changes…' : 'Load older changes'}
+            </HButton>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -136,6 +136,8 @@ function AuditResultsDialog({ vm, target }: { vm: VM; target: Assignment }) {
         ofi: Number(r.ofi) || 0,
         obs: Number(r.obs) || 0,
         findings: Number(r.findings) || 0,
+        // Saving is what records a result, even when every count is 0.
+        recorded: true,
       };
     }
     vm.saveResults(target.id, cleanResults);

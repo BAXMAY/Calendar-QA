@@ -68,6 +68,12 @@
         "value": "archivo',sans-serif",
         "createdAt": "2026-11-27T07:02:05.726Z",
         "reason": "model judgment: Archivo is the app's incumbent font and is declared in DESIGN.md; only the inline stack string differs"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "ibm plex mono',monospace",
+        "createdAt": "2026-11-27T09:17:40.905Z",
+        "reason": "model judgment: IBM Plex Mono is declared in DESIGN.md as the label/mono font; only the inline stack string differs"
       }
     ]
   }
