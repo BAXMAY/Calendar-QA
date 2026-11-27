@@ -168,7 +168,7 @@ Each rule has one home in code. Change it there, not in a component.
 1. Find the component that renders it from `src/App.tsx`.
 2. Trace its props back to the `VM` returned by `useScheduler()`.
 3. Put markup and interaction in the component, state and actions in the hook, shared rules in the domain helpers.
-4. Check wide and narrow layouts, loading, empty, and error states, and keyboard focus. Below 860px (`vm.isMobile`) the app uses its phone layout: `BottomNav` instead of the header tabs, cards instead of tables in Table and History, and in Month view a dot grid with the chosen day's list underneath (`MonthMobile`, `monthAgenda`). On touch screens, give controls the `tap`, `tap-square` or `tap-hit` class from `src/index.css` so they are at least 44px.
+4. Check wide and narrow layouts, loading, empty, and error states, and keyboard focus. Below 860px (`vm.isMobile`) the app uses its phone layout: `BottomNav` instead of the header tabs, cards instead of tables in Table and History, a period bar with Today and arrows in the Schedule toolbar (`PhonePeriodBar`, `goToday`), and in Month view a dot grid with the chosen day's list underneath (`MonthMobile`, `monthAgenda`). On touch screens, give controls the `tap`, `tap-square` or `tap-hit` class from `src/index.css` so they are at least 44px.
 
 ### 7.2 Add a field to appointments
 
