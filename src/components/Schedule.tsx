@@ -316,10 +316,11 @@ function ApptCard({ chip }: { chip: any }) {
     <div style={{ display: 'flex', flexDirection: 'column', background: barBg, border: cardBorder, borderRadius: '8px', overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'stretch' }}>
         <div style={{ width: '5px', background: siteStrip, flexShrink: 0, alignSelf: 'stretch' }} />
-        <div style={css('min-width:0;flex:1;padding:9px 11px;display:flex;align-items:center;justify-content:space-between;gap:10px')}>
+        {/* The buttons drop to their own row when the card is too narrow for them (phones, with 44px touch targets). */}
+        <div style={css('min-width:0;flex:1;padding:9px 11px;display:flex;align-items:center;justify-content:space-between;gap:8px 10px;flex-wrap:wrap')}>
           <div
             onClick={toggleExpand}
-            style={{ minWidth: 0, flex: 1, cursor: 'pointer' }}
+            style={{ minWidth: 0, flex: '1 1 180px', cursor: 'pointer' }}
             title="Click to expand embedded details"
           >
             <div style={css(`font-size:12.5px;font-weight:600;color:${titleColor}`)}>{renderApptCode(chip.code)}</div>
@@ -327,9 +328,11 @@ function ApptCard({ chip }: { chip: any }) {
               {renderApptSubtitle(chip, false, purposeColor)}
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, marginLeft: 'auto' }}>
             <button
               type="button"
+              className="tap-square"
+              aria-label="Audit Results"
               onClick={(e) => { e.stopPropagation(); chip.onResults?.(); }}
               title="Audit Results"
               style={css('width:30px;height:30px;border:1px solid ' + (hasResults ? '#b8cbf7' : '#dde0d9') + ';background:' + (hasResults ? '#f0f4fe' : '#f4f6f1') + ';border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center')}
@@ -338,6 +341,9 @@ function ApptCard({ chip }: { chip: any }) {
             </button>
             <button
               type="button"
+              className="tap-square"
+              aria-label={isExpanded ? 'Hide details' : 'Show details'}
+              aria-expanded={isExpanded}
               onClick={(e) => { e.stopPropagation(); toggleExpand(); }}
               title={isExpanded ? 'Hide embedded details' : 'Show embedded details'}
               style={css('width:30px;height:30px;border:1px solid ' + (isExpanded ? '#9bb0e8' : '#dde0d9') + ';background:' + (isExpanded ? '#eef2fd' : '#f4f6f1') + ';border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center')}
@@ -346,6 +352,8 @@ function ApptCard({ chip }: { chip: any }) {
             </button>
             <button
               type="button"
+              className="tap-square"
+              aria-label="Edit appointment"
               onClick={(e) => { e.stopPropagation(); chip.onEdit(); }}
               title="Edit appointment details"
               style={css('width:30px;height:30px;border:1px solid #dde0d9;background:#f4f6f1;border-radius:7px;cursor:pointer;color:#3c423d;font-size:13px;display:flex;align-items:center;justify-content:center')}
@@ -354,6 +362,8 @@ function ApptCard({ chip }: { chip: any }) {
             </button>
             <button
               type="button"
+              className="tap-square"
+              aria-label="Delete appointment"
               onClick={(e) => { e.stopPropagation(); requestDelete(); }}
               title="Delete appointment"
               style={css('width:30px;height:30px;border:1px solid #fecaca;background:#fef2f2;border-radius:7px;cursor:pointer;color:#dc2626;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center')}
@@ -2085,109 +2095,147 @@ function MonthGrid({ vm }: { vm: VM }) {
   );
 }
 
-function MonthMobile({ vm }: { vm: VM }) {
-  return (
-    <div style={css('height:100%;display:flex;flex-direction:column')}>
-      <div style={css('display:grid;grid-template-columns:repeat(7,1fr);border-top:1px solid #e6e9e2;border-left:1px solid #e6e9e2')}>
-        {vm.monthWeekdayHeads.map((h, i) => (
-          <div key={i} style={css("font-family:'IBM Plex Mono',monospace;font-size:8.5px;font-weight:600;color:#9aa097;text-align:center;padding:5px 0;border-right:1px solid #e6e9e2")}>{h}</div>
-        ))}
-      </div>
-      <div style={css('flex:1;display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:1fr;border-left:1px solid #e6e9e2;border-bottom:1px solid #e6e9e2')}>
-        {vm.monthCells.map((c, i) =>
-          c.blank ? (
-            <div key={i} style={c.style} />
-          ) : (
-            <div
-              key={i}
-              onClick={c.onClick}
-              style={c.style}
-              onMouseEnter={(e) => {
-                if (c.holiday) e.currentTarget.style.background = getHolidayStyle(c.holiday).hoverBg;
-              }}
-              onMouseLeave={(e) => {
-                if (c.holiday) e.currentTarget.style.background = getHolidayStyle(c.holiday).bg;
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%', gap: '2px' }}>
-                <span style={c.numStyle}>{c.dateNum}</span>
-                {c.holiday && c.holiday.name && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'flex-end',
-                      textAlign: 'right',
-                      wordBreak: 'break-word',
-                    }}
-                    title={c.holiday.subtitle ? `${c.holiday.name}\n${c.holiday.subtitle}` : c.holiday.name}
-                  >
-                    <span
-                      style={{
-                        fontSize: '9.5px',
-                        fontWeight: 700,
-                        color: getHolidayStyle(c.holiday).textColor,
-                        lineHeight: '1.15',
-                      }}
-                    >
-                      {c.holiday.name}
-                    </span>
-                    {c.holiday.subtitle && (
-                      <span
-                        style={{
-                          fontSize: '8px',
-                          fontWeight: 600,
-                          color: getHolidayStyle(c.holiday).textColor,
-                          lineHeight: '1.15',
-                          marginTop: '1px',
-                          opacity: 0.9,
-                        }}
-                      >
-                        {c.holiday.subtitle}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-              <div style={css('display:flex;flex-direction:column;gap:2px;margin-top:1px')}>
-                {(c.chips ?? []).map((ch, ci) => {
-                  const cardColors = getApptCardColors(ch, Date.now(), true);
-                  const barBg = cardColors.barBg;
-                  const titleColor = cardColors.titleColor;
-                  const purposeColor = cardColors.purposeColor;
-                  const siteStrip = getSiteStripBackground(ch);
-                  const border = cardColors.cardBorder;
+const Chevron = ({ dir }: { dir: 'left' | 'right' }) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d={dir === 'left' ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'} />
+  </svg>
+);
 
-                  return (
-                    <div
-                      key={ci}
-                      onClick={() => {
-                        if (ch.onClick) ch.onClick();
-                      }}
-                      style={{
-                        display: 'flex', alignItems: 'stretch',
-                        background: barBg, borderRadius: '3px',
-                        border,
-                        cursor: 'pointer',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      <div style={{ width: '4px', background: siteStrip, flexShrink: 0, alignSelf: 'stretch' }} />
-                      <div style={{ padding: '2px 4px', minWidth: 0, flex: 1, overflow: 'hidden' }}>
-                        <div style={{ fontSize: '8px', fontWeight: 600, color: titleColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{renderApptCode(ch.code)}</div>
-                        <div style={{ fontSize: '7.5px', color: purposeColor, marginTop: '0.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {renderApptSubtitle(ch, false, purposeColor)}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-                {(c.more ?? 0) > 0 && <span style={css('font-size:8px;color:#5b7fd6;font-weight:600')}>{c.moreTxt}</span>}
-              </div>
-            </div>
-          )
-        )}
+/**
+ * Month view on phones: a compact grid where each day shows one dot per appointment in its status
+ * color, and the chosen day's appointments listed underneath as full cards (no dialog).
+ */
+function MonthMobile({ vm }: { vm: VM }) {
+  const heads = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const agenda = vm.monthAgenda;
+  const navBtn = css('width:38px;height:38px;border:1px solid #dde0d9;background:#fff;border-radius:9px;cursor:pointer;color:#3c423d;display:flex;align-items:center;justify-content:center;flex-shrink:0');
+
+  return (
+    <div style={css('position:relative;padding:12px 10px 20px;display:flex;flex-direction:column;gap:12px')}>
+      <div style={css('display:flex;align-items:center;gap:8px')}>
+        <h2 aria-live="polite" style={css('flex:1;min-width:0;margin:0;font-size:18px;font-weight:700;letter-spacing:-.2px;color:#15191e')}>{vm.monthName}</h2>
+        <HButton
+          className="tap"
+          onClick={vm.goTodayMonth}
+          style={css("height:38px;padding:0 13px;border:1px solid #dde0d9;background:#fff;border-radius:9px;cursor:pointer;color:#23282a;font-size:13px;font-weight:600;font-family:'Archivo',sans-serif")}
+          hover={{ background: '#f4f6f1' }}
+        >
+          Today
+        </HButton>
+        <HButton className="tap-square" aria-label="Previous month" onClick={vm.prevWeek} style={navBtn} hover={{ background: '#f4f6f1' }}><Chevron dir="left" /></HButton>
+        <HButton className="tap-square" aria-label="Next month" onClick={vm.nextWeek} style={navBtn} hover={{ background: '#f4f6f1' }}><Chevron dir="right" /></HButton>
       </div>
+
+      <div style={css('background:#fff;border:1px solid #d8dcd4;border-radius:12px;padding:6px 6px 8px;box-shadow:0 1px 3px rgba(0,0,0,0.03)')}>
+        <div aria-hidden="true" style={css('display:grid;grid-template-columns:repeat(7,minmax(0,1fr));padding:4px 0 6px')}>
+          {heads.map((h, i) => (
+            <div key={i} style={css("text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:" + (i === 0 || i === 6 ? '#9aa097' : '#6a706a'))}>{h}</div>
+          ))}
+        </div>
+        <div style={css('display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px')}>
+          {vm.monthCells.map((c, i) => {
+            if (c.blank) return <div key={i} />;
+            const hol = c.holiday ? getHolidayStyle(c.holiday) : null;
+            const count = c.count || 0;
+            const label = `${c.dateNum} ${vm.monthName}` +
+              (count ? `, ${count} appointment${count === 1 ? '' : 's'}` : '') +
+              (c.holiday?.name ? `, ${c.holiday.name}` : '');
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={c.onSelect}
+                aria-label={label}
+                aria-pressed={!!c.isAgendaDay}
+                aria-current={c.isToday ? 'date' : undefined}
+                title={c.holiday?.name || undefined}
+                style={{
+                  height: '50px',
+                  padding: '5px 0 6px',
+                  border: 'none',
+                  borderRadius: '9px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  background: hol ? hol.bg : 'transparent',
+                  boxShadow: c.isAgendaDay ? 'inset 0 0 0 2px #15191e' : 'none',
+                  transition: 'box-shadow .2s cubic-bezier(.16,1,.3,1)',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                <span
+                  style={{
+                    width: '26px',
+                    height: '26px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontFamily: "'IBM Plex Mono',monospace",
+                    fontSize: '14px',
+                    fontWeight: c.isToday ? 700 : 600,
+                    background: c.isToday ? '#15191e' : 'transparent',
+                    color: c.isToday ? '#fff' : hol ? hol.textColor : c.isWeekend ? '#a6aca2' : '#23282a',
+                  }}
+                >
+                  {c.dateNum}
+                </span>
+                <span aria-hidden="true" style={css('display:flex;align-items:center;gap:3px;height:8px')}>
+                  {(c.dots || []).map((color, di) => (
+                    <span key={di} style={{ width: '6px', height: '6px', borderRadius: '50%', background: color }} />
+                  ))}
+                  {count > 3 && <span style={css("font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;line-height:1;color:#6a706a")}>+</span>}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <section aria-label="Appointments on the selected day" style={css('display:flex;flex-direction:column;gap:8px')}>
+        {agenda ? (
+          <>
+            <div style={css('display:flex;align-items:center;gap:10px;padding:2px 2px 0')}>
+              <div style={css('flex:1;min-width:0')}>
+                <h3 style={css('margin:0;font-size:16px;font-weight:700;color:#15191e;display:flex;align-items:center;gap:8px;flex-wrap:wrap')}>
+                  {agenda.title}
+                  {agenda.isToday && <span style={css("font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#fff;background:#15191e;border-radius:6px;padding:2px 6px")}>Today</span>}
+                </h3>
+                <div style={css('margin-top:3px;font-size:13px;line-height:1.35;color:' + (agenda.holiday ? getHolidayStyle(agenda.holiday).textColor : '#6a706a'))}>
+                  {agenda.holiday?.name
+                    ? agenda.holiday.name + (agenda.holiday.subtitle ? ' · ' + agenda.holiday.subtitle : '')
+                    : agenda.isWeekend
+                    ? 'Weekend: no audits are booked'
+                    : `${agenda.chips.length} appointment${agenda.chips.length === 1 ? '' : 's'}`}
+                </div>
+              </div>
+              {agenda.canCreate && (
+                <HButton
+                  className="tap"
+                  onClick={() => vm.openCreateWithDate(agenda.iso)}
+                  style={css("display:flex;align-items:center;gap:5px;height:38px;padding:0 13px;border:none;background:#15191e;color:#fff;border-radius:9px;cursor:pointer;font-size:13px;font-weight:600;font-family:'Archivo',sans-serif;flex-shrink:0")}
+                  hover={{ background: '#23282e' }}
+                >
+                  <span aria-hidden="true" style={css('font-size:15px;line-height:1')}>＋</span>New
+                </HButton>
+              )}
+            </div>
+            {agenda.chips.length === 0 ? (
+              <div style={css('background:#fff;border:1px dashed #cdd2c9;border-radius:10px;padding:18px 14px;text-align:center;font-size:13px;color:#6a706a')}>
+                No appointments on this day.
+              </div>
+            ) : (
+              agenda.chips.map((chip) => <ApptCard key={chip.id} chip={chip} />)
+            )}
+          </>
+        ) : (
+          <div style={css('background:#fff;border:1px dashed #cdd2c9;border-radius:10px;padding:18px 14px;text-align:center;font-size:13px;color:#6a706a')}>
+            Tap a day to see its appointments.
+          </div>
+        )}
+      </section>
     </div>
   );
 }

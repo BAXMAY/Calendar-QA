@@ -286,6 +286,13 @@ interface MonthCell {
   more?: number;
   moreTxt?: string;
   onClick?: () => void;
+  // Phone month grid: one status-colored dot per appointment (first 3), and a select that never opens a dialog.
+  dots?: string[];
+  count?: number;
+  isToday?: boolean;
+  isWeekend?: boolean;
+  isAgendaDay?: boolean;
+  onSelect?: () => void;
 }
 
 /** History entries that exist only in this browser (never stored on the server). Only these are cached locally. */
@@ -834,6 +841,9 @@ export function useScheduler() {
         if (s.monthSelectedDate) {
           // a specific date was clicked in Month view — jump to its week
           patch.weekOffset = s.monthSelectedDate.weekOffset;
+        } else if ((s.monthOffset || 0) === todayMonthOffset) {
+          // no date selected in the current month — open this week (the phone month view shows today's list)
+          patch.weekOffset = todayWeekOffset;
         } else {
           // no date selected — jump to the week containing the first day of the month currently being viewed
           const monthFirst = new Date(2026, 5 + (s.monthOffset || 0), 1);
@@ -931,6 +941,8 @@ export function useScheduler() {
     setState({ dayDialog: { weekOffset, day }, monthSelectedDate: { weekOffset, day } });
   };
   const closeDayDialog = () => setState({ dayDialog: null });
+  /** Phone month view: show a day's appointments under the grid (any day, including weekends and holidays). */
+  const selectMonthDay = (weekOffset: number, day: number) => setState({ monthSelectedDate: { weekOffset, day } });
 
   const copyWeek = () => {
     const off = S.weekOffset;
@@ -3616,6 +3628,15 @@ export function useScheduler() {
   const blankCellStyle = (): CSSProperties => ({ background: '#f8f9f6', borderRight: '1px solid #e6e9e2', borderTop: '1px solid #e6e9e2', minHeight: isMobile ? '52px' : '112px' });
   const monthCells: MonthCell[] = [];
   for (let i = 0; i < firstWd; i++) monthCells.push({ blank: true, style: blankCellStyle() });
+  const slotDate = (weekOffset: number, day: number) => new Date(2026, 5, 29 + weekOffset * 7 + day);
+  const inShownMonth = (sl: { weekOffset: number; day: number }) => {
+    const d = slotDate(sl.weekOffset, sl.day);
+    return d.getFullYear() === mYear && d.getMonth() === mMon;
+  };
+  const todaySlot = { weekOffset: dateSlot(today).weekOffset, day: dateSlot(today).wd };
+  const agendaSlot = S.monthSelectedDate && inShownMonth(S.monthSelectedDate)
+    ? S.monthSelectedDate
+    : inShownMonth(todaySlot) ? todaySlot : null;
   const monthOrderAgg: Record<string, { appointments: number; days: Record<number, 1>; engs: Record<string, 1> }> = {};
   for (let dn = 1; dn <= daysInMonth; dn++) {
     const date = new Date(mYear, mMon, dn);
@@ -3695,6 +3716,12 @@ export function useScheduler() {
     const isHolidayOrWeekend = weekend || isDateCompletelyBlocked(holiday);
     monthCells.push({
       blank: false,
+      dots: appointments.slice(0, 3).map((a) => getApptCardColors(a, nowTick, true).accentBg),
+      count: appointments.length,
+      isToday,
+      isWeekend: weekend,
+      isAgendaDay: !!agendaSlot && agendaSlot.weekOffset === slot.weekOffset && agendaSlot.day === slot.wd,
+      onSelect: () => selectMonthDay(slot.weekOffset, slot.wd),
       dateNum: String(dn),
       dateISO: fmtISO(date),
       holiday,
@@ -4997,35 +5024,56 @@ export function useScheduler() {
         return fmtDate(base);
       })()
     : '';
-  const dayDialogAssignments = dayDialogOpen
-    ? S.assignments.filter((a) => {
-        if (a.week !== S.dayDialog!.weekOffset || a.day !== S.dayDialog!.day) return false;
-        const o = orderById(a.order);
-        return !!o && matchesFilters(a, o);
-      })
-    : [];
+  const chipsForDay = (weekOffset: number, day: number) => {
+    const list = S.assignments.filter((a) => {
+      if (a.week !== weekOffset || a.day !== day) return false;
+      const o = orderById(a.order);
+      return !!o && matchesFilters(a, o);
+    });
+    list.sort((a, b) => {
+      const aInc = isIncompleteAssignment(a);
+      const bInc = isIncompleteAssignment(b);
+      if (aInc && !bInc) return -1;
+      if (!aInc && bInc) return 1;
+      return 0;
+    });
+    return list.map((a) => {
+      const e = engById(a.eng);
+      if (!e) return null;
+      return {
+        ...apptChipFields(a),
+        onResults: () => openResultsModal(a.id),
+        onEdit: () => { closeDayDialog(); openEdit(a.id); },
+        onDelete: () => removeAssign(a.id),
+      };
+    }).filter(Boolean) as (ReturnType<typeof apptChipFields> & {
+      onResults: () => void;
+      onEdit: () => void;
+      onDelete: () => void;
+    })[];
+  };
+  const dayDialogChips = dayDialogOpen ? chipsForDay(S.dayDialog!.weekOffset, S.dayDialog!.day) : [];
 
-  dayDialogAssignments.sort((a, b) => {
-    const aInc = isIncompleteAssignment(a);
-    const bInc = isIncompleteAssignment(b);
-    if (aInc && !bInc) return -1;
-    if (!aInc && bInc) return 1;
-    return 0;
-  });
-  const dayDialogChips = dayDialogAssignments.map((a) => {
-    const e = engById(a.eng);
-    if (!e) return null;
-    return {
-      ...apptChipFields(a),
-      onResults: () => openResultsModal(a.id),
-      onEdit: () => { closeDayDialog(); openEdit(a.id); },
-      onDelete: () => removeAssign(a.id),
-    };
-  }).filter(Boolean) as (ReturnType<typeof apptChipFields> & {
-    onResults: () => void;
-    onEdit: () => void;
-    onDelete: () => void;
-  })[];
+  // Phone month view: the chosen day's appointments, listed under the grid.
+  const monthAgenda = isMonth && isMobile && agendaSlot
+    ? (() => {
+        const d = slotDate(agendaSlot.weekOffset, agendaSlot.day);
+        const holiday = getHolidayForDate(d);
+        const blocked = agendaSlot.day > 4 || isDateCompletelyBlocked(holiday);
+        return {
+          title: d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }),
+          iso: fmtISO(d),
+          isToday: agendaSlot.weekOffset === todaySlot.weekOffset && agendaSlot.day === todaySlot.day,
+          holiday,
+          isWeekend: agendaSlot.day > 4,
+          canCreate: !blocked,
+          chips: chipsForDay(agendaSlot.weekOffset, agendaSlot.day),
+        };
+      })()
+    : null;
+  const goTodayMonth = () => setState({ monthOffset: todayMonthOffset, monthSelectedDate: todaySlot });
+  const monthIsCurrent = (S.monthOffset || 0) === todayMonthOffset;
+
   const dayDialogInfo = dayDialogOpen
     ? { label: S.dayDialog!.day >= 0 && S.dayDialog!.day < 5 ? dayNames[S.dayDialog!.day] : '', date: dayDialogDate }
     : null;
@@ -5220,6 +5268,7 @@ export function useScheduler() {
     toggleFilterApptType,
     clearFilters,
     dayDialogOpen, dayDialogDate, dayDialogDateISO, dayDialogChips, dayDialogInfo, closeDayDialog,
+    monthAgenda, goTodayMonth, monthIsCurrent,
     openCreate, openCreateWithDate, closeCreate, createOpen: S.createOpen, create, stop: (e: React.MouseEvent) => e.stopPropagation(),
     editOpen: S.editOpen, editDraft: S.editDraft, setEditDraft, closeEdit, submitEdit, canEdit, editMissing, editSubmitStyle,
     editScopePrompt: S.editScopePrompt, chooseEditScope, closeEditScopePrompt,
