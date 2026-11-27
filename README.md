@@ -8,7 +8,7 @@ Web app for planning Customer Audits (CS) and Internal Audits (IA) across seven 
 |---|---|---|
 | User Guide · คู่มือผู้ใช้ | [Markdown](docs/th/user-guide.md) | [Markdown](docs/en/user-guide.md) |
 | Developer Guide · คู่มือนักพัฒนา | [Markdown](docs/th/developer-guide.md) | [Markdown](docs/en/developer-guide.md) |
-| IT Handover | — | [Markdown](docs/en/it-handover.md) |
+| IT Handover · คู่มือส่งมอบ IT | [Markdown](docs/th/it-handover.md) | [Markdown](docs/en/it-handover.md) |
 
 Printable HTML versions: open [`docs/index.html`](docs/index.html). See [docs/README.md](docs/README.md) for how the docs are organized and rebuilt.
 
@@ -33,7 +33,7 @@ Never connect local development to the production D1 database.
 ```bash
 npm run lint
 npm run build
-npm run deploy       # build, apply pending D1 migrations, then deploy the Worker
+npm run deploy       # build, confirm and apply pending D1 migrations, then deploy the Worker
 ```
 
 Production migrations, releases, and recovery follow the [IT Handover runbook](docs/en/it-handover.md#5-release-and-database-runbook).
@@ -48,8 +48,9 @@ Production migrations, releases, and recovery follow the [IT Handover runbook](d
 | `wrangler.toml` | Worker, assets, and D1 binding |
 | `docs/` | User, developer, and IT documentation |
 | `scripts/build-docs.mjs` | Builds the HTML docs from Markdown (`npm run docs`) |
+| `scripts/deploy.mjs` | Release: confirm and apply pending D1 migrations, then deploy (`npm run deploy`) |
 | `scripts/capture-docs-screenshots.mjs` | Recaptures the doc screenshots from the dev app with fictional demo data (`npm run docs:screenshots`) |
 
 ## Open IT review items
 
-Server-side role enforcement, account lifecycle and the shared registration code, password hashing, schedule data cached in the browser after sign-out, and History being stored per browser rather than on the server. Details and suggested decisions: [IT Handover § Security findings](docs/en/it-handover.md#4-security-findings).
+Server-side role enforcement, account lifecycle and the shared registration code, password handling, business data kept in the browser after sign-out, the missing server-side audit trail, and browser-only validation. Details and suggested decisions: [IT Handover § Security findings](docs/en/it-handover.md#4-security-findings). Confirmed application defects are listed under [Known application issues](docs/en/it-handover.md#7-known-application-issues).

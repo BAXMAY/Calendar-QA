@@ -1,14 +1,14 @@
 # UTAC QA Calendar documentation · เอกสารประกอบระบบ
 
-Three guides, one per audience. User and Developer guides come in Thai and English; the IT Handover is in English.
+Three guides, one per audience, each in Thai and English.
 
 | Guide | ไทย | English | For |
 |---|---|---|---|
 | User Guide · คู่มือผู้ใช้ | [th/user-guide.md](th/user-guide.md) | [en/user-guide.md](en/user-guide.md) | QA Planners, QMS Hosts, QA Admins, report users |
 | Developer Guide · คู่มือนักพัฒนา | [th/developer-guide.md](th/developer-guide.md) | [en/developer-guide.md](en/developer-guide.md) | Developers maintaining the app |
-| IT Handover | — | [en/it-handover.md](en/it-handover.md) | UTAC IT: ownership, releases, security findings |
+| IT Handover · คู่มือส่งมอบ IT | [th/it-handover.md](th/it-handover.md) | [en/it-handover.md](en/it-handover.md) | UTAC IT: ownership, releases, security findings |
 
-**HTML version:** open [`index.html`](index.html) in a browser. Each guide is also generated as a printable page next to its Markdown file.
+**HTML version:** open [`index.html`](index.html) in a browser. Each guide is also generated as a printable page next to its Markdown file. Use the search box at the top of any page (or press <kbd>/</kbd>) to search every guide in that language; the home page searches both languages. Search works offline, straight from the files.
 
 ## Editing these docs
 

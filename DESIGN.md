@@ -19,6 +19,7 @@ colors:
   scroll-thumb: "#c8ccc4"
   link: "#2756d6"
   focus: "#2756d6"
+  search-hit: "#fde68a"
   selection: "#cdd9ff"
   status-incomplete: "#dc2626"
   status-new: "#7c3aed"
@@ -298,6 +299,7 @@ A restrained sage-and-ink neutral world, with color reserved for the app's own s
 - **Rule** (#e0e3dc) and **Faint Rule** (#eef1ea): table and contents dividers; faint rule separates numbered steps and table rows.
 - **Wash** (#f4f6f1) and **Wash 2** (#f1f3ee): table header fill, figure frame fill, row and menu hover, inline code fill, the language switch track.
 - **Selection** (#cdd9ff): text selection; same as the Note callout border.
+- **Search Hit** (#fde68a): matched words in search results and on the page a result opens (CSS Custom Highlight). Never used for anything else.
 
 ### Status set (from `STATUS_COLOR_MAP`)
 Incomplete (#dc2626), New (#7c3aed), Updated (#0284c7), Pending Result (#d97706), Complete (#059669). In the docs these appear only as 12px rounded swatches beside the status word, never as text color or a fill behind text.
@@ -376,6 +378,9 @@ Soft but disciplined corners that scale with the object: swatches 3px, the sheet
 - **Ink (Print):** ink fill and border, white text; hover lifts to Raised Ink.
 - **Quiet:** white fill, ink text; hover to Wash 2. The Contents disclosure uses this style and turns ink while open, with a drawn chevron.
 - **Focus:** the global focus ring.
+
+### Search
+A 38px field in the bar (white, Strong Hairline border, 9px radius, Ledger Gray placeholder) with a `/` key hint; focus turns the border ink with a soft blue ring. Results drop down as a white panel (12px radius, menu shadow): each result is a 7px-radius row with a mono location line (guide · language · section), a 14.5px / 650 title, the chapter in Ledger Gray, and a snippet; matches are marked in Search Hit. Arrow keys move through results, Enter opens one, Esc closes. On phones the field takes its own row under the bar. Hidden in print.
 
 ### Language switch
 A segmented control: Wash 2 track with hairline border, 10px radius, 3px inset; 7px-radius segments at 13px / 600. The current language is ink with white text; hover is a light sage fill; an unavailable language is Disabled Gray with a not-allowed cursor and no hover.

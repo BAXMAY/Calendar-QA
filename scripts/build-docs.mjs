@@ -13,7 +13,7 @@ const DOCS = join(ROOT, 'docs');
 const GUIDES = [
   { id: 'user-guide', tab: 'user', color: '#2e7d32', langs: ['th', 'en'] },
   { id: 'developer-guide', tab: 'dev', color: '#1e5fa8', langs: ['th', 'en'] },
-  { id: 'it-handover', tab: 'it', color: '#123f73', langs: ['en'] },
+  { id: 'it-handover', tab: 'it', color: '#123f73', langs: ['th', 'en'] },
 ];
 
 const L = {
@@ -22,6 +22,7 @@ const L = {
     skip: 'Skip to content', home: 'All documentation', copy: 'Copy', copied: 'Copied', fig: 'Fig.', chapters: 'Chapters',
     guidesNav: 'Guides', langNav: 'Language', onlyEn: 'This guide is in English only',
     linkTo: 'Link to this section', openImage: 'Open full size in a new tab',
+    search: 'Search the docs', noResults: 'No results for', results: 'results', clear: 'Clear search highlights',
     guide: { user: 'User Guide', dev: 'Developer Guide', it: 'IT Handover' },
     tab: { user: 'User Guide', dev: 'Developer', it: 'IT Handover' },
     alert: { NOTE: 'Note', TIP: 'Tip', IMPORTANT: 'Important', WARNING: 'Warning', CAUTION: 'Caution' },
@@ -31,8 +32,9 @@ const L = {
     skip: 'ข้ามไปยังเนื้อหา', home: 'เอกสารทั้งหมด', copy: 'คัดลอก', copied: 'คัดลอกแล้ว', fig: 'ภาพที่', chapters: 'บท',
     guidesNav: 'คู่มือ', langNav: 'ภาษา', onlyEn: 'คู่มือนี้มีเฉพาะภาษาอังกฤษ',
     linkTo: 'ลิงก์ไปยังหัวข้อนี้', openImage: 'เปิดภาพขนาดเต็มในแท็บใหม่',
-    guide: { user: 'คู่มือผู้ใช้', dev: 'คู่มือนักพัฒนา', it: 'IT Handover' },
-    tab: { user: 'คู่มือผู้ใช้', dev: 'นักพัฒนา', it: 'IT Handover' },
+    search: 'ค้นหาในเอกสาร', noResults: 'ไม่พบผลลัพธ์สำหรับ', results: 'รายการ', clear: 'ล้างไฮไลต์การค้นหา',
+    guide: { user: 'คู่มือผู้ใช้', dev: 'คู่มือนักพัฒนา', it: 'คู่มือส่งมอบ IT' },
+    tab: { user: 'คู่มือผู้ใช้', dev: 'นักพัฒนา', it: 'ส่งมอบ IT' },
     alert: { NOTE: 'หมายเหตุ', TIP: 'เคล็ดลับ', IMPORTANT: 'สำคัญ', WARNING: 'คำเตือน', CAUTION: 'ข้อควรระวัง' },
   },
 };
@@ -105,7 +107,7 @@ function createMarked(lang, slug, figCounter) {
         if (tokens.length === 1 && tokens[0].type === 'image') {
           const img = tokens[0];
           const n = ++figCounter.n;
-          const caption = img.title ? `<figcaption><span class="fig">${t.fig} ${n}</span>${esc(img.title)}</figcaption>` : '';
+          const caption = img.title ? `<figcaption><span class="fig">${t.fig} ${n}</span> ${esc(img.title)}</figcaption>` : '';
           const kind = /\.svg$/i.test(img.href) ? ' class="diagram"' : '';
           const size = imageSize(join(DOCS, lang, img.href));
           const dims = size ? ` width="${size[0]}" height="${size[1]}"` : '';
@@ -193,12 +195,58 @@ function parseGuide(guide, lang) {
     lede: ledeTok ? marked.parseInline(ledeTok.text) : '',
     intro: render(intro),
     chapters: rendered,
+    introText: htmlText(`${ledeTok ? marked.parseInline(ledeTok.text) : ''} ${render(intro)}`),
     rev: gitDate(relative(ROOT, file)),
   };
 }
 
+// ---------- full-text search index ----------
+function htmlText(html) {
+  return decode(String(html)
+    .replace(/<button[^>]*>[\s\S]*?<\/button>/g, ' ')
+    .replace(/<svg[\s\S]*?<\/svg>/g, ' ')
+    .replace(/<\/?(p|li|ul|ol|td|th|tr|table|thead|tbody|h[1-6]|div|figure|figcaption|pre|br|aside|blockquote)\b[^>]*>/g, ' ')
+    .replace(/<[^>]+>/g, ''))
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Splits a rendered chapter into one search entry per h2/h3 section. */
+function sectionsFromHtml(html) {
+  const re = /<h([23]) id="([^"]+)">(?:<span class="num">([^<]*)<\/span>)?<span class="ht">([\s\S]*?)<\/span>[\s\S]*?<\/h\1>/g;
+  const heads = [...html.matchAll(re)];
+  return heads.map((m, i) => ({
+    level: Number(m[1]),
+    id: m[2],
+    num: m[3] || '',
+    title: htmlText(m[4]),
+    text: htmlText(html.slice(m.index + m[0].length, i + 1 < heads.length ? heads[i + 1].index : html.length)),
+  }));
+}
+
+function searchEntries(guide, lang, data) {
+  const guideName = L[lang].guide[guide.tab];
+  const page = `${lang}/${guide.id}.html`;
+  const entries = [{ l: lang, g: guideName, p: page, a: 'top', n: '', t: htmlText(data.title), c: '', x: data.introText }];
+  for (const ch of data.chapters) {
+    const chapterTitle = htmlText(ch.title);
+    for (const sec of sectionsFromHtml(ch.html)) {
+      entries.push({ l: lang, g: guideName, p: page, a: sec.id, n: sec.num, t: sec.title, c: sec.level === 3 ? chapterTitle : '', x: sec.text });
+    }
+  }
+  return entries;
+}
+
 function bar({ prefix, lang, guide, langLinks }) {
   const t = L[lang];
+  const placeholder = guide ? t.search : `${L.en.search} · ${L.th.search}`;
+  const search = `<div class="search" role="search">
+    <input id="doc-search" type="search" placeholder="${placeholder}" aria-label="${placeholder}" autocomplete="off" spellcheck="false"
+      role="combobox" aria-expanded="false" aria-controls="search-results" aria-autocomplete="list"
+      data-no-results="${guide ? t.noResults : L.en.noResults}" data-results="${guide ? t.results : L.en.results}" data-clear="${t.clear}">
+    <kbd class="search-key" aria-hidden="true">/</kbd>
+    <div id="search-results" class="search-results" role="listbox" hidden></div>
+  </div>`;
   const langSwitch = langLinks
     ? `<nav class="lang" aria-label="${t.langNav}">${['th', 'en'].map((l) => {
       const href = langLinks[l];
@@ -211,11 +259,12 @@ function bar({ prefix, lang, guide, langLinks }) {
     : '';
   return `<header class="bar">
   <a class="brand" href="${prefix}index.html"><img src="${prefix}images/utac-logo.jpg" alt="" width="28" height="28"><span><b>UTAC QA Calendar</b><small>QMS-CASS · DOCUMENTATION</small></span></a>
+  ${search}
   <div class="bar-tools">${contents}${langSwitch}<button type="button" class="btn ink" data-print>${t.print}</button></div>
 </header>`;
 }
 
-function page({ lang, title, prefix, body, bodyClass = '' }) {
+function page({ lang, title, prefix, body, bodyClass = '', searchScope = 'lang' }) {
   return `<!doctype html>
 <html lang="${lang}">
 <head>
@@ -225,9 +274,10 @@ function page({ lang, title, prefix, body, bodyClass = '' }) {
 <title>${esc(stripTags(title))}</title>
 <link rel="icon" href="${prefix}images/utac-logo.jpg">
 <link rel="stylesheet" href="${prefix}assets/docs.css">
+<script src="${prefix}assets/search-index.js" defer></script>
 <script src="${prefix}assets/docs.js" defer></script>
 </head>
-<body class="${bodyClass}">
+<body class="${bodyClass}" data-root="${prefix}" data-search-scope="${searchScope}">
 <!-- Generated file. Edit the Markdown source and run: npm run docs -->
 <a class="skip" href="#main">${L[lang].skip}</a>
 ${body}
@@ -312,7 +362,7 @@ function indexPage(all) {
 <div class="runhead"><span>Documentation · Index</span><span>Rev ${rev}</span></div>
 <h1>UTAC QA Calendar documentation</h1>
 <p class="lede-th" lang="th">เอกสารประกอบระบบ UTAC QA Calendar (QMS-CASS)</p>
-<p class="lede">Three binders, one per audience. Open the one that matches your job; the User and Developer guides come in Thai and English.</p>
+<p class="lede">Three binders, one per audience. Open the one that matches your job; every guide comes in Thai and English.</p>
 <ol class="shelf">
 ${rows}
 </ol>
@@ -324,7 +374,7 @@ ${rows}
 </section>
 </main>
 </div>`;
-  return page({ lang: 'en', title: 'UTAC QA Calendar documentation', prefix: '', body, bodyClass: 'index' });
+  return page({ lang: 'en', title: 'UTAC QA Calendar documentation', prefix: '', body, bodyClass: 'index', searchScope: 'all' });
 }
 
 const all = GUIDES.map((guide) => {
@@ -344,5 +394,10 @@ for (const { guide, data } of all) {
 writeFileSync(join(DOCS, 'index.html'), indexPage(all));
 written.push('docs/index.html');
 
+const index = all.flatMap(({ guide, data }) => guide.langs.map((lang) => searchEntries(guide, lang, data[lang]))).flat();
+writeFileSync(join(DOCS, 'assets', 'search-index.js'),
+  `/* Generated by scripts/build-docs.mjs: full-text search index (loaded as a script so it works from file://). */\nwindow.DOCS_SEARCH = ${JSON.stringify(index)};\n`);
+written.push('docs/assets/search-index.js');
+
 for (const f of written) if (!existsSync(join(ROOT, f))) throw new Error(`missing ${f}`);
-console.log(`Built ${written.length} pages:\n  ${written.join('\n  ')}`);
+console.log(`Built ${written.length - 1} pages and a search index of ${index.length} sections:\n  ${written.join('\n  ')}`);

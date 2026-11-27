@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 590" width="720" height="590" role="img" aria-labelledby="t d">
   <title id="t">UTAC QA Calendar architecture</title>
-  <desc id="d">The browser runs the React app and keeps a localStorage snapshot as a cache. It calls the Cloudflare Worker over same-origin HTTPS. The Worker checks the session, serves the built app, and reads and writes Cloudflare D1 with bound SQL. Releases use npm run deploy for the Worker and npm run migrate:remote for the D1 schema.</desc>
+  <desc id="d">The browser runs the React app and keeps a localStorage snapshot as a cache. It calls the Cloudflare Worker over same-origin HTTPS. The Worker checks the session, serves the built app, and reads and writes Cloudflare D1 with bound SQL. Releases use npm run deploy, which applies pending D1 migrations and then deploys the Worker; npm run migrate:remote applies migrations alone.</desc>
   <defs>
     <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#15191e"/>
@@ -82,8 +82,8 @@
   <!-- Release lane -->
   <rect x="20" y="512" width="680" height="58" rx="12" fill="none" stroke="#8a9088" stroke-width="1.2" stroke-dasharray="5 4"/>
   <text x="38" y="536" class="mono lab">IT-CONTROLLED CHECKOUT</text>
-  <text x="38" y="557" class="mono ink" font-size="13">npm run deploy → Worker</text>
-  <text x="684" y="557" text-anchor="end" class="mono ink" font-size="13">npm run migrate:remote → D1</text>
+  <text x="38" y="557" class="mono ink" font-size="13">npm run deploy → D1 migrations, then Worker</text>
+  <text x="684" y="557" text-anchor="end" class="mono ink" font-size="13">migrate:remote → D1 only</text>
   <line x1="300" y1="510" x2="300" y2="481" stroke="#5f665e" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#g)"/>
   <line x1="600" y1="510" x2="600" y2="479" stroke="#5f665e" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#g)"/>
 </svg>

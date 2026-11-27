@@ -7,13 +7,21 @@
 <title>UTAC QA Calendar documentation</title>
 <link rel="icon" href="images/utac-logo.jpg">
 <link rel="stylesheet" href="assets/docs.css">
+<script src="assets/search-index.js" defer></script>
 <script src="assets/docs.js" defer></script>
 </head>
-<body class="index">
+<body class="index" data-root="" data-search-scope="all">
 <!-- Generated file. Edit the Markdown source and run: npm run docs -->
 <a class="skip" href="#main">Skip to content</a>
 <header class="bar">
   <a class="brand" href="index.html"><img src="images/utac-logo.jpg" alt="" width="28" height="28"><span><b>UTAC QA Calendar</b><small>QMS-CASS · DOCUMENTATION</small></span></a>
+  <div class="search" role="search">
+    <input id="doc-search" type="search" placeholder="Search the docs · ค้นหาในเอกสาร" aria-label="Search the docs · ค้นหาในเอกสาร" autocomplete="off" spellcheck="false"
+      role="combobox" aria-expanded="false" aria-controls="search-results" aria-autocomplete="list"
+      data-no-results="No results for" data-results="results" data-clear="Clear search highlights">
+    <kbd class="search-key" aria-hidden="true">/</kbd>
+    <div id="search-results" class="search-results" role="listbox" hidden></div>
+  </div>
   <div class="bar-tools"><button type="button" class="btn ink" data-print>Print</button></div>
 </header>
 <div class="desk solo">
@@ -22,12 +30,12 @@
 <div class="runhead"><span>Documentation · Index</span><span>Rev 2026-11-27</span></div>
 <h1>UTAC QA Calendar documentation</h1>
 <p class="lede-th" lang="th">เอกสารประกอบระบบ UTAC QA Calendar (QMS-CASS)</p>
-<p class="lede">Three binders, one per audience. Open the one that matches your job; the User and Developer guides come in Thai and English.</p>
+<p class="lede">Three binders, one per audience. Open the one that matches your job; every guide comes in Thai and English.</p>
 <ol class="shelf">
 <li style="--c:#2e7d32">
   <span class="spine" aria-hidden="true">User Guide</span>
   <div class="entry"><h2><a href="th/user-guide.html">User Guide</a> <span lang="th" class="alt">คู่มือผู้ใช้</span></h2>
-  <p>How to plan Customer Audits (CS) and Internal Audits (IA) in UTAC QA Calendar (QMS-CASS), record their results, maintain the data behind them, and report on them.</p>
+  <p>How to plan Customer Audits (CS) and Internal Audits (IA) in UTAC QA Calendar (QMS-CASS), shown in the app as Calendar Auditor, record their results, maintain the data behind them, and report on them.</p>
   <ol class="chap"><li><span class="n">1</span>&nbsp;Before you start</li> <li><span class="n">2</span>&nbsp;How the calendar works</li> <li><span class="n">3</span>&nbsp;QA Planner: plan audits</li> <li><span class="n">4</span>&nbsp;QMS Host: review and record results</li> <li><span class="n">5</span>&nbsp;QA Admin: maintain hosts, options, and holidays</li> <li><span class="n">6</span>&nbsp;Reports: search, export, and history</li> <li><span class="n">7</span>&nbsp;End-of-day checklist</li> <li><span class="n">8</span>&nbsp;Troubleshooting</li></ol></div>
   <div class="open"><a href="th/user-guide.html" hreflang="th" lang="th">ไทย</a><a href="en/user-guide.html" hreflang="en" lang="en">English</a></div>
 </li>
@@ -40,10 +48,10 @@
 </li>
 <li style="--c:#123f73">
   <span class="spine" aria-hidden="true">IT Handover</span>
-  <div class="entry"><h2><a href="en/it-handover.html">IT Handover</a></h2>
-  <p>Everything UTAC IT needs to take over UTAC QA Calendar (QMS-CASS): what to verify, who should own what, the open security findings, and how to release, migrate, recover, and respond to incidents.</p>
-  <ol class="chap"><li><span class="n">1</span>&nbsp;System at a glance</li> <li><span class="n">2</span>&nbsp;Configuration to verify</li> <li><span class="n">3</span>&nbsp;Ownership and takeover</li> <li><span class="n">4</span>&nbsp;Security findings</li> <li><span class="n">5</span>&nbsp;Release and database runbook</li> <li><span class="n">6</span>&nbsp;Monitoring and incidents</li> <li><span class="n">7</span>&nbsp;Handover acceptance</li> <li><span class="n"></span>&nbsp;References</li></ol></div>
-  <div class="open"><span class="na" title="This guide is in English only">ไทย —</span><a href="en/it-handover.html" hreflang="en" lang="en">English</a></div>
+  <div class="entry"><h2><a href="th/it-handover.html">IT Handover</a> <span lang="th" class="alt">คู่มือส่งมอบระบบให้ IT</span></h2>
+  <p>Everything UTAC IT needs to take over UTAC QA Calendar (QMS-CASS): what to verify, who should own what, the open security findings and known issues, and how to release, migrate, recover, and respond to incidents.</p>
+  <ol class="chap"><li><span class="n">1</span>&nbsp;System at a glance</li> <li><span class="n">2</span>&nbsp;Configuration to verify</li> <li><span class="n">3</span>&nbsp;Ownership and takeover</li> <li><span class="n">4</span>&nbsp;Security findings</li> <li><span class="n">5</span>&nbsp;Release and database runbook</li> <li><span class="n">6</span>&nbsp;Monitoring and incidents</li> <li><span class="n">7</span>&nbsp;Known application issues</li> <li><span class="n">8</span>&nbsp;Handover acceptance</li> <li><span class="n"></span>&nbsp;References</li></ol></div>
+  <div class="open"><a href="th/it-handover.html" hreflang="th" lang="th">ไทย</a><a href="en/it-handover.html" hreflang="en" lang="en">English</a></div>
 </li>
 </ol>
 <h2 class="contents-title">About these documents</h2>
