@@ -3533,7 +3533,7 @@ export function useScheduler() {
       isIncomplete,
       rawPurpose, qmsHost: auditorName, auditor: auditorName,
       style: sx({ display: 'flex', alignItems: 'center', gap: '7px', padding: '5px 7px', background: barBg, border: borderStyle, ...accentStyle, borderRadius: '6px', cursor: 'pointer', opacity: dim ? 0.32 : 1, filter: dim ? 'grayscale(.5)' : 'none' }),
-      avatarStyle: sx({ width: '22px', height: '22px', borderRadius: '6px', background: isIncomplete ? '#b91c1c' : '#f1f3ee', color: isIncomplete ? '#ffffff' : '#5c625c', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'IBM Plex Mono',monospace", fontSize: '9px', fontWeight: 600, flexShrink: 0 }),
+      avatarStyle: sx({ width: '22px', height: '22px', borderRadius: '6px', background: '#f1f3ee', color: '#5c625c', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'IBM Plex Mono',monospace", fontSize: '9px', fontWeight: 600, flexShrink: 0 }),
       onClick: () => select(a.id),
     };
   };
@@ -3646,7 +3646,7 @@ export function useScheduler() {
         toDate,
         countTxt: '',
         dotStyle: sx({ width: '3px', height: '14px', borderRadius: '2px', background: isIncomplete ? '#dc2626' : color, flexShrink: 0 }),
-        style: sx({ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10.5px', color: isIncomplete ? '#FFFFFF' : '#23282a', fontWeight: 600, minHeight: '18px', lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }),
+        style: sx({ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10.5px', color: '#23282a', fontWeight: 600, minHeight: '18px', lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }),
         onClick: () => openDayDialog(slot.weekOffset, slot.wd),
       };
     });
